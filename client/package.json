@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build && echo '/* /index.html 200' > dist/_redirects",
+    "build": "vite build && node -e \"require('fs').writeFileSync('dist/_redirects', '/* /index.html 200')\"",
     "preview": "vite preview",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives"
   },
