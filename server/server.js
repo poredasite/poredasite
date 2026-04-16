@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const path = require("path");
 
 const videosRouter = require("./routes/videos");
 const categoriesRouter = require("./routes/categories");
@@ -101,6 +102,18 @@ app.get("/robots.txt", (req, res) => {
   const baseUrl = process.env.CLIENT_URL || "http://localhost:5173";
   res.type("text/plain");
   res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${baseUrl}/sitemap.xml`);
+});
+
+// ─── Static Files (Production) ────────────────────────────────────
+
+const clientDist = path.join(__dirname, "../client/dist");
+app.use(express.static(clientDist));
+
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+  res.sendFile(path.join(clientDist, "index.html"), (err) => {
+    if (err) next();
+  });
 });
 
 // ─── Error Handler ────────────────────────────────────────────────
