@@ -21,14 +21,13 @@ app.use(
   })
 );
 
-app.use(
-    cors({
-      origin: "*",
-      credentials: false,
-      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "x-admin-password"],
-    })
-);
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, x-admin-password");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
 
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(express.json({ limit: "50mb" }));
