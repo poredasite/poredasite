@@ -22,12 +22,12 @@ app.use(
 );
 
 app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
-    credentials: true,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "x-admin-password"],
-  })
+    cors({
+      origin: "*",
+      credentials: false,
+      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "x-admin-password"],
+    })
 );
 
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
