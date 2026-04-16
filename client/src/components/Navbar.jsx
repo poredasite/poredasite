@@ -21,7 +21,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-surface-950/90 backdrop-blur-md border-b border-surface-700/50">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center gap-4">
         <Link to="/" className="flex items-center gap-2 flex-shrink-0" aria-label="poreda Ana Sayfa">
-          <span className="text-xl sm:text-2xl select-none">🎮</span>
+          <span className="text-xl sm:text-2xl select-none">😎</span>
           <span className="font-display font-bold text-lg sm:text-xl text-white tracking-tight">
             pore<span className="text-brand-500">da</span>
           </span>
