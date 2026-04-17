@@ -64,7 +64,7 @@ export default function CategorySidebar({ activeCategory, onSelect }) {
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all text-left group
                 ${activeCategory === cat._id ? "bg-brand-500/10 text-brand-400 border border-brand-500/20" : "text-gray-500 hover:text-white hover:bg-surface-800"}`}
             >
-              <span className="truncate">{cat.icon} {cat.name}</span>
+              <span className="truncate">{cat.name}</span>
               {cat.videoCount > 0 && (
                 <span className={`text-xs font-mono ml-2 flex-shrink-0
                   ${activeCategory === cat._id ? "text-brand-500/60" : "text-gray-700 group-hover:text-gray-500"}`}>

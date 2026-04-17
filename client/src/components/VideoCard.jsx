@@ -89,7 +89,7 @@ export default function VideoCard({ video, priority = false }) {
           <div className="flex flex-wrap gap-1">
             {cats.slice(0, 2).map(cat => (
               <span key={cat._id} className="text-[10px] text-brand-500/70 font-medium bg-brand-500/8 px-1.5 py-0.5 rounded">
-                {cat.icon} {cat.name}
+                {cat.name}
               </span>
             ))}
             {cats.length > 2 && (

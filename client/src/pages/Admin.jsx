@@ -82,7 +82,7 @@ function CategoryMultiSelect({ allCategories, selected, onChange }) {
               active ? "bg-brand-500 text-white" : "bg-surface-700 text-gray-400 hover:bg-surface-600"
             }`}
           >
-            {cat.icon} {cat.name}
+            {cat.name}
           </button>
         );
       })}
