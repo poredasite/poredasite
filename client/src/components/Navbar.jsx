@@ -15,11 +15,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-white/5">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center gap-4">
         <Link to="/" className="flex items-center gap-2.5 flex-shrink-0" aria-label="xxxporeda Ana Sayfa">
-          <div className="w-7 h-7 bg-brand-500 rounded flex items-center justify-center flex-shrink-0">
-            <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
+          <span className="text-2xl select-none" role="img" aria-label="cool">😎</span>
           <span className="font-display font-bold text-lg sm:text-xl text-white tracking-tight">
             xxxpor<span className="text-brand-500">eda</span>
           </span>

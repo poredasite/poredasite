@@ -48,11 +48,7 @@ export default function Footer() {
         {/* ── Orta: brand + açıklama ──────────────────────────── */}
         <div className="border-t border-surface-700/30 pt-8 pb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-7 h-7 bg-brand-500 rounded flex items-center justify-center flex-shrink-0">
-              <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
+            <span className="text-2xl select-none" role="img" aria-label="cool">😎</span>
             <span className="font-display font-bold text-xl text-white tracking-tight">
               xxxpore<span className="text-brand-500">da</span>
             </span>
