@@ -16,19 +16,24 @@ const videoSchema = new mongoose.Schema(
     },
     videoUrl: {
       type: String,
-      required: [true, "Video URL is required"],
+      default: "",
     },
     videoPublicId: {
       type: String,
-      required: true,
+      default: "",
     },
     thumbnailUrl: {
       type: String,
-      required: [true, "Thumbnail URL is required"],
+      default: "",
     },
     thumbnailPublicId: {
       type: String,
-      required: true,
+      default: "",
+    },
+    status: {
+      type: String,
+      enum: ["processing", "ready", "error"],
+      default: "processing",
     },
     views: {
       type: Number,
@@ -36,12 +41,12 @@ const videoSchema = new mongoose.Schema(
       min: 0,
     },
     duration: {
-      type: Number, // in seconds
+      type: Number,
       default: 0,
     },
     tags: [{ type: String, trim: true }],
     category: {
-      type: require("mongoose").Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       default: null,
     },
@@ -50,12 +55,9 @@ const videoSchema = new mongoose.Schema(
       unique: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Auto-generate slug from title
 videoSchema.pre("save", function (next) {
   if (this.isModified("title") || this.isNew) {
     this.slug =
@@ -71,9 +73,9 @@ videoSchema.pre("save", function (next) {
   next();
 });
 
-// Index for search performance
 videoSchema.index({ title: "text", description: "text" });
 videoSchema.index({ createdAt: -1 });
 videoSchema.index({ views: -1 });
+videoSchema.index({ status: 1 });
 
 module.exports = mongoose.model("Video", videoSchema);

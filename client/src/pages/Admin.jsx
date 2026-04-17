@@ -73,12 +73,15 @@ function UploadForm({ onSuccess }) {
   const [thumbPreview, setThumbPreview] = useState(null);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [categories, setCategories] = useState([]);
   const videoInputRef = useRef(null);
   const thumbInputRef = useRef(null);
+  const pollRef = useRef(null);
 
   useEffect(() => {
     categoryApi.getAll().then(res => setCategories(res.data)).catch(() => {});
+    return () => clearInterval(pollRef.current);
   }, []);
 
   function handleThumbChange(e) {
@@ -86,31 +89,6 @@ function UploadForm({ onSuccess }) {
     if (!file) return;
     setThumbFile(file);
     setThumbPreview(URL.createObjectURL(file));
-  }
-
-  async function uploadToCloudinary(file, folder, onProgress) {
-    const { timestamp, signature, apiKey, cloudName } = await videoApi.signUpload(folder);
-    return new Promise((resolve, reject) => {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("timestamp", timestamp);
-      fd.append("signature", signature);
-      fd.append("api_key", apiKey);
-      fd.append("folder", folder);
-      const xhr = new XMLHttpRequest();
-      const resourceType = folder.includes("video") ? "video" : "image";
-      xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`);
-      xhr.upload.onprogress = (e) => {
-        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded * 100) / e.total));
-      };
-      xhr.onload = () => {
-        const res = JSON.parse(xhr.responseText);
-        if (xhr.status === 200) resolve(res);
-        else reject(new Error(res.error?.message || "Cloudinary upload failed"));
-      };
-      xhr.onerror = () => reject(new Error("Ağ hatası"));
-      xhr.send(fd);
-    });
   }
 
   async function handleSubmit(e) {
@@ -122,39 +100,46 @@ function UploadForm({ onSuccess }) {
       toast.error("Video maksimum 1GB olabilir"); return;
     }
     setUploading(true); setProgress(0);
+    const fd = new FormData();
+    fd.append("title", form.title.trim());
+    fd.append("description", form.description.trim());
+    fd.append("tags", form.tags.trim());
+    if (form.category) fd.append("category", form.category);
+    fd.append("video", videoFile);
+    fd.append("thumbnail", thumbFile);
     try {
-      // 1. Thumbnail yükle
-      toast.loading("Thumbnail yükleniyor...", { id: "upload" });
-      const thumbResult = await uploadToCloudinary(thumbFile, "poreda/thumbnails", null);
+      toast.loading("Video sunucuya yükleniyor...", { id: "upload" });
+      const res = await videoApi.upload(fd, setProgress);
+      const videoId = res.data._id;
 
-      // 2. Video yükle (progress ile)
-      toast.loading("Video yükleniyor...", { id: "upload" });
-      const videoResult = await uploadToCloudinary(videoFile, "poreda/videos", setProgress);
-
-      // 3. DB'ye kaydet
-      toast.loading("Kaydediliyor...", { id: "upload" });
-      await videoApi.save({
-        title: form.title.trim(),
-        description: form.description.trim(),
-        tags: form.tags.trim(),
-        category: form.category || undefined,
-        videoUrl: videoResult.secure_url,
-        videoPublicId: videoResult.public_id,
-        thumbnailUrl: thumbResult.secure_url,
-        thumbnailPublicId: thumbResult.public_id,
-        duration: videoResult.duration || 0,
-      });
-
-      toast.success("Video başarıyla yüklendi!", { id: "upload" });
-      setForm({ title: "", description: "", tags: "", category: "" });
-      setVideoFile(null); setThumbFile(null); setThumbPreview(null); setProgress(0);
-      if (videoInputRef.current) videoInputRef.current.value = "";
-      if (thumbInputRef.current) thumbInputRef.current.value = "";
-      onSuccess?.();
-    } catch (err) {
-      toast.error("Yükleme hatası: " + err.message, { id: "upload" });
-    } finally {
       setUploading(false);
+      setProcessing(true);
+      toast.loading("HLS dönüştürülüyor, lütfen bekleyin...", { id: "upload" });
+
+      // Poll until status = ready or error
+      pollRef.current = setInterval(async () => {
+        try {
+          const statusRes = await videoApi.getById(videoId);
+          const status = statusRes.data?.status;
+          if (status === "ready") {
+            clearInterval(pollRef.current);
+            setProcessing(false);
+            toast.success("Video hazır! Stream URL oluşturuldu.", { id: "upload" });
+            setForm({ title: "", description: "", tags: "", category: "" });
+            setVideoFile(null); setThumbFile(null); setThumbPreview(null); setProgress(0);
+            if (videoInputRef.current) videoInputRef.current.value = "";
+            if (thumbInputRef.current) thumbInputRef.current.value = "";
+            onSuccess?.();
+          } else if (status === "error") {
+            clearInterval(pollRef.current);
+            setProcessing(false);
+            toast.error("HLS dönüştürme başarısız oldu.", { id: "upload" });
+          }
+        } catch {}
+      }, 4000);
+    } catch (err) {
+      setUploading(false);
+      toast.error("Yükleme hatası: " + err.message, { id: "upload" });
     }
   }
 
@@ -258,10 +243,22 @@ function UploadForm({ onSuccess }) {
         </div>
       )}
 
-      <button type="submit" disabled={uploading || !form.title || !videoFile || !thumbFile}
+      {processing && (
+        <div className="flex items-center gap-3 p-4 bg-brand-500/10 border border-brand-500/30 rounded-xl">
+          <div className="w-5 h-5 border-2 border-brand-500/30 border-t-brand-400 rounded-full animate-spin flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-brand-400">HLS dönüştürülüyor...</p>
+            <p className="text-xs text-gray-500 mt-0.5">Video işleniyor, bu birkaç dakika sürebilir</p>
+          </div>
+        </div>
+      )}
+
+      <button type="submit" disabled={uploading || processing || !form.title || !videoFile || !thumbFile}
         className="btn-primary w-full flex items-center justify-center gap-2 py-3">
         {uploading
           ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Yükleniyor... {progress}%</>
+          : processing
+          ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />İşleniyor...</>
           : <>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />

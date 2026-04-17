@@ -1,27 +1,20 @@
 import axios from "axios";
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
   timeout: 30000,
 });
 
-// Attach admin password to admin requests
 api.interceptors.request.use((config) => {
   const password = sessionStorage.getItem("adminPassword");
-  if (password) {
-    config.headers["x-admin-password"] = password;
-  }
+  if (password) config.headers["x-admin-password"] = password;
   return config;
 });
 
-// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    const message =
-      error.response?.data?.message ||
-      error.message ||
-      "Something went wrong";
+    const message = error.response?.data?.message || error.message || "Something went wrong";
     return Promise.reject(new Error(message));
   }
 );
@@ -33,9 +26,14 @@ export const videoApi = {
 
   getById: (id) => api.get(`/videos/${id}`),
 
-  signUpload: (folder) => api.get("/videos/sign-upload", { params: { folder } }),
-
-  save: (data) => api.post("/videos/upload", data),
+  upload: (formData, onProgress) =>
+    api.post("/videos/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (e) => {
+        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded * 100) / e.total));
+      },
+      timeout: 60 * 60 * 1000, // 1 saat (sadece upload süresi)
+    }),
 
   delete: (id) => api.delete(`/videos/${id}`),
 

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import Hls from "hls.js";
 
 export default function VideoPlayer({ src, poster, title }) {
   const videoRef = useRef(null);
@@ -19,6 +20,23 @@ export default function VideoPlayer({ src, poster, title }) {
   const clickTimer = useRef(null);
   const speedToastTimer = useRef(null);
   const longPressTimer = useRef(null);
+
+  // HLS.js setup for m3u8 streams
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !src) return;
+    if (!src.includes(".m3u8")) return; // native video, no HLS needed
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Safari: native HLS support
+      video.src = src;
+    } else if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      return () => hls.destroy();
+    }
+  }, [src]);
 
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
@@ -165,7 +183,7 @@ export default function VideoPlayer({ src, poster, title }) {
     >
       <video
         ref={videoRef}
-        src={src}
+        src={src?.includes(".m3u8") ? undefined : src}
         poster={poster}
         className="w-full h-full object-contain"
         preload="metadata"
