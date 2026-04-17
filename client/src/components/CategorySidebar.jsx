@@ -19,7 +19,7 @@ export default function CategorySidebar({ activeCategory, onSelect }) {
             className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all
               ${!activeCategory ? "bg-brand-500 text-white" : "bg-surface-800 text-gray-400 border border-surface-700 active:bg-surface-700"}`}
           >
-            🎬 Tümü
+            Tümü
           </button>
           {!loading && categories.map(cat => (
             <button
@@ -28,7 +28,7 @@ export default function CategorySidebar({ activeCategory, onSelect }) {
               className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap
                 ${activeCategory === cat._id ? "bg-brand-500 text-white" : "bg-surface-800 text-gray-400 border border-surface-700 active:bg-surface-700"}`}
             >
-              {cat.icon} {cat.name}
+              {cat.name}
             </button>
           ))}
           {loading && Array.from({ length: 4 }).map((_, i) => (
@@ -49,7 +49,6 @@ export default function CategorySidebar({ activeCategory, onSelect }) {
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-left
               ${!activeCategory ? "bg-brand-500/15 text-brand-400 border border-brand-500/25" : "text-gray-400 hover:text-white hover:bg-surface-800"}`}
           >
-            <span className="text-base">🎬</span>
             <span className="flex-1">Tüm Videolar</span>
           </button>
 
@@ -64,7 +63,6 @@ export default function CategorySidebar({ activeCategory, onSelect }) {
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-left group
                 ${activeCategory === cat._id ? "bg-brand-500/15 text-brand-400 border border-brand-500/25" : "text-gray-400 hover:text-white hover:bg-surface-800"}`}
             >
-              <span className="text-base">{cat.icon}</span>
               <span className="flex-1 truncate">{cat.name}</span>
               {cat.videoCount > 0 && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono
