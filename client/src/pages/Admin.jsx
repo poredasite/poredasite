@@ -17,7 +17,8 @@ function AdminLogin({ onLogin }) {
     if (!password.trim()) return;
     setLoading(true); setError("");
     try {
-      const res = await fetch("/api/admin/verify", {
+      const apiUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/admin/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-password": password },
       });
