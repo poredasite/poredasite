@@ -25,17 +25,60 @@ export default function VideoPlayer({ src, poster, title }) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
-    if (!src.includes(".m3u8")) return; // native video, no HLS needed
+
+    if (!src.includes(".m3u8")) {
+      video.src = src;
+      return;
+    }
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Safari: native HLS support
+      // Safari native HLS
       video.src = src;
-    } else if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(src);
-      hls.attachMedia(video);
-      return () => hls.destroy();
+      return;
     }
+
+    if (!Hls.isSupported()) {
+      console.error("HLS.js is not supported in this browser.");
+      return;
+    }
+
+    const hls = new Hls({ 
+      enableWorker: true, 
+      lowLatencyMode: false,
+      backBufferLength: 90
+    });
+
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      console.warn("HLS.js error:", data.type, data.details, data.fatal);
+      if (data.fatal) {
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            console.error("Fatal network error, trying to recover...");
+            hls.startLoad();
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            console.error("Fatal media error, trying to recover...");
+            hls.recoverMediaError();
+            break;
+          default:
+            console.error("Unrecoverable fatal error, destroying HLS instance");
+            hls.destroy();
+            setBuffering(false);
+            setPlaying(false);
+            break;
+        }
+      }
+    });
+
+    // Correct order: attach first, load after MEDIA_ATTACHED
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+      hls.loadSource(src);
+    });
+
+    return () => {
+      hls.destroy();
+    };
   }, [src]);
 
   const resetHideTimer = useCallback(() => {
@@ -77,11 +120,23 @@ export default function VideoPlayer({ src, poster, title }) {
     resetHideTimer();
   }
 
-  function togglePlay() {
+  async function togglePlay() {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) { v.play(); setPlaying(true); }
-    else { v.pause(); setPlaying(false); }
+    
+    try {
+      if (v.paused) {
+        await v.play();
+        setPlaying(true);
+      } else {
+        v.pause();
+        setPlaying(false);
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        console.error("Playback error:", err);
+      }
+    }
     resetHideTimer();
   }
 
@@ -182,8 +237,8 @@ export default function VideoPlayer({ src, poster, title }) {
       onTouchCancel={handleTouchEnd}
     >
       <video
+        key={src}
         ref={videoRef}
-        src={src?.includes(".m3u8") ? undefined : src}
         poster={poster}
         className="w-full h-full object-contain"
         preload="metadata"
@@ -197,6 +252,7 @@ export default function VideoPlayer({ src, poster, title }) {
         onClick={handleVideoClick}
         onDoubleClick={handleVideoDoubleClick}
         aria-label={title}
+        playsInline
       />
 
       {/* Buffering */}

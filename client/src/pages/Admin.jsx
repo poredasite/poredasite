@@ -99,24 +99,35 @@ function UploadForm({ onSuccess }) {
     if (videoFile.size > 1024 * 1024 * 1024) {
       toast.error("Video maksimum 1GB olabilir"); return;
     }
-    setUploading(true); setProgress(0);
-    const fd = new FormData();
-    fd.append("title", form.title.trim());
-    fd.append("description", form.description.trim());
-    fd.append("tags", form.tags.trim());
-    if (form.category) fd.append("category", form.category);
-    fd.append("video", videoFile);
-    fd.append("thumbnail", thumbFile);
+
     try {
-      toast.loading("Video sunucuya yükleniyor...", { id: "upload" });
-      const res = await videoApi.upload(fd, setProgress);
-      const videoId = res.data._id;
+      // Step 1: Upload thumbnail + metadata to server, get presigned URL
+      toast.loading("Hazırlanıyor...", { id: "upload" });
+      const fd = new FormData();
+      fd.append("title", form.title.trim());
+      fd.append("description", form.description.trim());
+      fd.append("tags", form.tags.trim());
+      if (form.category) fd.append("category", form.category);
+      fd.append("thumbnail", thumbFile);
+      fd.append("videoType", videoFile.type || "video/mp4");
+
+      const initRes = await videoApi.initUpload(fd);
+      const { videoId, uploadUrl } = initRes.data;
+
+      // Step 2: Upload video directly to Wasabi (bypasses Railway proxy)
+      setUploading(true); setProgress(0);
+      toast.loading("Video Wasabi'ye yükleniyor...", { id: "upload" });
+      await videoApi.uploadDirect(uploadUrl, videoFile, setProgress);
 
       setUploading(false);
       setProcessing(true);
+      setProgress(0);
       toast.loading("HLS dönüştürülüyor, lütfen bekleyin...", { id: "upload" });
 
-      // Poll until status = ready or error
+      // Step 3: Tell server to start FFmpeg
+      await videoApi.processVideo(videoId);
+
+      // Step 4: Poll for ready/error
       pollRef.current = setInterval(async () => {
         try {
           const statusRes = await videoApi.getById(videoId);
@@ -139,6 +150,7 @@ function UploadForm({ onSuccess }) {
       }, 4000);
     } catch (err) {
       setUploading(false);
+      setProcessing(false);
       toast.error("Yükleme hatası: " + err.message, { id: "upload" });
     }
   }
@@ -234,7 +246,7 @@ function UploadForm({ onSuccess }) {
       {uploading && (
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-gray-500">
-            <span>Cloudinary'ye yükleniyor...</span>
+            <span>Wasabi'ye yükleniyor...</span>
             <span className="font-mono text-brand-400">{progress}%</span>
           </div>
           <div className="h-1.5 bg-surface-700 rounded-full overflow-hidden">

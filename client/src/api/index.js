@@ -26,14 +26,27 @@ export const videoApi = {
 
   getById: (id) => api.get(`/videos/${id}`),
 
-  upload: (formData, onProgress) =>
-    api.post("/videos/upload", formData, {
+  initUpload: (formData) =>
+    api.post("/videos/upload-init", formData, {
       headers: { "Content-Type": "multipart/form-data" },
-      onUploadProgress: (e) => {
-        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded * 100) / e.total));
-      },
-      timeout: 60 * 60 * 1000, // 1 saat (sadece upload süresi)
+      timeout: 60000,
     }),
+
+  uploadDirect: (presignedUrl, file, onProgress) =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.upload.onprogress = (e) => {
+        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded * 100) / e.total));
+      };
+      xhr.onload = () => (xhr.status < 400 ? resolve() : reject(new Error(`Wasabi upload failed: ${xhr.status}`)));
+      xhr.onerror = () => reject(new Error("Network error during upload"));
+      xhr.ontimeout = () => reject(new Error("Upload timed out"));
+      xhr.open("PUT", presignedUrl);
+      xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+      xhr.send(file);
+    }),
+
+  processVideo: (id) => api.post(`/videos/${id}/process`),
 
   delete: (id) => api.delete(`/videos/${id}`),
 

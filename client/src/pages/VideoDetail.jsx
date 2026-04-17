@@ -87,7 +87,12 @@ export default function VideoDetail() {
           {/* ── Main column ───────────────────────────────────────── */}
           <div className="flex-1 min-w-0">
             {/* Instream / Video Player */}
-            {instreamSlot?.enabled && showInstream
+            {!video.videoUrl ? (
+              <div className="w-full aspect-video bg-surface-800 rounded-2xl flex flex-col items-center justify-center gap-3">
+                <div className="w-10 h-10 border-3 border-brand-500/30 border-t-brand-400 rounded-full animate-spin" />
+                <p className="text-gray-400 text-sm">Video işleniyor, lütfen bekleyin...</p>
+              </div>
+            ) : instreamSlot?.enabled && showInstream
               ? <InstreamVideoAd onSkip={() => setShowInstream(false)} />
               : <VideoPlayer src={video.videoUrl} poster={video.thumbnailUrl} title={video.title} />
             }
