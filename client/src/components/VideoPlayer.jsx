@@ -11,6 +11,9 @@ export default function VideoPlayer({ src, poster, title }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [hlsReady, setHlsReady] = useState(false);
+  const [hlsError, setHlsError] = useState(false);
+  const pendingPlay = useRef(false);
   const [speed, setSpeed] = useState(1);
   const [showSpeedToast, setShowSpeedToast] = useState(false);
   const [seekAnim, setSeekAnim] = useState(null); // { side, seconds }
@@ -24,63 +27,63 @@ export default function VideoPlayer({ src, poster, title }) {
   // HLS.js setup for m3u8 streams
   useEffect(() => {
     const video = videoRef.current;
+    setHlsReady(false);
+    setHlsError(false);
+    pendingPlay.current = false;
     if (!video || !src) return;
-
-    console.log("VideoPlayer: Received src", src);
 
     if (!src.includes(".m3u8")) {
       video.src = src;
+      setHlsReady(true);
       return;
     }
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Safari native HLS
       video.src = src;
+      setHlsReady(true);
       return;
     }
 
     if (!Hls.isSupported()) {
-      console.error("HLS.js is not supported in this browser.");
+      setHlsError(true);
       return;
     }
 
-    const hls = new Hls({ 
-      enableWorker: true, 
-      lowLatencyMode: false,
-      backBufferLength: 90
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 90 });
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      setHlsReady(true);
+      if (pendingPlay.current) {
+        pendingPlay.current = false;
+        video.play().catch(() => {});
+      }
     });
 
     hls.on(Hls.Events.ERROR, (_, data) => {
-      console.warn("HLS.js error:", data.type, data.details, data.fatal);
       if (data.fatal) {
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            console.error("Fatal network error, trying to recover...");
             hls.startLoad();
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
-            console.error("Fatal media error, trying to recover...");
             hls.recoverMediaError();
             break;
           default:
-            console.error("Unrecoverable fatal error, destroying HLS instance");
             hls.destroy();
             setBuffering(false);
             setPlaying(false);
+            setHlsError(true);
             break;
         }
       }
     });
 
-    // Correct order: attach first, load after MEDIA_ATTACHED
     hls.attachMedia(video);
     hls.on(Hls.Events.MEDIA_ATTACHED, () => {
       hls.loadSource(src);
     });
 
-    return () => {
-      hls.destroy();
-    };
+    return () => { hls.destroy(); };
   }, [src]);
 
   const resetHideTimer = useCallback(() => {
@@ -125,7 +128,13 @@ export default function VideoPlayer({ src, poster, title }) {
   async function togglePlay() {
     const v = videoRef.current;
     if (!v) return;
-    
+
+    if (!hlsReady) {
+      pendingPlay.current = true;
+      setBuffering(true);
+      return;
+    }
+
     try {
       if (v.paused) {
         await v.play();
@@ -135,7 +144,7 @@ export default function VideoPlayer({ src, poster, title }) {
         setPlaying(false);
       }
     } catch (err) {
-      if (err.name !== "AbortError") {
+      if (err.name !== "AbortError" && err.name !== "NotSupportedError") {
         console.error("Playback error:", err);
       }
     }
@@ -257,15 +266,25 @@ export default function VideoPlayer({ src, poster, title }) {
         playsInline
       />
 
-      {/* Buffering */}
-      {buffering && (
+      {/* HLS error */}
+      {hlsError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 pointer-events-none">
+          <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <p className="text-white/80 text-sm">Video yüklenemedi</p>
+        </div>
+      )}
+
+      {/* Buffering / HLS loading */}
+      {(buffering || (!hlsReady && !hlsError && src)) && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
         </div>
       )}
 
       {/* Big play button */}
-      {!playing && !buffering && (
+      {!playing && !buffering && hlsReady && !hlsError && (
         <button onClick={togglePlay}
           className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-16 h-16 bg-brand-500/90 hover:bg-brand-400 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-[0_0_40px_rgba(255,107,0,0.4)] pointer-events-auto">

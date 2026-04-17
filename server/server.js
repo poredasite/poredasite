@@ -11,6 +11,7 @@ const categoriesRouter = require("./routes/categories");
 const settingsRouter = require("./routes/settings");
 const streamRouter = require("./routes/stream");
 
+
 const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 5000;
@@ -48,6 +49,7 @@ const uploadLimiter = rateLimit({
   message: { success: false, message: "Upload limit reached, please try again later." },
 });
 
+app.use("/api/stream", streamRouter);  // HLS proxy — rate limiter dışında
 app.use("/api", generalLimiter);
 app.use("/api/videos/upload", uploadLimiter);
 
@@ -65,7 +67,6 @@ app.post("/api/admin/verify", (req, res) => {
 app.use("/api/videos", videosRouter);
 app.use("/api/categories", categoriesRouter);
 app.use("/api/settings", settingsRouter);
-app.use("/api/stream", streamRouter);
 
 // Health check
 app.get("/api/health", (req, res) => {
