@@ -306,7 +306,9 @@ function MultiUploadQueue({ onSuccess }) {
       return;
     }
     setUploading(true);
-    await Promise.all(pending.map(uploadSingle));
+    for (const item of pending) {
+      await uploadSingle(item);
+    }
     setUploading(false);
   }
 
