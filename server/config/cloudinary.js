@@ -11,9 +11,8 @@ const uploadToCloudinary = (buffer, options) => {
   return new Promise((resolve, reject) => {
     const uploadOptions = {
       ...options,
-      // Railway'de timeout sorunlarını önle
-      timeout: 120000,
-      chunk_size: 6000000, // 6MB chunk
+      timeout: 600000, // 10 dakika
+      chunk_size: 20000000, // 20MB chunk
     };
 
     const stream = cloudinary.uploader.upload_stream(
@@ -24,26 +23,8 @@ const uploadToCloudinary = (buffer, options) => {
       }
     );
 
-    // Buffer'ı parçalar halinde gönder (büyük dosyalar için)
-    const chunkSize = 64 * 1024; // 64KB
-    let offset = 0;
-
-    function writeChunk() {
-      if (offset >= buffer.length) {
-        stream.end();
-        return;
-      }
-      const chunk = buffer.slice(offset, offset + chunkSize);
-      offset += chunkSize;
-      const canContinue = stream.write(chunk);
-      if (canContinue) {
-        writeChunk();
-      } else {
-        stream.once("drain", writeChunk);
-      }
-    }
-
-    writeChunk();
+    const { Readable } = require("stream");
+    Readable.from(buffer).pipe(stream);
   });
 };
 

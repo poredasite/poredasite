@@ -139,10 +139,12 @@ mongoose
     .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/poreda")
     .then(() => {
       console.log("✅ MongoDB connected");
-      app.listen(PORT, () => {
+      const server = app.listen(PORT, () => {
         console.log(`🚀 Server running on http://localhost:${PORT}`);
         console.log(`📡 Environment: ${process.env.NODE_ENV || "development"}`);
       });
+      server.timeout = 20 * 60 * 1000; // 20 dakika
+      server.keepAliveTimeout = 20 * 60 * 1000;
     })
     .catch((err) => {
       console.error("❌ MongoDB connection failed:", err.message);
