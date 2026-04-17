@@ -4,7 +4,7 @@ const FOOTER_SECTIONS = [
   {
     title: "Hakkımızda",
     to: "/hakkimizda",
-    content: "poreda.com - Copyright 2026 © Porno XXX Bedava Sex Video Porna Film Tecavüz Götten Sikiş İzle All rights reserved. Powered by Astalavista - Adam gibi porna film izle sitesi; Bilindiği üzere mobil reklamlar yüzünden Xvideos filmleri izlemeniz tamamen imkansız hale geldi artık sansürsüz ve reklamsız seks izleyin diye ücretsiz hızlı videolar izlet Adult film sitesi ile seyrettiğiniz videoları indirebilirsiniz",
+    content: "xxxporeda.com - Copyright 2026 © Porno XXX Bedava Sex Video Porna Film Tecavüz Götten Sikiş İzle All rights reserved. Powered by Astalavista - Adam gibi porna film izle sitesi; Bilindiği üzere mobil reklamlar yüzünden Xvideos filmleri izlemeniz tamamen imkansız hale geldi artık sansürsüz ve reklamsız seks izleyin diye ücretsiz hızlı videolar izlet Adult film sitesi ile seyrettiğiniz videoları indirebilirsiniz",
   },
   {
     title: "Gizlilik",
@@ -48,9 +48,13 @@ export default function Footer() {
         {/* ── Orta: brand + açıklama ──────────────────────────── */}
         <div className="border-t border-surface-700/30 pt-8 pb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-2xl select-none" role="img" aria-label="cool">😎</span>
+            <div className="w-7 h-7 bg-brand-500 rounded flex items-center justify-center flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
             <span className="font-display font-bold text-xl text-white tracking-tight">
-              pore<span className="text-brand-500">da</span>
+              xxxpore<span className="text-brand-500">da</span>
             </span>
           </Link>
           <p className="text-gray-500 text-sm leading-relaxed sm:ml-4">
@@ -61,7 +65,7 @@ export default function Footer() {
         {/* ── Alt: telif + stack ──────────────────────────────── */}
         <div className="border-t border-surface-700/20 pt-5 flex flex-col sm:flex-row sm:justify-between gap-2">
           <p className="text-gray-600 text-xs">
-            © {new Date().getFullYear()} poreda. Tüm hakları saklıdır.
+            © {new Date().getFullYear()} xxxporeda. Tüm hakları saklıdır.
           </p>
           <p className="text-gray-700 text-xs font-mono">
             React + Node.js + Cloudinary

@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 
-const SITE_NAME = "poreda";
-const SITE_URL = import.meta.env.VITE_SITE_URL || "https://poreda.com";
+const SITE_NAME = "xxxporeda";
+const SITE_URL = import.meta.env.VITE_SITE_URL || "https://xxxporeda.com";
 const DEFAULT_DESCRIPTION =
   "Türkiye'nin en iyi video platformu. Oyun, vlog ve daha fazlası. High-quality video streaming platform.";
 

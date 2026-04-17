@@ -12,9 +12,9 @@ const PAGE_DATA = {
     title: "Gizlilik Politikası",
     content: `gizlilik politikamiz cok gizlidir .
 
-poreda.com sitesi ziyaretçilerin hiç bir bilgisini kayıt altına almaz ve/veya üçüncü kişiler ile paylaşmaz zaten olmayan Log kayıtlarını veremezsiniz bu yüzden DOEDA İnternet’te en güvendiğiniz Porno sitesi olarak liderliğini korumaktadır.
+xxxporeda.com sitesi ziyaretçilerin hiç bir bilgisini kayıt altına almaz ve/veya üçüncü kişiler ile paylaşmaz zaten olmayan Log kayıtlarını veremezsiniz bu yüzden DOEDA İnternet’te en güvendiğiniz Porno sitesi olarak liderliğini korumaktadır.
 
-Poreda . com hiç bir bilgiyi, belgeyi ve herhangi bir meteryali hiç bir kişi, kişiler, kurum, kuruluş ve devlet, devletler ile paylaşmaz veya verileri saklamaz nedeni ise sitemizde yasa dışı pornografik videolar bulunmamaktadır keza paylaşılan videolar -üçüncü taraf video paylaşım siteleri ve serverleri- aracılığı ile yayımlanmaktadır.
+xxxporeda.com hiç bir bilgiyi, belgeyi ve herhangi bir meteryali hiç bir kişi, kişiler, kurum, kuruluş ve devlet, devletler ile paylaşmaz veya verileri saklamaz nedeni ise sitemizde yasa dışı pornografik videolar bulunmamaktadır keza paylaşılan videolar -üçüncü taraf video paylaşım siteleri ve serverleri- aracılığı ile yayımlanmaktadır.
 
 Sevgili ziyaretçilerimiz gönül rahatlığı ile porno izleyebilirler..`,
   },
@@ -22,7 +22,7 @@ Sevgili ziyaretçilerimiz gönül rahatlığı ile porno izleyebilirler..`,
     title: "Hukuki Bildirim",
     content: ` hukuki .
 
-poreda.com 5651 sayılı yasanın 5. maddesinde tanımlanan yer sağlayıcı olarak hizmet vermektedir. İlgili yasaya göre, web site yönetiminin hukuka aykırı içerikleri kontrol etme yükümlülüğü yoktur. Bu sebeple, sitemiz uyar ve kaldır prensibini benimsemiştir. Telif hakkına konu olan eserlerin yasal olmayan bir biçimde paylaşıldığını ve yasal haklarının çiğnendiğini düşünen hak sahipleri veya meslek birlikleri, poredasite.proton@me adresinden bize ulaşabilirler. Buraya ulaşan talep ve şikayetler hukuksal olarak incelenecek, şikayet yerinde görüldüğü takdirde, ihlal olduğu düşünülen içerikler sitemizden kaldırılacaktır.
+xxxporeda.com 5651 sayılı yasanın 5. maddesinde tanımlanan yer sağlayıcı olarak hizmet vermektedir. İlgili yasaya göre, web site yönetiminin hukuka aykırı içerikleri kontrol etme yükümlülüğü yoktur. Bu sebeple, sitemiz uyar ve kaldır prensibini benimsemiştir. Telif hakkına konu olan eserlerin yasal olmayan bir biçimde paylaşıldığını ve yasal haklarının çiğnendiğini düşünen hak sahipleri veya meslek birlikleri, poredasite.proton@me adresinden bize ulaşabilirler. Buraya ulaşan talep ve şikayetler hukuksal olarak incelenecek, şikayet yerinde görüldüğü takdirde, ihlal olduğu düşünülen içerikler sitemizden kaldırılacaktır.
 
 İlgili Yasa:
 
