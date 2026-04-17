@@ -26,13 +26,12 @@ router.get("/ads", async (req, res) => {
 // PATCH /settings/ads — admin only
 router.patch("/ads", adminAuth, async (req, res) => {
   try {
-    const { topBanner, sidebar, inFeed } = req.body;
     const doc = await getOrCreateAds();
-
-    if (topBanner !== undefined) doc.ads.topBanner = topBanner;
-    if (sidebar   !== undefined) doc.ads.sidebar   = sidebar;
-    if (inFeed    !== undefined) doc.ads.inFeed     = inFeed;
-
+    const slots = ["topBanner", "sidebar", "inFeed", "stickyBanner", "popunder", "instreamVideo", "instantMessage", "belowDescription"];
+    slots.forEach(key => {
+      if (req.body[key] !== undefined) doc.ads[key] = req.body[key];
+    });
+    doc.markModified("ads");
     await doc.save();
     res.json({ success: true, data: doc.ads });
   } catch (err) {

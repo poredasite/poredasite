@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 const SITE_NAME = "xxxporeda";
 const SITE_URL = import.meta.env.VITE_SITE_URL || "https://xxxporeda.com";
 const DEFAULT_DESCRIPTION =
-  "Türkiye'nin en iyi video platformu. Oyun, vlog ve daha fazlası. High-quality video streaming platform.";
+  "Türkiye'nin en iyi porno altyazılı sikiş izleme ve sex platformu.";
 
 export default function SEOHead({
   title,
@@ -14,7 +14,7 @@ export default function SEOHead({
   videoUrl,
   noIndex = false,
 }) {
-  const fullTitle = title ? `${title} — ${SITE_NAME}` : `${SITE_NAME} — Watch & Discover`;
+  const fullTitle = title ? `${title} — ${SITE_NAME}` : `${SITE_NAME} Porno izle`;
   const canonicalUrl = url ? `${SITE_URL}${url}` : SITE_URL;
 
   return (

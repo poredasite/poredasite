@@ -55,7 +55,7 @@ export default function Home() {
 
   return (
     <>
-      <SEOHead title="Home" description="Porno izle Türk ❤️ Porn sex video ☘️ Poreda inanılmaz Amatör porna ve sikiş filmleri seyret ⭐ altyazılı Full HD pornosu ⭐ endişe verici Türkçe dublaj pornolar." url="/" />
+      <SEOHead title="Porno izlemek için xxx sikiş ve altyazılı purnalar xxxporeda" description="Porno izle Türk ❤️ Porn sex video ☘️ Poreda inanılmaz Amatör porna ve sikiş filmleri seyret ⭐ altyazılı Full HD pornosu ⭐ endişe verici Türkçe dublaj pornolar." url="/" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <TopBannerAd />
         <div className="flex flex-col lg:flex-row gap-6 xl:gap-7">
