@@ -3,34 +3,40 @@ const router = express.Router();
 const { GetObjectCommand } = require("@aws-sdk/client-s3");
 const { s3, BUCKET } = require("../config/storage");
 
-// GET /api/stream/:videoId/:filename  — proxies HLS files from Wasabi
-router.get("/:videoId/:filename", async (req, res) => {
-  const { videoId, filename } = req.params;
+function proxyWasabi(key, contentType, cacheSeconds, req, res) {
+  s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
+    .then((result) => {
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", `public, max-age=${cacheSeconds}`);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      if (result.ContentLength) res.setHeader("Content-Length", result.ContentLength);
+      result.Body.on("error", () => res.destroy());
+      result.Body.pipe(res);
+    })
+    .catch((err) => {
+      const status = err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404 ? 404 : 500;
+      if (status === 500) console.error("Stream proxy error:", key, err.message);
+      res.status(status).end();
+    });
+}
 
+// GET /api/stream/thumbnails/:filename  — thumbnail proxy
+router.get("/thumbnails/:filename", (req, res) => {
+  const { filename } = req.params;
+  if (!/^[\w.-]+$/.test(filename)) return res.status(400).end();
+  const ext = filename.split(".").pop().toLowerCase();
+  const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+  proxyWasabi(`thumbnails/${filename}`, mime, 86400, req, res);
+});
+
+// GET /api/stream/:videoId/:filename  — HLS proxy
+router.get("/:videoId/:filename", (req, res) => {
+  const { videoId, filename } = req.params;
   if (!/^[a-zA-Z0-9_-]+$/.test(videoId) || !/^[\w.-]+$/.test(filename)) {
     return res.status(400).end();
   }
-
-  const key = `videos/${videoId}/${filename}`;
-  const contentType = filename.endsWith(".m3u8")
-    ? "application/x-mpegURL"
-    : filename.endsWith(".ts")
-    ? "video/MP2T"
-    : "application/octet-stream";
-
-  try {
-    const result = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    result.Body.pipe(res);
-  } catch (err) {
-    if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
-      return res.status(404).end();
-    }
-    console.error("Stream proxy error:", err.message);
-    res.status(500).end();
-  }
+  const mime = filename.endsWith(".m3u8") ? "application/x-mpegURL" : "video/MP2T";
+  proxyWasabi(`videos/${videoId}/${filename}`, mime, 3600, req, res);
 });
 
 module.exports = router;

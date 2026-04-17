@@ -1,16 +1,32 @@
 const express = require("express");
 const router = express.Router();
 
-function toProxyUrl(req, videoId) {
-  const base = `${req.protocol}://${req.get("host")}`;
-  return `${base}/api/stream/${videoId}/index.m3u8`;
+function proxyBase(req) {
+  return `${req.protocol}://${req.get("host")}`;
 }
 
-function rewriteVideoUrl(req, video) {
-  if (!video || !video.videoUrl) return video;
+function rewriteThumb(base, url) {
+  if (!url) return url;
+  const m = url.match(/thumbnails\/([^/?#]+)/);
+  return m ? `${base}/api/stream/thumbnails/${m[1]}` : url;
+}
+
+function rewriteVideo(req, video) {
+  if (!video) return video;
   const obj = video.toObject ? video.toObject() : { ...video };
-  obj.videoUrl = toProxyUrl(req, obj._id);
+  const base = proxyBase(req);
+  if (obj.videoUrl) obj.videoUrl = `${base}/api/stream/${obj._id}/index.m3u8`;
+  obj.thumbnailUrl = rewriteThumb(base, obj.thumbnailUrl);
   return obj;
+}
+
+function rewriteRelated(req, list) {
+  const base = proxyBase(req);
+  return list.map((r) => {
+    const obj = r.toObject ? r.toObject() : { ...r };
+    obj.thumbnailUrl = rewriteThumb(base, obj.thumbnailUrl);
+    return obj;
+  });
 }
 const multer = require("multer");
 const path = require("path");
@@ -53,7 +69,7 @@ router.get("/", async (req, res) => {
         .populate("category", "name icon color slug"),
       Video.countDocuments(filter),
     ]);
-    res.json({ success: true, data: videos.map(v => rewriteVideoUrl(req, v)), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    res.json({ success: true, data: videos.map(v => rewriteVideo(req, v)), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -79,7 +95,7 @@ router.get("/:id", async (req, res) => {
     const related = await Video.find({ _id: { $ne: video._id }, status: "ready" })
       .sort({ views: -1 }).limit(8)
       .select("_id title thumbnailUrl views createdAt duration");
-    res.json({ success: true, data: rewriteVideoUrl(req, video), related });
+    res.json({ success: true, data: rewriteVideo(req, video), related: rewriteRelated(req, related) });
   } catch (err) {
     if (err.name === "CastError") return res.status(404).json({ success: false, message: "Video not found" });
     res.status(500).json({ success: false, message: "Server error" });
