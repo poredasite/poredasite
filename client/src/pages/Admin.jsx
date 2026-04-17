@@ -172,6 +172,17 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
             <CategoryMultiSelect allCategories={allCategories} selected={item.categories} onChange={cats => onUpdate({ categories: cats })} />
           </div>
 
+          {/* Description */}
+          <textarea
+            value={item.description}
+            onChange={e => onUpdate({ description: e.target.value })}
+            placeholder="Açıklama (SEO için önemli)"
+            disabled={isActive}
+            rows={3}
+            maxLength={5000}
+            className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2 rounded-lg text-sm outline-none transition-colors disabled:opacity-50 resize-none"
+          />
+
           {/* Tags */}
           <input
             type="text"
