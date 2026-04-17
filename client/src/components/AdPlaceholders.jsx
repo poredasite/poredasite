@@ -1,84 +1,232 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAds } from "../context/AdsContext";
 
-// Executes <script> tags inside injected HTML (needed for ad networks)
-function AdSlot({ html, className, placeholder }) {
+// ─── Core: inject HTML + re-execute scripts ───────────────────────
+function AdSlot({ html, style, className }) {
   const ref = useRef(null);
 
   useEffect(() => {
-    if (!ref.current) return;
-    const container = ref.current;
-    container.innerHTML = "";
-    const wrapper = document.createRange().createContextualFragment(html);
-    container.appendChild(wrapper);
-    // Re-execute any script tags
-    container.querySelectorAll("script").forEach((oldScript) => {
+    if (!ref.current || !html) return;
+    const el = ref.current;
+    el.innerHTML = "";
+    el.appendChild(document.createRange().createContextualFragment(html));
+    el.querySelectorAll("script").forEach((old) => {
       const s = document.createElement("script");
-      [...oldScript.attributes].forEach(a => s.setAttribute(a.name, a.value));
-      s.textContent = oldScript.textContent;
-      oldScript.replaceWith(s);
+      [...old.attributes].forEach((a) => s.setAttribute(a.name, a.value));
+      s.textContent = old.textContent;
+      old.replaceWith(s);
     });
   }, [html]);
 
-  return <div ref={ref} className={className} />;
+  return <div ref={ref} style={style} className={className} />;
 }
 
-function Placeholder({ label, size }) {
+function slotStyle(slot) {
+  if (!slot) return {};
+  const w = slot.width  ? (String(slot.width).includes("%")  ? slot.width  : `${slot.width}px`)  : "100%";
+  const h = slot.height ? (String(slot.height).includes("%") ? slot.height : `${slot.height}px`) : undefined;
+  return { width: w, ...(h ? { height: h } : {}) };
+}
+
+// ─── Top Banner ───────────────────────────────────────────────────
+export function TopBannerAd() {
+  const { getSlot } = useAds();
+  const slot = getSlot("topBanner");
+  if (!slot?.enabled) return null;
   return (
-    <div className="ad-placeholder w-full h-full flex items-center justify-center rounded-xl" aria-label="Advertisement" role="complementary">
-      <div className="flex flex-col items-center gap-1 pointer-events-none">
-        <span className="text-surface-600 text-[10px] tracking-[0.2em] uppercase font-mono">{label}</span>
-        <span className="text-surface-700 text-[9px] tracking-widest">{size}</span>
+    <div className="flex justify-center mb-6">
+      {slot.code
+        ? <AdSlot html={slot.code} style={slotStyle(slot)} />
+        : <div className="ad-placeholder rounded-xl" style={{ ...slotStyle(slot), minHeight: "90px" }}>
+            <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Banner Reklam</span>
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────
+export function SidebarAd() {
+  const { getSlot } = useAds();
+  const slot = getSlot("sidebar");
+  if (!slot?.enabled) return null;
+  return (
+    <div className="sticky top-24 mb-5">
+      {slot.code
+        ? <AdSlot html={slot.code} style={slotStyle(slot)} />
+        : <div className="ad-placeholder rounded-xl" style={{ ...slotStyle(slot), minHeight: "250px" }}>
+            <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Kenar Reklam</span>
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── In-Feed ──────────────────────────────────────────────────────
+export function InFeedAd() {
+  const { getSlot } = useAds();
+  const slot = getSlot("inFeed");
+  if (!slot?.enabled) return null;
+  return (
+    <div className="col-span-1 sm:col-span-2 flex justify-center">
+      {slot.code
+        ? <AdSlot html={slot.code} style={slotStyle(slot)} />
+        : <div className="ad-placeholder rounded-xl w-full" style={{ minHeight: "100px" }}>
+            <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Feed Reklam</span>
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── Sticky Banner (fixed bottom) ─────────────────────────────────
+export function StickyBannerAd() {
+  const [closed, setClosed] = useState(false);
+  const { getSlot } = useAds();
+  const slot = getSlot("stickyBanner");
+
+  if (closed || !slot?.enabled || !slot?.code) return null;
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center bg-black/20 backdrop-blur-sm">
+      <div className="relative">
+        <button
+          onClick={() => setClosed(true)}
+          className="absolute -top-6 right-0 bg-surface-800 text-gray-400 hover:text-white text-xs px-2 py-0.5 rounded-t-md transition-colors"
+        >
+          ✕ Kapat
+        </button>
+        <AdSlot html={slot.code} style={slotStyle(slot)} />
       </div>
     </div>
   );
 }
 
-export function TopBannerAd() {
-  const { ads } = useAds();
-  const slot = ads?.topBanner;
+// ─── Popunder (fires once per session on first click) ─────────────
+export function PopunderAd() {
+  const { getSlot } = useAds();
+  const slot = getSlot("popunder");
+  const fired = useRef(false);
 
-  if (!slot?.enabled) return null;
+  useEffect(() => {
+    if (!slot?.enabled || !slot?.code) return;
+    if (sessionStorage.getItem("pu_fired")) return;
 
-  return slot.code
-    ? <AdSlot html={slot.code} className="w-full mb-6" />
-    : <div className="w-full h-20 sm:h-24 mb-6"><Placeholder label="Advertisement" size="728 × 90 — Leaderboard" /></div>;
+    function fire() {
+      if (fired.current) return;
+      fired.current = true;
+      sessionStorage.setItem("pu_fired", "1");
+      const div = document.createElement("div");
+      div.style.display = "none";
+      document.body.appendChild(div);
+      div.appendChild(document.createRange().createContextualFragment(slot.code));
+      div.querySelectorAll("script").forEach((old) => {
+        const s = document.createElement("script");
+        [...old.attributes].forEach((a) => s.setAttribute(a.name, a.value));
+        s.textContent = old.textContent;
+        old.replaceWith(s);
+      });
+      document.removeEventListener("click", fire);
+    }
+
+    document.addEventListener("click", fire, { once: true });
+    return () => document.removeEventListener("click", fire);
+  }, [slot?.enabled, slot?.code]);
+
+  return null;
 }
 
-export function SidebarAd() {
-  const { ads } = useAds();
-  const slot = ads?.sidebar;
+// ─── Instant Message / Interstitial ──────────────────────────────
+export function InstantMessageAd() {
+  const [show, setShow] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const { getSlot } = useAds();
+  const slot = getSlot("instantMessage");
 
-  if (!slot?.enabled) return null;
+  useEffect(() => {
+    if (!slot?.enabled || !slot?.code) return;
+    if (sessionStorage.getItem("im_shown")) return;
+    const t = setTimeout(() => {
+      setShow(true);
+      sessionStorage.setItem("im_shown", "1");
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [slot?.enabled, slot?.code]);
 
-  return slot.code
-    ? <AdSlot html={slot.code} className="w-full sticky top-24 mb-5" />
-    : <div className="w-full h-64 sticky top-24 mb-5"><Placeholder label="Advertisement" size="300 × 250 — Medium Rectangle" /></div>;
-}
+  useEffect(() => {
+    if (!show || countdown <= 0) return;
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [show, countdown]);
 
-export function InFeedAd() {
-  const { ads } = useAds();
-  const slot = ads?.inFeed;
+  if (!show) return null;
 
-  if (!slot?.enabled) return null;
-
-  return slot.code
-    ? <AdSlot html={slot.code} className="col-span-1 sm:col-span-2" />
-    : <div className="col-span-1 sm:col-span-2 h-28"><Placeholder label="Sponsored" size="In-Feed — Native Ad Unit" /></div>;
-}
-
-export function PreRollAd({ onSkip }) {
   return (
-    <div className="relative w-full aspect-video bg-surface-800 rounded-2xl flex items-center justify-center overflow-hidden mb-4">
-      <div className="flex flex-col items-center gap-2">
-        <span className="text-surface-500 text-xs tracking-widest uppercase font-mono">Ad · Pre-Roll</span>
-        <span className="text-surface-600 text-[10px]">Video Ad Placeholder</span>
-      </div>
-      {onSkip && (
-        <button onClick={onSkip} className="absolute bottom-4 right-4 bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded transition-colors font-mono">
-          Reklamı Geç →
+    <div className="fixed inset-0 z-[9999] bg-black/85 flex items-center justify-center p-4 animate-fade-in">
+      <div className="relative max-w-full">
+        <AdSlot html={slot.code} style={slotStyle(slot)} />
+        <button
+          onClick={() => setShow(false)}
+          disabled={countdown > 0}
+          className={`absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors
+            ${countdown > 0
+              ? "bg-surface-700 text-gray-500 cursor-not-allowed"
+              : "bg-brand-500 hover:bg-brand-400 text-white cursor-pointer"
+            }`}
+        >
+          {countdown > 0 ? countdown : "✕"}
         </button>
-      )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Instream Video (pre-roll) ────────────────────────────────────
+export function InstreamVideoAd({ onSkip }) {
+  const [countdown, setCountdown] = useState(5);
+  const { getSlot } = useAds();
+  const slot = getSlot("instreamVideo");
+
+  useEffect(() => {
+    if (!slot?.enabled) { onSkip?.(); return; }
+    if (countdown <= 0) return;
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown, slot?.enabled]);
+
+  if (!slot?.enabled) return null;
+
+  const style = slotStyle(slot);
+
+  return (
+    <div
+      className="relative w-full rounded-2xl overflow-hidden mb-4 bg-black flex items-center justify-center"
+      style={{ minHeight: style.height || "300px" }}
+    >
+      {slot.code
+        ? <AdSlot html={slot.code} style={{ width: "100%", height: "100%" }} />
+        : <div className="w-full h-full flex flex-col items-center justify-center gap-2 min-h-[200px]">
+            <span className="text-surface-500 text-xs tracking-widest uppercase font-mono">Video Reklam</span>
+          </div>
+      }
+      <div className="absolute bottom-4 right-4">
+        {countdown > 0
+          ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded font-mono">
+              {countdown}s sonra geç
+            </span>
+          : <button
+              onClick={onSkip}
+              className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded transition-colors"
+            >
+              Reklamı Geç →
+            </button>
+        }
+      </div>
+      <div className="absolute top-3 left-3">
+        <span className="bg-black/60 text-yellow-400 text-[10px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">
+          Reklam
+        </span>
+      </div>
     </div>
   );
 }

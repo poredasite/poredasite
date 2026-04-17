@@ -3,6 +3,7 @@ import { AdminProvider } from "./context/AdminContext";
 import { AdsProvider } from "./context/AdsContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import { StickyBannerAd, PopunderAd, InstantMessageAd } from "./components/AdPlaceholders";
 import Home from "./pages/Home";
 import VideoDetail from "./pages/VideoDetail";
 import Admin from "./pages/Admin";
@@ -29,6 +30,9 @@ export default function App() {
             </Routes>
           </main>
           <Footer />
+          <StickyBannerAd />
+          <PopunderAd />
+          <InstantMessageAd />
         </div>
       </BrowserRouter>
       </AdsProvider>

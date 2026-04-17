@@ -6,7 +6,8 @@ import { videoApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
-import { SidebarAd } from "../components/AdPlaceholders";
+import { SidebarAd, InstreamVideoAd } from "../components/AdPlaceholders";
+import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
 
 function formatViews(n) {
@@ -23,11 +24,15 @@ export default function VideoDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [showInstream, setShowInstream] = useState(true);
+  const { getSlot } = useAds();
+  const instreamSlot = getSlot("instreamVideo");
 
   useEffect(() => {
     setLoading(true);
     setError(null);
     setDescExpanded(false);
+    setShowInstream(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     videoApi
@@ -81,12 +86,11 @@ export default function VideoDetail() {
 
           {/* ── Main column ───────────────────────────────────────── */}
           <div className="flex-1 min-w-0">
-            {/* Video Player */}
-            <VideoPlayer
-              src={video.videoUrl}
-              poster={video.thumbnailUrl}
-              title={video.title}
-            />
+            {/* Instream / Video Player */}
+            {instreamSlot?.enabled && showInstream
+              ? <InstreamVideoAd onSkip={() => setShowInstream(false)} />
+              : <VideoPlayer src={video.videoUrl} poster={video.thumbnailUrl} title={video.title} />
+            }
 
             {/* Video title */}
             <h1 className="font-display font-bold text-xl sm:text-2xl text-white mt-5 mb-2 leading-tight">

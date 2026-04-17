@@ -236,31 +236,178 @@ function UploadForm({ onSuccess }) {
 }
 
 // ─── Ads Manager ─────────────────────────────────────────────────
-const AD_SLOTS = [
+const AD_SLOT_DEFS = [
   {
     key: "topBanner",
+    icon: "📰",
     label: "Üst Banner",
-    desc: "Ana sayfanın üstünde tam genişlikte görünür",
-    size: "728 × 90 — Leaderboard",
+    desc: "Ana sayfanın üstünde gösterilir",
+    presets: {
+      desktop: [["728","90"],["970","90"],["970","250"]],
+      mobile:  [["320","50"],["320","100"],["300","50"]],
+    },
   },
   {
     key: "sidebar",
+    icon: "📐",
     label: "Kenar Çubuğu",
-    desc: "Video sayfasında sağda sabit durur",
-    size: "300 × 250 — Medium Rectangle",
+    desc: "Video sayfasında sağ sütunda sabit durur",
+    presets: {
+      desktop: [["300","250"],["300","600"],["160","600"]],
+      mobile:  [["300","250"],["320","100"]],
+    },
   },
   {
     key: "inFeed",
-    label: "Feed İçi",
+    icon: "🔲",
+    label: "Feed İçi (Native)",
     desc: "Ana sayfada video kartları arasında çıkar",
-    size: "Native — In-Feed",
+    presets: {
+      desktop: [["336","280"],["300","250"],["728","90"]],
+      mobile:  [["300","250"],["320","100"]],
+    },
+  },
+  {
+    key: "stickyBanner",
+    icon: "📌",
+    label: "Yapışkan Banner",
+    desc: "Sayfanın altına sabitlenir, kullanıcı kapatabilir",
+    presets: {
+      desktop: [["728","90"],["970","90"]],
+      mobile:  [["320","50"],["320","100"]],
+    },
+  },
+  {
+    key: "popunder",
+    icon: "🔗",
+    label: "Popunder",
+    desc: "İlk tıklamada arka planda yeni sekme açar (script kodu yeter)",
+    presets: { desktop: [], mobile: [] },
+    noSize: true,
+  },
+  {
+    key: "instreamVideo",
+    icon: "▶️",
+    label: "Video Öncesi (Instream)",
+    desc: "Video oynatılmadan önce gösterilir, 5 saniye sonra geçilebilir",
+    presets: {
+      desktop: [["100%","480"],["100%","360"]],
+      mobile:  [["100%","240"],["100%","180"]],
+    },
+  },
+  {
+    key: "instantMessage",
+    icon: "💬",
+    label: "Anlık Mesaj (Interstitial)",
+    desc: "Sayfa yüklendikten 2 saniye sonra tam ekran overlay olarak çıkar",
+    presets: {
+      desktop: [["800","600"],["640","480"]],
+      mobile:  [["320","480"],["300","250"]],
+    },
   },
 ];
+
+function Toggle({ value, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none
+        ${value ? "bg-brand-500" : "bg-surface-600"}`}
+    >
+      <span className={`inline-block h-5 w-5 mt-0.5 rounded-full bg-white shadow transition-transform duration-200
+        ${value ? "translate-x-5" : "translate-x-0.5"}`} />
+    </button>
+  );
+}
+
+function DevicePanel({ slotDef, device, data, onChange }) {
+  const presets = slotDef.presets[device] || [];
+
+  function set(field, val) {
+    onChange({ ...data, [field]: val });
+  }
+
+  const isPresetActive = (w, h) => data.width === w && data.height === h;
+
+  return (
+    <div className="space-y-3">
+      {/* Toggle */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-400 font-medium">
+          {device === "desktop" ? "🖥 Masaüstü" : "📱 Mobil"}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs ${data.enabled ? "text-green-400" : "text-gray-600"}`}>
+            {data.enabled ? "Açık" : "Kapalı"}
+          </span>
+          <Toggle value={data.enabled} onChange={v => set("enabled", v)} />
+        </div>
+      </div>
+
+      {/* Size Presets */}
+      {!slotDef.noSize && (
+        <div>
+          <p className="text-[10px] text-gray-600 mb-1.5 uppercase tracking-wider">Boyut Presetleri</p>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {presets.map(([w, h]) => (
+              <button
+                key={`${w}x${h}`}
+                type="button"
+                onClick={() => onChange({ ...data, width: w, height: h })}
+                className={`text-[10px] font-mono px-2 py-1 rounded transition-colors
+                  ${isPresetActive(w, h)
+                    ? "bg-brand-500 text-white"
+                    : "bg-surface-700 text-gray-400 hover:bg-surface-600"}`}
+              >
+                {w}×{h}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 items-center">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={data.width || ""}
+                onChange={e => set("width", e.target.value)}
+                placeholder="Genişlik (px veya %)"
+                className="w-full bg-surface-700 border border-surface-600 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-1.5 rounded-lg text-xs outline-none"
+              />
+            </div>
+            <span className="text-gray-600 text-xs">×</span>
+            <div className="flex-1">
+              <input
+                type="text"
+                value={data.height || ""}
+                onChange={e => set("height", e.target.value)}
+                placeholder="Yükseklik (px)"
+                className="w-full bg-surface-700 border border-surface-600 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-1.5 rounded-lg text-xs outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Code */}
+      <div>
+        <p className="text-[10px] text-gray-600 mb-1 uppercase tracking-wider">Reklam Kodu</p>
+        <textarea
+          value={data.code || ""}
+          onChange={e => set("code", e.target.value)}
+          placeholder={`<!-- ${slotDef.label} ${device === "mobile" ? "mobil" : "masaüstü"} kodu -->`}
+          rows={4}
+          className="w-full bg-surface-700 border border-surface-600 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y"
+        />
+      </div>
+    </div>
+  );
+}
 
 function AdsManager() {
   const { ads, setAds } = useAds();
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [activeSlot, setActiveSlot] = useState("topBanner");
 
   useEffect(() => {
     if (ads) setForm(JSON.parse(JSON.stringify(ads)));
@@ -268,8 +415,11 @@ function AdsManager() {
 
   if (!form) return <div className="skeleton h-40 rounded-xl" />;
 
-  function updateSlot(key, field, value) {
-    setForm(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  function updateDevice(slotKey, device, data) {
+    setForm(prev => ({
+      ...prev,
+      [slotKey]: { ...prev[slotKey], [device]: data },
+    }));
   }
 
   async function handleSave(e) {
@@ -287,47 +437,64 @@ function AdsManager() {
     }
   }
 
+  const activeDef = AD_SLOT_DEFS.find(s => s.key === activeSlot);
+  const activeData = form[activeSlot] || { desktop: {}, mobile: {} };
+
+  const isAnyEnabled = (key) => form[key]?.desktop?.enabled || form[key]?.mobile?.enabled;
+
   return (
-    <form onSubmit={handleSave} className="space-y-6">
-      {AD_SLOTS.map(slot => (
-        <div key={slot.key} className="bg-surface-800/60 rounded-2xl p-5 border border-surface-700/50 space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="font-display font-semibold text-white">{slot.label}</h3>
-              <p className="text-gray-500 text-xs mt-0.5">{slot.desc}</p>
-              <span className="inline-block mt-1 text-[10px] text-surface-500 font-mono bg-surface-700 px-2 py-0.5 rounded">{slot.size}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => updateSlot(slot.key, "enabled", !form[slot.key]?.enabled)}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none
-                ${form[slot.key]?.enabled ? "bg-brand-500" : "bg-surface-600"}`}
-              role="switch"
-              aria-checked={form[slot.key]?.enabled}
-            >
-              <span className={`inline-block h-5 w-5 mt-0.5 rounded-full bg-white shadow transition-transform duration-200
-                ${form[slot.key]?.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
-            </button>
+    <form onSubmit={handleSave} className="space-y-5">
+      {/* Slot Selector */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
+        {AD_SLOT_DEFS.map(slot => (
+          <button
+            key={slot.key}
+            type="button"
+            onClick={() => setActiveSlot(slot.key)}
+            className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl text-center transition-all relative
+              ${activeSlot === slot.key
+                ? "bg-brand-500 text-white shadow"
+                : "bg-surface-800 text-gray-400 hover:text-white hover:bg-surface-700"}`}
+          >
+            <span className="text-lg leading-none">{slot.icon}</span>
+            <span className="text-[10px] font-display font-medium leading-tight">{slot.label}</span>
+            {isAnyEnabled(slot.key) && (
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-green-400" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Active Slot Config */}
+      {activeDef && (
+        <div className="bg-surface-800/60 rounded-2xl p-5 border border-surface-700/50 space-y-5">
+          <div>
+            <h3 className="font-display font-semibold text-white flex items-center gap-2">
+              <span>{activeDef.icon}</span> {activeDef.label}
+            </h3>
+            <p className="text-gray-500 text-xs mt-0.5">{activeDef.desc}</p>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">
-              Reklam Kodu
-              <span className="text-gray-600 font-normal ml-2">AdSense, script veya iframe girebilirsin</span>
-            </label>
-            <textarea
-              value={form[slot.key]?.code || ""}
-              onChange={e => updateSlot(slot.key, "code", e.target.value)}
-              placeholder={`<!-- ${slot.label} reklam kodunu buraya yapıştır -->`}
-              rows={5}
-              className="w-full bg-surface-700 border border-surface-600 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2.5 rounded-xl text-xs font-mono outline-none transition-colors resize-y"
-            />
-            {!form[slot.key]?.code && form[slot.key]?.enabled && (
-              <p className="text-yellow-500/70 text-xs mt-1">⚠️ Kod girilmezse placeholder kutu gösterilir</p>
-            )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="bg-surface-900/50 rounded-xl p-4 border border-surface-700/30">
+              <DevicePanel
+                slotDef={activeDef}
+                device="desktop"
+                data={activeData.desktop || {}}
+                onChange={data => updateDevice(activeSlot, "desktop", data)}
+              />
+            </div>
+            <div className="bg-surface-900/50 rounded-xl p-4 border border-surface-700/30">
+              <DevicePanel
+                slotDef={activeDef}
+                device="mobile"
+                data={activeData.mobile || {}}
+                onChange={data => updateDevice(activeSlot, "mobile", data)}
+              />
+            </div>
           </div>
         </div>
-      ))}
+      )}
 
       <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
         {saving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
