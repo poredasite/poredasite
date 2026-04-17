@@ -365,7 +365,8 @@ const AD_SLOT_DEFS = [
   { key: "stickyBanner",   icon: "↓",  label: "Alt Yapışkan",      desc: "Sayfanın altına sabitlenir",                                  presets: { desktop: [["728","90"],["970","90"]], mobile: [["320","50"],["320","100"]] } },
   { key: "popunder",       icon: "↗",  label: "Popunder",          desc: "İlk tıklamada arka planda sekme açar",                        presets: { desktop: [], mobile: [] }, noSize: true },
   { key: "instreamVideo",  icon: "▶",  label: "Video Öncesi",      desc: "Video oynatılmadan önce gösterilir",                          presets: { desktop: [["100%","480"],["100%","360"]], mobile: [["100%","240"],["100%","180"]] } },
-  { key: "instantMessage", icon: "◻",  label: "Tam Ekran",         desc: "Sayfa yüklenmesinden 2sn sonra tam ekran overlay",            presets: { desktop: [["800","600"],["640","480"]], mobile: [["320","480"],["300","250"]] } },
+  { key: "instantMessage",   icon: "◻",  label: "Tam Ekran",       desc: "Sayfa yüklenmesinden 2sn sonra tam ekran overlay",            presets: { desktop: [["800","600"],["640","480"]], mobile: [["320","480"],["300","250"]] } },
+  { key: "belowDescription", icon: "≡",  label: "Açıklama Altı",  desc: "Video sayfasında açıklama/etiketlerin altında gösterilir",     presets: { desktop: [["728","90"],["970","90"],["300","250"]], mobile: [["300","250"],["320","100"]] } },
 ];
 
 function Toggle({ value, onChange }) {
@@ -410,10 +411,28 @@ function DevicePanel({ slotDef, device, data, onChange }) {
           </div>
         </div>
       )}
-      <textarea value={data.code || ""} onChange={e => set("code", e.target.value)}
-        placeholder={`<!-- ${slotDef.label} ${device === "mobile" ? "mobil" : "masaüstü"} kodu -->`}
-        rows={4}
-        className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y" />
+      {slotDef.key === "instreamVideo" ? (
+        <div className="space-y-2">
+          <label className="text-[10px] text-gray-500 uppercase tracking-wider">VAST URL</label>
+          <input
+            type="text"
+            value={data.vastUrl || ""}
+            onChange={e => set("vastUrl", e.target.value)}
+            placeholder="https://s.magsrv.com/v1/vast.php?idzone=..."
+            className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
+          />
+          <p className="text-[10px] text-gray-600">VAST URL girilirse IMA SDK ile oynatılır. Alternatif olarak aşağıya HTML kodu da girebilirsin.</p>
+          <textarea value={data.code || ""} onChange={e => set("code", e.target.value)}
+            placeholder="<!-- alternatif HTML kodu (VAST URL yoksa kullanılır) -->"
+            rows={3}
+            className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y" />
+        </div>
+      ) : (
+        <textarea value={data.code || ""} onChange={e => set("code", e.target.value)}
+          placeholder={`<!-- ${slotDef.label} ${device === "mobile" ? "mobil" : "masaüstü"} kodu -->`}
+          rows={4}
+          className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y" />
+      )}
     </div>
   );
 }

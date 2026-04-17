@@ -181,51 +181,139 @@ export function InstantMessageAd() {
   );
 }
 
+// ─── Below Description ───────────────────────────────────────────
+export function BelowDescriptionAd() {
+  const { getSlot } = useAds();
+  const slot = getSlot("belowDescription");
+  if (!slot?.enabled) return null;
+  return (
+    <div className="flex justify-center my-4">
+      {slot.code
+        ? <AdSlot html={slot.code} style={slotStyle(slot)} />
+        : <div className="ad-placeholder rounded-xl" style={{ ...slotStyle(slot), minHeight: "90px" }}>
+            <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Açıklama Altı Reklam</span>
+          </div>
+      }
+    </div>
+  );
+}
+
 // ─── Instream Video (pre-roll) ────────────────────────────────────
 export function InstreamVideoAd({ onSkip }) {
-  const [countdown, setCountdown] = useState(5);
   const { getSlot } = useAds();
   const slot = getSlot("instreamVideo");
+  const containerRef = useRef(null);
+  const videoRef = useRef(null);
+  const adsManagerRef = useRef(null);
+  const [countdown, setCountdown] = useState(5);
+  const [canSkip, setCanSkip] = useState(false);
 
+  // IMA SDK VAST pre-roll
   useEffect(() => {
     if (!slot?.enabled) { onSkip?.(); return; }
-    if (countdown <= 0) return;
+    if (!slot?.vastUrl) return;
+
+    let destroyed = false;
+
+    function initIMA() {
+      if (!window.google?.ima) { setTimeout(initIMA, 200); return; }
+      if (destroyed) return;
+
+      const adContainer = containerRef.current;
+      const contentVideo = videoRef.current;
+      if (!adContainer || !contentVideo) return;
+
+      const adDisplayContainer = new window.google.ima.AdDisplayContainer(adContainer, contentVideo);
+      adDisplayContainer.initialize();
+
+      const adsLoader = new window.google.ima.AdsLoader(adDisplayContainer);
+
+      adsLoader.addEventListener(
+        window.google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
+        (e) => {
+          if (destroyed) return;
+          const mgr = e.getAdsManager(contentVideo);
+          adsManagerRef.current = mgr;
+          mgr.addEventListener(window.google.ima.AdEvent.Type.COMPLETE, () => onSkip?.());
+          mgr.addEventListener(window.google.ima.AdEvent.Type.SKIPPED, () => onSkip?.());
+          mgr.addEventListener(window.google.ima.AdEvent.Type.ALL_ADS_COMPLETED, () => onSkip?.());
+          try {
+            const h = adContainer.offsetHeight || parseInt(slot.height) || 360;
+            mgr.init(adContainer.offsetWidth, h, window.google.ima.ViewMode.NORMAL);
+            mgr.start();
+          } catch { onSkip?.(); }
+        }
+      );
+
+      adsLoader.addEventListener(window.google.ima.AdErrorEvent.Type.AD_ERROR, () => onSkip?.());
+
+      const req = new window.google.ima.AdsRequest();
+      req.adTagUrl = slot.vastUrl;
+      req.linearAdSlotWidth = adContainer.offsetWidth;
+      req.linearAdSlotHeight = adContainer.offsetHeight || parseInt(slot.height) || 360;
+      req.nonLinearAdSlotWidth = adContainer.offsetWidth;
+      req.nonLinearAdSlotHeight = 150;
+      adsLoader.requestAds(req);
+    }
+
+    initIMA();
+    return () => { destroyed = true; adsManagerRef.current?.destroy(); };
+  }, [slot?.enabled, slot?.vastUrl]);
+
+  // Skip countdown (IMA veya HTML kod için)
+  useEffect(() => {
+    if (!slot?.enabled) return;
+    if (countdown <= 0) { setCanSkip(true); return; }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [countdown, slot?.enabled]);
 
   if (!slot?.enabled) return null;
 
-  const style = slotStyle(slot);
+  const h = slot.height ? `${slot.height}px` : "360px";
 
+  // VAST URL → IMA SDK container
+  if (slot.vastUrl) {
+    return (
+      <div className="relative w-full rounded-2xl overflow-hidden mb-4 bg-black" style={{ height: h }}>
+        <video ref={videoRef} style={{ display: "none" }} />
+        <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
+        <div className="absolute top-3 left-3 z-10 pointer-events-none">
+          <span className="bg-black/60 text-yellow-400 text-[10px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">Reklam</span>
+        </div>
+        <div className="absolute bottom-4 right-4 z-10">
+          {!canSkip
+            ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded font-mono">{countdown}s sonra geç</span>
+            : <button onClick={() => { adsManagerRef.current?.skip(); onSkip?.(); }}
+                className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded transition-colors">
+                Reklamı Geç →
+              </button>
+          }
+        </div>
+      </div>
+    );
+  }
+
+  // HTML kod → eski yöntem
+  const style = slotStyle(slot);
   return (
-    <div
-      className="relative w-full rounded-2xl overflow-hidden mb-4 bg-black flex items-center justify-center"
-      style={{ minHeight: style.height || "300px" }}
-    >
+    <div className="relative w-full rounded-2xl overflow-hidden mb-4 bg-black flex items-center justify-center" style={{ minHeight: style.height || "300px" }}>
       {slot.code
         ? <AdSlot html={slot.code} style={{ width: "100%", height: "100%" }} />
         : <div className="w-full h-full flex flex-col items-center justify-center gap-2 min-h-[200px]">
             <span className="text-surface-500 text-xs tracking-widest uppercase font-mono">Video Reklam</span>
           </div>
       }
+      <div className="absolute top-3 left-3">
+        <span className="bg-black/60 text-yellow-400 text-[10px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">Reklam</span>
+      </div>
       <div className="absolute bottom-4 right-4">
-        {countdown > 0
-          ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded font-mono">
-              {countdown}s sonra geç
-            </span>
-          : <button
-              onClick={onSkip}
-              className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded transition-colors"
-            >
+        {!canSkip
+          ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded font-mono">{countdown}s sonra geç</span>
+          : <button onClick={onSkip} className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded transition-colors">
               Reklamı Geç →
             </button>
         }
-      </div>
-      <div className="absolute top-3 left-3">
-        <span className="bg-black/60 text-yellow-400 text-[10px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">
-          Reklam
-        </span>
       </div>
     </div>
   );

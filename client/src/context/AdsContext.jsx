@@ -5,19 +5,20 @@ const AdsContext = createContext(null);
 
 function makeSlot() {
   return {
-    desktop: { enabled: false, code: "", width: "", height: "" },
-    mobile:  { enabled: false, code: "", width: "", height: "" },
+    desktop: { enabled: false, code: "", vastUrl: "", width: "", height: "" },
+    mobile:  { enabled: false, code: "", vastUrl: "", width: "", height: "" },
   };
 }
 
 const DEFAULT_ADS = {
-  topBanner:      makeSlot(),
-  sidebar:        makeSlot(),
-  inFeed:         makeSlot(),
-  stickyBanner:   makeSlot(),
-  popunder:       makeSlot(),
-  instreamVideo:  makeSlot(),
-  instantMessage: makeSlot(),
+  topBanner:        makeSlot(),
+  sidebar:          makeSlot(),
+  inFeed:           makeSlot(),
+  stickyBanner:     makeSlot(),
+  popunder:         makeSlot(),
+  instreamVideo:    makeSlot(),
+  instantMessage:   makeSlot(),
+  belowDescription: makeSlot(),
 };
 
 function mergeAds(remote) {

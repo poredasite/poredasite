@@ -6,7 +6,7 @@ import { videoApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
-import { SidebarAd, InstreamVideoAd } from "../components/AdPlaceholders";
+import { TopBannerAd, SidebarAd, InstreamVideoAd, BelowDescriptionAd } from "../components/AdPlaceholders";
 import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
 
@@ -82,6 +82,7 @@ export default function VideoDetail() {
       />
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 animate-fade-in">
+        <TopBannerAd />
         <div className="flex flex-col xl:flex-row gap-5 xl:gap-8">
 
           {/* ── Main column ───────────────────────────────────────── */}
@@ -173,6 +174,9 @@ export default function VideoDetail() {
               </div>
             )}
 
+            {/* Below description ad */}
+            <BelowDescriptionAd />
+
             {/* Mobile: related videos */}
             {related.length > 0 && (
               <div className="xl:hidden mt-6">
@@ -190,9 +194,6 @@ export default function VideoDetail() {
 
           {/* ── Sidebar ────────────────────────────────────────────── */}
           <div className="hidden xl:block xl:w-80 2xl:w-96 flex-shrink-0 space-y-5">
-            {/* Sidebar Ad */}
-            <SidebarAd />
-
             {/* Related Videos */}
             {related.length > 0 && (
               <div>
@@ -235,6 +236,9 @@ export default function VideoDetail() {
                 </div>
               </div>
             )}
+
+            {/* Sidebar Ad — below related videos */}
+            <SidebarAd />
           </div>
 
         </div>
