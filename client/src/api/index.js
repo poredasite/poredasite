@@ -33,17 +33,9 @@ export const videoApi = {
 
   getById: (id) => api.get(`/videos/${id}`),
 
-  upload: (formData, onProgress) =>
-    api.post("/videos/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-      onUploadProgress: (e) => {
-        if (onProgress) {
-          const pct = Math.round((e.loaded * 100) / e.total);
-          onProgress(pct);
-        }
-      },
-      timeout: 10 * 60 * 1000, // 10 minutes for uploads
-    }),
+  signUpload: (folder) => api.get("/videos/sign-upload", { params: { folder } }),
+
+  save: (data) => api.post("/videos/upload", data),
 
   delete: (id) => api.delete(`/videos/${id}`),
 

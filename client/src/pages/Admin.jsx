@@ -88,6 +88,31 @@ function UploadForm({ onSuccess }) {
     setThumbPreview(URL.createObjectURL(file));
   }
 
+  async function uploadToCloudinary(file, folder, onProgress) {
+    const { timestamp, signature, apiKey, cloudName } = await videoApi.signUpload(folder);
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("timestamp", timestamp);
+      fd.append("signature", signature);
+      fd.append("api_key", apiKey);
+      fd.append("folder", folder);
+      const xhr = new XMLHttpRequest();
+      const resourceType = folder.includes("video") ? "video" : "image";
+      xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`);
+      xhr.upload.onprogress = (e) => {
+        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded * 100) / e.total));
+      };
+      xhr.onload = () => {
+        const res = JSON.parse(xhr.responseText);
+        if (xhr.status === 200) resolve(res);
+        else reject(new Error(res.error?.message || "Cloudinary upload failed"));
+      };
+      xhr.onerror = () => reject(new Error("Ağ hatası"));
+      xhr.send(fd);
+    });
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim() || !videoFile || !thumbFile) {
@@ -97,23 +122,37 @@ function UploadForm({ onSuccess }) {
       toast.error("Video maksimum 1GB olabilir"); return;
     }
     setUploading(true); setProgress(0);
-    const fd = new FormData();
-    fd.append("title", form.title.trim());
-    fd.append("description", form.description.trim());
-    fd.append("tags", form.tags.trim());
-    if (form.category) fd.append("category", form.category);
-    fd.append("video", videoFile);
-    fd.append("thumbnail", thumbFile);
     try {
-      await videoApi.upload(fd, setProgress);
-      toast.success("Video başarıyla yüklendi! 🎉");
+      // 1. Thumbnail yükle
+      toast.loading("Thumbnail yükleniyor...", { id: "upload" });
+      const thumbResult = await uploadToCloudinary(thumbFile, "poreda/thumbnails", null);
+
+      // 2. Video yükle (progress ile)
+      toast.loading("Video yükleniyor...", { id: "upload" });
+      const videoResult = await uploadToCloudinary(videoFile, "poreda/videos", setProgress);
+
+      // 3. DB'ye kaydet
+      toast.loading("Kaydediliyor...", { id: "upload" });
+      await videoApi.save({
+        title: form.title.trim(),
+        description: form.description.trim(),
+        tags: form.tags.trim(),
+        category: form.category || undefined,
+        videoUrl: videoResult.secure_url,
+        videoPublicId: videoResult.public_id,
+        thumbnailUrl: thumbResult.secure_url,
+        thumbnailPublicId: thumbResult.public_id,
+        duration: videoResult.duration || 0,
+      });
+
+      toast.success("Video başarıyla yüklendi!", { id: "upload" });
       setForm({ title: "", description: "", tags: "", category: "" });
       setVideoFile(null); setThumbFile(null); setThumbPreview(null); setProgress(0);
       if (videoInputRef.current) videoInputRef.current.value = "";
       if (thumbInputRef.current) thumbInputRef.current.value = "";
       onSuccess?.();
     } catch (err) {
-      toast.error("Yükleme hatası: " + err.message);
+      toast.error("Yükleme hatası: " + err.message, { id: "upload" });
     } finally {
       setUploading(false);
     }

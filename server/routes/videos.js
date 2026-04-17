@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
-const { cloudinary, uploadToCloudinary } = require("../config/cloudinary");
+const { cloudinary } = require("../config/cloudinary");
 const Video = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
 
@@ -52,50 +51,47 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /videos/upload
-router.post("/upload", adminAuth, (req, res) => {
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 1024 * 1024 * 1024 } })
-    .fields([{ name: "video", maxCount: 1 }, { name: "thumbnail", maxCount: 1 }]);
-
-  upload(req, res, async (err) => {
-    if (err) return res.status(400).json({ success: false, message: err.message });
-    try {
-      const { title, description, tags } = req.body;
-      if (!title?.trim()) return res.status(400).json({ success: false, message: "Title is required" });
-      if (!req.files?.video?.[0]) return res.status(400).json({ success: false, message: "Video file is required" });
-      if (!req.files?.thumbnail?.[0]) return res.status(400).json({ success: false, message: "Thumbnail is required" });
-
-      // Upload sequentially (not parallel) to avoid Railway memory issues
-      const videoResult = await uploadToCloudinary(req.files.video[0].buffer, {
-        folder: "poreda/videos",
-        resource_type: "video",
-        transformation: [{ quality: "auto" }],
-      });
-
-      const thumbResult = await uploadToCloudinary(req.files.thumbnail[0].buffer, {
-        folder: "poreda/thumbnails",
-        resource_type: "image",
-        transformation: [{ width: 1280, height: 720, crop: "fill", quality: "auto" }],
-      });
-
-      const video = await Video.create({
-        title: title.trim(),
-        description: description?.trim() || "",
-        videoUrl: videoResult.secure_url,
-        videoPublicId: videoResult.public_id,
-        thumbnailUrl: thumbResult.secure_url,
-        thumbnailPublicId: thumbResult.public_id,
-        duration: videoResult.duration || 0,
-        tags: tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : [],
-        category: req.body.category || null,
-      });
-
-      res.status(201).json({ success: true, message: "Video uploaded successfully", data: video });
-    } catch (err) {
-      console.error("Upload error:", err);
-      res.status(500).json({ success: false, message: "Upload failed: " + err.message });
-    }
+// GET /videos/sign-upload — Cloudinary imzası üret
+router.get("/sign-upload", adminAuth, (req, res) => {
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = req.query.folder || "poreda/videos";
+  const paramsToSign = { folder, timestamp };
+  const signature = cloudinary.utils.api_sign_request(paramsToSign, process.env.CLOUDINARY_API_SECRET);
+  res.json({
+    success: true,
+    timestamp,
+    signature,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    folder,
   });
+});
+
+// POST /videos/upload — Cloudinary URL'lerini DB'ye kaydet
+router.post("/upload", adminAuth, async (req, res) => {
+  try {
+    const { title, description, tags, category, videoUrl, videoPublicId, thumbnailUrl, thumbnailPublicId, duration } = req.body;
+    if (!title?.trim()) return res.status(400).json({ success: false, message: "Title is required" });
+    if (!videoUrl) return res.status(400).json({ success: false, message: "Video URL is required" });
+    if (!thumbnailUrl) return res.status(400).json({ success: false, message: "Thumbnail URL is required" });
+
+    const video = await Video.create({
+      title: title.trim(),
+      description: description?.trim() || "",
+      videoUrl,
+      videoPublicId: videoPublicId || "",
+      thumbnailUrl,
+      thumbnailPublicId: thumbnailPublicId || "",
+      duration: duration || 0,
+      tags: tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+      category: category || null,
+    });
+
+    res.status(201).json({ success: true, message: "Video uploaded successfully", data: video });
+  } catch (err) {
+    console.error("Upload error:", err);
+    res.status(500).json({ success: false, message: "Upload failed: " + err.message });
+  }
 });
 
 // DELETE /videos/:id
