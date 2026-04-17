@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import VideoDetail from "./pages/VideoDetail";
 import Admin from "./pages/Admin";
+import StaticPage from "./pages/StaticPage";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -18,6 +19,10 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/video/:id" element={<VideoDetail />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/hakkimizda" element={<StaticPage />} />
+              <Route path="/gizlilik" element={<StaticPage />} />
+              <Route path="/hukuki" element={<StaticPage />} />
+              <Route path="/bilgi-islem" element={<StaticPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

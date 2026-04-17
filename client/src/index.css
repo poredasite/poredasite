@@ -25,7 +25,8 @@
   /* Button base */
   .btn-primary {
     @apply bg-brand-500 text-white font-display font-semibold
-           px-6 py-2.5 rounded-lg transition-all duration-200;
+           px-6 py-2.5 rounded-lg transition-all duration-200
+           touch-manipulation min-h-[44px];
   }
   .btn-primary:hover {
     @apply bg-brand-400;
@@ -39,7 +40,8 @@
 
   .btn-ghost {
     @apply border border-surface-600 text-gray-300 font-display font-medium
-           px-4 py-2 rounded-lg transition-all duration-200;
+           px-4 py-2 rounded-lg transition-all duration-200
+           touch-manipulation min-h-[44px];
   }
   .btn-ghost:hover {
     @apply border-surface-500 bg-surface-700 text-white;

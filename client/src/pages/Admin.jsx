@@ -89,7 +89,10 @@ function UploadForm({ onSuccess }) {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim() || !videoFile || !thumbFile) {
-      toast.error("Başlık, video, and thumbnail are required"); return;
+      toast.error("Başlık, video ve thumbnail zorunlu"); return;
+    }
+    if (videoFile.size > 200 * 1024 * 1024) {
+      toast.error("Video maksimum 200MB olabilir"); return;
     }
     setUploading(true); setProgress(0);
     const fd = new FormData();
@@ -487,7 +490,7 @@ export default function Admin() {
         <div className="flex gap-1 bg-surface-800 rounded-xl p-1 mb-6 overflow-x-auto scrollbar-hide w-full sm:w-fit">
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-display font-medium transition-all duration-200
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-display font-medium transition-all duration-200 touch-manipulation whitespace-nowrap min-h-[44px]
                 ${tab === t.key ? "bg-brand-500 text-white shadow" : "text-gray-400 hover:text-white"}`}>
               <span>{t.icon}</span>{t.label}
             </button>

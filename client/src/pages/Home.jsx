@@ -47,10 +47,10 @@ export default function Home() {
 
   return (
     <>
-      <SEOHead title="Home" description="Türkiye'nin oyun ve vlog platformu. Her gün taze içerik." url="/" />
+      <SEOHead title="Home" description="Porno izle Türk ❤️ Porn sex video ☘️ Poreda inanılmaz Amatör porna ve sikiş filmleri seyret ⭐ altyazılı Full HD pornosu ⭐ endişe verici Türkçe dublaj pornolar." url="/" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <TopBannerAd />
-        <div className="flex gap-6 xl:gap-8">
+        <div className="flex flex-col lg:flex-row gap-6 xl:gap-8">
 
           {/* Left Sidebar */}
           <CategorySidebar activeCategory={activeCategory} onSelect={handleCategorySelect} />
