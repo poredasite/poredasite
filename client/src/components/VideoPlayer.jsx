@@ -26,6 +26,8 @@ export default function VideoPlayer({ src, poster, title }) {
     const video = videoRef.current;
     if (!video || !src) return;
 
+    console.log("VideoPlayer: Received src", src);
+
     if (!src.includes(".m3u8")) {
       video.src = src;
       return;
