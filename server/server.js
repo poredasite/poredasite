@@ -9,6 +9,7 @@ const path = require("path");
 const videosRouter = require("./routes/videos");
 const categoriesRouter = require("./routes/categories");
 const settingsRouter = require("./routes/settings");
+const streamRouter = require("./routes/stream");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -64,6 +65,7 @@ app.post("/api/admin/verify", (req, res) => {
 app.use("/api/videos", videosRouter);
 app.use("/api/categories", categoriesRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/stream", streamRouter);
 
 // Health check
 app.get("/api/health", (req, res) => {

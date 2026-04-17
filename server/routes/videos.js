@@ -1,5 +1,17 @@
 const express = require("express");
 const router = express.Router();
+
+function toProxyUrl(req, videoId) {
+  const base = `${req.protocol}://${req.get("host")}`;
+  return `${base}/api/stream/${videoId}/index.m3u8`;
+}
+
+function rewriteVideoUrl(req, video) {
+  if (!video || !video.videoUrl) return video;
+  const obj = video.toObject ? video.toObject() : { ...video };
+  obj.videoUrl = toProxyUrl(req, obj._id);
+  return obj;
+}
 const multer = require("multer");
 const path = require("path");
 const os = require("os");
@@ -41,7 +53,7 @@ router.get("/", async (req, res) => {
         .populate("category", "name icon color slug"),
       Video.countDocuments(filter),
     ]);
-    res.json({ success: true, data: videos, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    res.json({ success: true, data: videos.map(v => rewriteVideoUrl(req, v)), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -67,7 +79,7 @@ router.get("/:id", async (req, res) => {
     const related = await Video.find({ _id: { $ne: video._id }, status: "ready" })
       .sort({ views: -1 }).limit(8)
       .select("_id title thumbnailUrl views createdAt duration");
-    res.json({ success: true, data: video, related });
+    res.json({ success: true, data: rewriteVideoUrl(req, video), related });
   } catch (err) {
     if (err.name === "CastError") return res.status(404).json({ success: false, message: "Video not found" });
     res.status(500).json({ success: false, message: "Server error" });
