@@ -61,4 +61,11 @@ export const categoryApi = {
   delete: (id) => api.delete("/categories/" + id),
 };
 
+// ─── Ads / Settings API ───────────────────────────────────────────
+
+export const adsApi = {
+  get: () => api.get("/settings/ads"),
+  update: (data) => api.patch("/settings/ads", data),
+};
+
 export default api;

@@ -1,5 +1,6 @@
 import { HashRouter as BrowserRouter, Routes, Route } from "react-router-dom";
 import { AdminProvider } from "./context/AdminContext";
+import { AdsProvider } from "./context/AdsContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
@@ -11,6 +12,7 @@ import NotFound from "./pages/NotFound";
 export default function App() {
   return (
     <AdminProvider>
+      <AdsProvider>
       <BrowserRouter>
         <div className="min-h-screen flex flex-col bg-surface-950">
           <Navbar />
@@ -29,6 +31,7 @@ export default function App() {
           <Footer />
         </div>
       </BrowserRouter>
+      </AdsProvider>
     </AdminProvider>
   );
 }

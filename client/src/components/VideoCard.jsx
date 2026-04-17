@@ -101,7 +101,7 @@ export default function VideoCard({ video, priority = false }) {
             {video.title}
           </h3>
           <div className="flex items-center gap-1.5 mt-1.5 text-gray-500 text-xs">
-            <span>{formatViews(video.views)} views</span>
+            <span>{formatViews(video.views)} izlenme</span>
             <span className="text-surface-600">·</span>
             <span title={format(new Date(video.createdAt), "MMM d, yyyy")}>
               {formatDistanceToNow(new Date(video.createdAt), { addSuffix: true })}

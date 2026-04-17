@@ -40,8 +40,8 @@ export default function VideoPlayer({ src, poster, title }) {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
       switch (e.key) {
         case " ": case "k": e.preventDefault(); togglePlay(); break;
-        case "ArrowRight": seek(10); break;
-        case "ArrowLeft": seek(-10); break;
+        case "ArrowRight": seek(5); break;
+        case "ArrowLeft": seek(-5); break;
         case "m": toggleMute(); break;
         case "f": toggleFullscreen(); break;
       }
@@ -100,7 +100,7 @@ export default function VideoPlayer({ src, poster, title }) {
     clearTimeout(clickTimer.current);
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const seconds = x < rect.width / 2 ? -20 : 20;
+    const seconds = x < rect.width / 2 ? -10 : 10;
     seek(seconds);
   }
 
@@ -117,7 +117,7 @@ export default function VideoPlayer({ src, poster, title }) {
 
     if (touchTapCount.current >= 2) {
       touchTapCount.current = 0;
-      seek(side === "right" ? 20 : -20);
+      seek(side === "right" ? 10 : -10);
     } else {
       touchTapTimer.current = setTimeout(() => {
         touchTapCount.current = 0;

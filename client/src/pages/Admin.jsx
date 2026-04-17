@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { videoApi, categoryApi } from "../api";
+import { videoApi, categoryApi, adsApi } from "../api";
 import { useAdmin } from "../context/AdminContext";
+import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 
 // ─── Admin Login ──────────────────────────────────────────────────
 function AdminLogin({ onLogin }) {
@@ -111,7 +113,7 @@ function UploadForm({ onSuccess }) {
       if (thumbInputRef.current) thumbInputRef.current.value = "";
       onSuccess?.();
     } catch (err) {
-      toast.error("Upload failed: " + err.message);
+      toast.error("Yükleme hatası: " + err.message);
     } finally {
       setUploading(false);
     }
@@ -233,6 +235,108 @@ function UploadForm({ onSuccess }) {
   );
 }
 
+// ─── Ads Manager ─────────────────────────────────────────────────
+const AD_SLOTS = [
+  {
+    key: "topBanner",
+    label: "Üst Banner",
+    desc: "Ana sayfanın üstünde tam genişlikte görünür",
+    size: "728 × 90 — Leaderboard",
+  },
+  {
+    key: "sidebar",
+    label: "Kenar Çubuğu",
+    desc: "Video sayfasında sağda sabit durur",
+    size: "300 × 250 — Medium Rectangle",
+  },
+  {
+    key: "inFeed",
+    label: "Feed İçi",
+    desc: "Ana sayfada video kartları arasında çıkar",
+    size: "Native — In-Feed",
+  },
+];
+
+function AdsManager() {
+  const { ads, setAds } = useAds();
+  const [form, setForm] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (ads) setForm(JSON.parse(JSON.stringify(ads)));
+  }, [ads]);
+
+  if (!form) return <div className="skeleton h-40 rounded-xl" />;
+
+  function updateSlot(key, field, value) {
+    setForm(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await adsApi.update(form);
+      setAds(res.data);
+      setForm(JSON.parse(JSON.stringify(res.data)));
+      toast.success("Reklam ayarları kaydedildi");
+    } catch (err) {
+      toast.error("Kaydetme hatası: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSave} className="space-y-6">
+      {AD_SLOTS.map(slot => (
+        <div key={slot.key} className="bg-surface-800/60 rounded-2xl p-5 border border-surface-700/50 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="font-display font-semibold text-white">{slot.label}</h3>
+              <p className="text-gray-500 text-xs mt-0.5">{slot.desc}</p>
+              <span className="inline-block mt-1 text-[10px] text-surface-500 font-mono bg-surface-700 px-2 py-0.5 rounded">{slot.size}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => updateSlot(slot.key, "enabled", !form[slot.key]?.enabled)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none
+                ${form[slot.key]?.enabled ? "bg-brand-500" : "bg-surface-600"}`}
+              role="switch"
+              aria-checked={form[slot.key]?.enabled}
+            >
+              <span className={`inline-block h-5 w-5 mt-0.5 rounded-full bg-white shadow transition-transform duration-200
+                ${form[slot.key]?.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+              Reklam Kodu
+              <span className="text-gray-600 font-normal ml-2">AdSense, script veya iframe girebilirsin</span>
+            </label>
+            <textarea
+              value={form[slot.key]?.code || ""}
+              onChange={e => updateSlot(slot.key, "code", e.target.value)}
+              placeholder={`<!-- ${slot.label} reklam kodunu buraya yapıştır -->`}
+              rows={5}
+              className="w-full bg-surface-700 border border-surface-600 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2.5 rounded-xl text-xs font-mono outline-none transition-colors resize-y"
+            />
+            {!form[slot.key]?.code && form[slot.key]?.enabled && (
+              <p className="text-yellow-500/70 text-xs mt-1">⚠️ Kod girilmezse placeholder kutu gösterilir</p>
+            )}
+          </div>
+        </div>
+      ))}
+
+      <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
+        {saving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+        {saving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
+      </button>
+    </form>
+  );
+}
+
 // ─── Kategori Manager ─────────────────────────────────────────────
 function KategoriManager() {
   const [categories, setCategories] = useState([]);
@@ -268,11 +372,11 @@ function KategoriManager() {
       if (editingId) {
         const res = await categoryApi.update(editingId, form);
         setCategories(cats => cats.map(c => c._id === editingId ? res.data : c));
-        toast.success("Kategori updated");
+        toast.success("Kategori güncellendi");
       } else {
         const res = await categoryApi.create(form);
         setCategories(cats => [...cats, res.data]);
-        toast.success("Kategori created");
+        toast.success("Kategori oluşturuldu");
       }
       cancelEdit();
     } catch (err) {
@@ -283,12 +387,12 @@ function KategoriManager() {
   }
 
   async function handleSil(id, name) {
-    if (!window.confirm(`Sil "${name}"? Videos in this category will be uncategorized.`)) return;
+    if (!window.confirm(`"${name}" kategorisini sil? Bu kategorideki videolar kategorisiz kalır.`)) return;
     setDeleting(id);
     try {
       await categoryApi.delete(id);
       setCategories(cats => cats.filter(c => c._id !== id));
-      toast.success("Kategori deleted");
+      toast.success("Kategori silindi");
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -301,7 +405,7 @@ function KategoriManager() {
       {/* Form */}
       <div className="bg-surface-800/60 rounded-2xl p-5 border border-surface-700/50">
         <h3 className="font-display font-semibold text-white mb-4">
-          {editingId ? "✏️ Edit Kategori" : "➕ New Kategori"}
+          {editingId ? "✏️ Kategori Düzenle" : "➕ Yeni Kategori"}
         </h3>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -340,7 +444,7 @@ function KategoriManager() {
             <button type="submit" disabled={saving}
               className="btn-primary flex items-center gap-2">
               {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
-              {editingId ? "Kaydet" : "Create Kategori"}
+              {editingId ? "Kaydet" : "Kategori Oluştur"}
             </button>
             {editingId && (
               <button type="button" onClick={cancelEdit} className="btn-ghost">İptal</button>
@@ -371,7 +475,7 @@ function KategoriManager() {
                     <div className="flex items-center gap-2">
                       <button onClick={() => startEdit(cat)}
                         className="text-xs text-gray-400 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-surface-600 transition-colors">
-                        Edit
+                        Düzenle
                       </button>
                       <button onClick={() => handleSil(cat._id, cat.name)} disabled={deleting === cat._id}
                         className="text-xs text-red-500 hover:text-red-400 px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50">
@@ -400,7 +504,7 @@ function AdminVideoList({ refresh }) {
   async function loadVideos() {
     setLoading(true);
     try { const res = await videoApi.getAll({ limit: 50 }); setVideos(res.data); }
-    catch { toast.error("Failed to load video"); }
+    catch { toast.error("Videolar yüklenemedi"); }
     finally { setLoading(false); }
   }
 
@@ -431,7 +535,7 @@ function AdminVideoList({ refresh }) {
             <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-600 flex-wrap">
               <span>{v.izlenme} izlenme</span>
               <span>·</span>
-              <span>{format(new Date(v.createdAt), "MMM d, yyyy")}</span>
+              <span>{format(new Date(v.createdAt), "d MMM yyyy", { locale: tr })}</span>
               {v.category && <span className="text-brand-500/70">{v.category.icon} {v.category.name}</span>}
             </div>
           </div>
@@ -452,7 +556,8 @@ function AdminVideoList({ refresh }) {
 const TABS = [
   { key: "upload", label: "Video Yükle", icon: "↑" },
   { key: "video", label: "Videoları Yönet", icon: "☰" },
-  { key: "categories", label: "Categories", icon: "🏷️" },
+  { key: "categories", label: "Kategoriler", icon: "🏷️" },
+  { key: "ads", label: "Reklamlar", icon: "📢" },
 ];
 
 export default function Admin() {
@@ -514,6 +619,13 @@ export default function Admin() {
             <>
               <h2 className="font-display font-bold text-lg text-white mb-5">Kategorileri Yönet</h2>
               <KategoriManager />
+            </>
+          )}
+          {tab === "ads" && (
+            <>
+              <h2 className="font-display font-bold text-lg text-white mb-1">Reklam Yönetimi</h2>
+              <p className="text-gray-500 text-sm mb-6">Her reklam slotunu aç/kapat ve kod yapıştır. Değişiklikler anında sitede görünür.</p>
+              <AdsManager />
             </>
           )}
         </div>

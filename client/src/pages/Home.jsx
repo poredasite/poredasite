@@ -60,7 +60,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
               <div>
                 <h1 className="font-display font-bold text-2xl text-white tracking-tight">
-                  {sort === "views" ? "🔥 Most Popular" : "✨ Latest Videos"}
+                  {sort === "views" ? "🔥 En Popüler" : "✨ En Yeni Videolar"}
                 </h1>
                 {pagination && (
                   <p className="text-gray-500 text-sm mt-0.5">
