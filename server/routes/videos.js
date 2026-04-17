@@ -234,7 +234,12 @@ router.delete("/:id", adminAuth, async (req, res) => {
 });
 
 // PATCH /videos/:id
-router.patch("/:id", adminAuth, async (req, res) => {
+router.patch("/:id", adminAuth, (req, res, next) => {
+  thumbOnlyUpload(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message });
+    next();
+  });
+}, async (req, res) => {
   try {
     const { title, description, tags, category, categories: categoriesRaw } = req.body;
     const update = {};
@@ -247,6 +252,16 @@ router.patch("/:id", adminAuth, async (req, res) => {
       update.category = arr[0] || null;
     } else if (category !== undefined) {
       update.category = category || null;
+    }
+    if (req.file) {
+      const existing = await Video.findById(req.params.id).select("thumbnailPublicId");
+      if (existing?.thumbnailPublicId) {
+        try { await deleteFromWasabi(existing.thumbnailPublicId); } catch {}
+      }
+      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToWasabi(req.file.path, req.params.id, req.file.mimetype);
+      fs.unlinkSync(req.file.path);
+      update.thumbnailUrl = thumbnailUrl;
+      update.thumbnailPublicId = thumbnailKey;
     }
     const video = await Video.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true })
       .select("-videoPublicId -thumbnailPublicId")

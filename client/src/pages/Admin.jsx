@@ -632,14 +632,104 @@ function KategoriManager() {
   );
 }
 
+// ─── Video Edit Modal ─────────────────────────────────────────────
+function VideoEditModal({ video, allCategories, onSave, onClose }) {
+  const thumbRef = useRef(null);
+  const [form, setForm] = useState({
+    title: video.title || "",
+    description: video.description || "",
+    tags: video.tags?.join(", ") || "",
+    categories: (video.categories?.map(c => c._id) || (video.category ? [video.category._id] : [])),
+    thumbFile: null,
+    thumbPreview: video.thumbnailUrl,
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!form.title.trim()) { toast.error("Başlık zorunlu"); return; }
+    setSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append("title", form.title.trim());
+      fd.append("description", form.description.trim());
+      fd.append("tags", form.tags.trim());
+      fd.append("categories", JSON.stringify(form.categories));
+      if (form.thumbFile) fd.append("thumbnail", form.thumbFile);
+      await videoApi.update(video._id, fd);
+      toast.success("Video güncellendi");
+      onSave();
+    } catch (err) {
+      toast.error("Güncelleme hatası: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-surface-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-white/8">
+          <h2 className="font-display font-bold text-white">Video Düzenle</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-white p-1 rounded-lg hover:bg-surface-800 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* Thumbnail */}
+          <div>
+            <p className="text-xs text-gray-500 mb-2">Thumbnail</p>
+            <div className="flex gap-3 items-start">
+              <div className="w-40 aspect-video rounded-lg overflow-hidden bg-surface-800 flex-shrink-0 cursor-pointer relative group" onClick={() => thumbRef.current?.click()}>
+                <img src={form.thumbPreview} alt="" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="text-white text-xs font-medium">Değiştir</span>
+                </div>
+              </div>
+              <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                onChange={e => { const f = e.target.files[0]; if (f) setForm(p => ({ ...p, thumbFile: f, thumbPreview: URL.createObjectURL(f) })); }} />
+            </div>
+          </div>
+          {/* Title */}
+          <input type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+            placeholder="Başlık *" maxLength={200}
+            className="w-full bg-surface-800 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2.5 rounded-xl text-sm outline-none" />
+          {/* Description */}
+          <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+            placeholder="Açıklama" rows={4} maxLength={5000}
+            className="w-full bg-surface-800 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2.5 rounded-xl text-sm outline-none resize-none" />
+          {/* Categories */}
+          <div>
+            <p className="text-xs text-gray-500 mb-2">Kategoriler</p>
+            <CategoryMultiSelect allCategories={allCategories} selected={form.categories} onChange={cats => setForm(p => ({ ...p, categories: cats }))} />
+          </div>
+          {/* Tags */}
+          <input type="text" value={form.tags} onChange={e => setForm(p => ({ ...p, tags: e.target.value }))}
+            placeholder="Etiketler (virgülle ayır)"
+            className="w-full bg-surface-800 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2.5 rounded-xl text-sm outline-none" />
+        </div>
+        <div className="flex gap-3 p-5 border-t border-white/8">
+          <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 flex-1 justify-center">
+            {saving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+            {saving ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+          <button onClick={onClose} className="btn-ghost">İptal</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Video List ───────────────────────────────────────────────────
 function AdminVideoList({ refresh }) {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(null);
+  const [editingVideo, setEditingVideo] = useState(null);
+  const [allCategories, setAllCategories] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => { loadVideos(); }, [refresh]);
+  useEffect(() => { categoryApi.getAll().then(r => setAllCategories(r.data)).catch(() => {}); }, []);
 
   async function loadVideos() {
     setLoading(true);
@@ -682,6 +772,7 @@ function AdminVideoList({ refresh }) {
             </div>
             <div className="flex flex-col gap-1.5 flex-shrink-0">
               <button onClick={() => navigate(`/video/${v._id}`)} className="text-xs text-gray-500 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-surface-600 transition-colors">Görüntüle</button>
+              <button onClick={() => setEditingVideo(v)} className="text-xs text-brand-400 hover:text-brand-300 px-2.5 py-1.5 rounded-lg hover:bg-brand-500/10 transition-colors">Düzenle</button>
               <button onClick={() => handleSil(v._id, v.title)} disabled={deleting === v._id}
                 className="text-xs text-red-500 hover:text-red-400 px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50">
                 {deleting === v._id ? "..." : "Sil"}
@@ -690,6 +781,14 @@ function AdminVideoList({ refresh }) {
           </div>
         );
       })}
+      {editingVideo && (
+        <VideoEditModal
+          video={editingVideo}
+          allCategories={allCategories}
+          onSave={() => { setEditingVideo(null); loadVideos(); }}
+          onClose={() => setEditingVideo(null)}
+        />
+      )}
     </div>
   );
 }
