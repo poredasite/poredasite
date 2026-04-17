@@ -93,8 +93,8 @@ function UploadForm({ onSuccess }) {
     if (!form.title.trim() || !videoFile || !thumbFile) {
       toast.error("Başlık, video ve thumbnail zorunlu"); return;
     }
-    if (videoFile.size > 200 * 1024 * 1024) {
-      toast.error("Video maksimum 200MB olabilir"); return;
+    if (videoFile.size > 1024 * 1024 * 1024) {
+      toast.error("Video maksimum 1GB olabilir"); return;
     }
     setUploading(true); setProgress(0);
     const fd = new FormData();
