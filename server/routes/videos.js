@@ -54,7 +54,7 @@ router.get("/:id", async (req, res) => {
 
 // POST /videos/upload
 router.post("/upload", adminAuth, (req, res) => {
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } })
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 1024 * 1024 * 1024 } })
     .fields([{ name: "video", maxCount: 1 }, { name: "thumbnail", maxCount: 1 }]);
 
   upload(req, res, async (err) => {
