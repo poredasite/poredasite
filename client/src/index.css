@@ -12,14 +12,9 @@
   /* Skeleton shimmer */
   .skeleton {
     @apply bg-surface-800 rounded overflow-hidden relative;
-    background: linear-gradient(
-      90deg,
-      #161d27 0%,
-      #1e2733 50%,
-      #161d27 100%
-    );
+    background: linear-gradient(90deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%);
     background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+    animation: shimmer 1.6s infinite;
   }
 
   /* Button base */

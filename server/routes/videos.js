@@ -1,33 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-function proxyBase(req) {
-  return `${req.protocol}://${req.get("host")}`;
-}
 
-function rewriteThumb(base, url) {
-  if (!url) return url;
-  const m = url.match(/thumbnails\/([^/?#]+)/);
-  return m ? `${base}/api/stream/thumbnails/${m[1]}` : url;
-}
-
-function rewriteVideo(req, video) {
-  if (!video) return video;
-  const obj = video.toObject ? video.toObject() : { ...video };
-  const base = proxyBase(req);
-  if (obj.videoUrl) obj.videoUrl = `${base}/api/stream/${obj._id}/index.m3u8`;
-  obj.thumbnailUrl = rewriteThumb(base, obj.thumbnailUrl);
-  return obj;
-}
-
-function rewriteRelated(req, list) {
-  const base = proxyBase(req);
-  return list.map((r) => {
-    const obj = r.toObject ? r.toObject() : { ...r };
-    obj.thumbnailUrl = rewriteThumb(base, obj.thumbnailUrl);
-    return obj;
-  });
-}
 const multer = require("multer");
 const path = require("path");
 const os = require("os");
@@ -61,15 +35,16 @@ router.get("/", async (req, res) => {
     const skip = (page - 1) * limit;
     const sort = req.query.sort === "views" ? { views: -1 } : { createdAt: -1 };
     const filter = { status: "ready" };
-    if (req.query.category) filter.category = req.query.category;
+    if (req.query.category) filter.$or = [{ category: req.query.category }, { categories: req.query.category }];
 
     const [videos, total] = await Promise.all([
       Video.find(filter).sort(sort).skip(skip).limit(limit)
         .select("-videoPublicId -thumbnailPublicId")
-        .populate("category", "name icon color slug"),
+        .populate("category", "name icon color slug")
+        .populate("categories", "name icon color slug"),
       Video.countDocuments(filter),
     ]);
-    res.json({ success: true, data: videos.map(v => rewriteVideo(req, v)), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    res.json({ success: true, data: videos, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -90,12 +65,13 @@ router.get("/:id", async (req, res) => {
   try {
     const video = await Video.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }, { new: true })
       .select("-videoPublicId -thumbnailPublicId")
-      .populate("category", "name icon color slug");
+      .populate("category", "name icon color slug")
+      .populate("categories", "name icon color slug");
     if (!video) return res.status(404).json({ success: false, message: "Video not found" });
     const related = await Video.find({ _id: { $ne: video._id }, status: "ready" })
       .sort({ views: -1 }).limit(8)
       .select("_id title thumbnailUrl views createdAt duration");
-    res.json({ success: true, data: rewriteVideo(req, video), related: rewriteRelated(req, related) });
+    res.json({ success: true, data: video, related });
   } catch (err) {
     if (err.name === "CastError") return res.status(404).json({ success: false, message: "Video not found" });
     res.status(500).json({ success: false, message: "Server error" });
@@ -107,12 +83,13 @@ router.post("/upload-init", adminAuth, (req, res) => {
   thumbOnlyUpload(req, res, async (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message });
     try {
-      const { title, description, tags, category, videoType } = req.body;
+      const { title, description, tags, category, categories: categoriesRaw, videoType } = req.body;
       if (!title?.trim()) return res.status(400).json({ success: false, message: "Title is required" });
       if (!req.file) return res.status(400).json({ success: false, message: "Thumbnail is required" });
 
       const thumbFile = req.file;
       const videoId = new mongoose.Types.ObjectId();
+      const categoriesArr = categoriesRaw ? JSON.parse(categoriesRaw) : (category ? [category] : []);
 
       const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToWasabi(
         thumbFile.path, videoId.toString(), thumbFile.mimetype
@@ -133,7 +110,8 @@ router.post("/upload-init", adminAuth, (req, res) => {
         thumbnailPublicId: thumbnailKey,
         duration: 0,
         tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-        category: category || null,
+        category: categoriesArr[0] || null,
+        categories: categoriesArr,
         status: "processing",
         rawVideoKey: rawKey,
       });
@@ -258,15 +236,22 @@ router.delete("/:id", adminAuth, async (req, res) => {
 // PATCH /videos/:id
 router.patch("/:id", adminAuth, async (req, res) => {
   try {
-    const { title, description, tags, category } = req.body;
+    const { title, description, tags, category, categories: categoriesRaw } = req.body;
     const update = {};
     if (title) update.title = title.trim();
     if (description !== undefined) update.description = description.trim();
     if (tags !== undefined) update.tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
-    if (category !== undefined) update.category = category || null;
+    if (categoriesRaw !== undefined) {
+      const arr = typeof categoriesRaw === "string" ? JSON.parse(categoriesRaw) : categoriesRaw || [];
+      update.categories = arr;
+      update.category = arr[0] || null;
+    } else if (category !== undefined) {
+      update.category = category || null;
+    }
     const video = await Video.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true })
       .select("-videoPublicId -thumbnailPublicId")
-      .populate("category", "name icon color slug");
+      .populate("category", "name icon color slug")
+      .populate("categories", "name icon color slug");
     if (!video) return res.status(404).json({ success: false, message: "Video not found" });
     res.json({ success: true, data: video });
   } catch (err) {

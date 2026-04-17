@@ -12,7 +12,7 @@ router.get("/", async (req, res) => {
     // Attach live video counts
     const withCounts = await Promise.all(
       categories.map(async (cat) => {
-        const count = await Video.countDocuments({ category: cat._id });
+        const count = await Video.countDocuments({ $or: [{ category: cat._id }, { categories: cat._id }] });
         return { ...cat.toObject(), videoCount: count };
       })
     );
@@ -84,7 +84,10 @@ router.delete("/:id", adminAuth, async (req, res) => {
     }
 
     // Remove category reference from videos
-    await Video.updateMany({ category: category._id }, { $unset: { category: 1 } });
+    await Video.updateMany(
+      { $or: [{ category: category._id }, { categories: category._id }] },
+      { $unset: { category: 1 }, $pull: { categories: category._id } }
+    );
     await category.deleteOne();
 
     res.json({ success: true, message: "Category deleted" });

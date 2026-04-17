@@ -50,6 +50,10 @@ const videoSchema = new mongoose.Schema(
       ref: "Category",
       default: null,
     },
+    categories: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+    }],
     slug: {
       type: String,
       unique: true,

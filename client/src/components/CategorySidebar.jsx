@@ -1,23 +1,24 @@
 import { useState, useEffect } from "react";
 import { categoryApi } from "../api";
+import { SidebarAd } from "./AdPlaceholders";
 
 export default function CategorySidebar({ activeCategory, onSelect }) {
-  const [categories, setKategoriler] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    categoryApi.getAll().then(res => setKategoriler(res.data)).catch(() => {}).finally(() => setLoading(false));
+    categoryApi.getAll().then(res => setCategories(res.data)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   return (
     <>
-      {/* ── Mobile: horizontal scrollable chips ─────────────────── */}
+      {/* Mobile: horizontal chips */}
       <div className="lg:hidden w-full">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           <button
             onClick={() => onSelect(null)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all
-              ${!activeCategory ? "bg-brand-500 text-white" : "bg-surface-800 text-gray-400 border border-surface-700 active:bg-surface-700"}`}
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all
+              ${!activeCategory ? "bg-brand-500 text-white" : "bg-surface-800 text-gray-400 border border-white/5"}`}
           >
             Tümü
           </button>
@@ -25,8 +26,8 @@ export default function CategorySidebar({ activeCategory, onSelect }) {
             <button
               key={cat._id}
               onClick={() => onSelect(cat._id)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap
-                ${activeCategory === cat._id ? "bg-brand-500 text-white" : "bg-surface-800 text-gray-400 border border-surface-700 active:bg-surface-700"}`}
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap
+                ${activeCategory === cat._id ? "bg-brand-500 text-white" : "bg-surface-800 text-gray-400 border border-white/5"}`}
             >
               {cat.name}
             </button>
@@ -37,36 +38,36 @@ export default function CategorySidebar({ activeCategory, onSelect }) {
         </div>
       </div>
 
-      {/* ── Desktop: left sidebar ────────────────────────────────── */}
-      <aside className="hidden lg:block w-56 xl:w-64 flex-shrink-0">
-        <div className="sticky top-24 space-y-1">
-          <p className="text-xs font-display font-semibold text-gray-500 uppercase tracking-widest px-3 mb-3">
+      {/* Desktop: left sidebar */}
+      <aside className="hidden lg:flex lg:flex-col w-48 xl:w-52 flex-shrink-0 gap-6">
+        <div className="sticky top-20 space-y-0.5">
+          <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest px-3 mb-3">
             Kategoriler
           </p>
 
           <button
             onClick={() => onSelect(null)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-left
-              ${!activeCategory ? "bg-brand-500/15 text-brand-400 border border-brand-500/25" : "text-gray-400 hover:text-white hover:bg-surface-800"}`}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all text-left
+              ${!activeCategory ? "bg-brand-500/10 text-brand-400 border border-brand-500/20" : "text-gray-500 hover:text-white hover:bg-surface-800"}`}
           >
-            <span className="flex-1">Tüm Videolar</span>
+            <span>Tüm Videolar</span>
           </button>
 
           {loading && Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="skeleton h-10 rounded-xl" />
+            <div key={i} className="skeleton h-9 rounded-lg" />
           ))}
 
           {!loading && categories.map(cat => (
             <button
               key={cat._id}
               onClick={() => onSelect(cat._id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-left group
-                ${activeCategory === cat._id ? "bg-brand-500/15 text-brand-400 border border-brand-500/25" : "text-gray-400 hover:text-white hover:bg-surface-800"}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all text-left group
+                ${activeCategory === cat._id ? "bg-brand-500/10 text-brand-400 border border-brand-500/20" : "text-gray-500 hover:text-white hover:bg-surface-800"}`}
             >
-              <span className="flex-1 truncate">{cat.name}</span>
+              <span className="truncate">{cat.icon} {cat.name}</span>
               {cat.videoCount > 0 && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono
-                  ${activeCategory === cat._id ? "bg-brand-500/20 text-brand-400" : "bg-surface-700 text-gray-600 group-hover:text-gray-400"}`}>
+                <span className={`text-xs font-mono ml-2 flex-shrink-0
+                  ${activeCategory === cat._id ? "text-brand-500/60" : "text-gray-700 group-hover:text-gray-500"}`}>
                   {cat.videoCount}
                 </span>
               )}
@@ -74,16 +75,12 @@ export default function CategorySidebar({ activeCategory, onSelect }) {
           ))}
 
           {!loading && categories.length === 0 && (
-            <p className="text-gray-600 text-xs px-3 py-2">Henüz kategori yok</p>
+            <p className="text-gray-700 text-xs px-3 py-2">Henüz kategori yok</p>
           )}
 
-          <div className="pt-4 mt-2 border-t border-surface-700/40">
-            <div className="ad-placeholder h-48 w-full rounded-xl" aria-label="Advertisement">
-              <div className="flex flex-col items-center gap-1 pointer-events-none">
-                <span className="text-surface-600 text-[10px] tracking-[0.2em] uppercase font-mono">Ad</span>
-                <span className="text-surface-700 text-[9px]">160 × 600</span>
-              </div>
-            </div>
+          <div className="pt-4 mt-2 border-t border-white/5">
+            <SidebarAd />
+            {/* Fallback placeholder if ad disabled */}
           </div>
         </div>
       </aside>
