@@ -54,6 +54,10 @@ const videoSchema = new mongoose.Schema(
       type: String,
       unique: true,
     },
+    rawVideoKey: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

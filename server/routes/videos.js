@@ -6,7 +6,7 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 const Video = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
-const { getVideoDuration, convertToHLS, uploadHLSToWasabi, uploadThumbnailToWasabi, deleteFromWasabi } = require("../utils/hls");
+const { getVideoDuration, convertToHLS, uploadHLSToWasabi, uploadThumbnailToWasabi, deleteFromWasabi, createRawUploadUrl, downloadRawFromWasabi, deleteRawFromWasabi } = require("../utils/hls");
 
 const diskUpload = multer({
   storage: multer.diskStorage({
@@ -15,6 +15,14 @@ const diskUpload = multer({
   }),
   limits: { fileSize: 1024 * 1024 * 1024 },
 }).fields([{ name: "video", maxCount: 1 }, { name: "thumbnail", maxCount: 1 }]);
+
+const thumbOnlyUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_, __, cb) => cb(null, os.tmpdir()),
+    filename: (_, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+}).single("thumbnail");
 
 // GET /videos
 router.get("/", async (req, res) => {
@@ -61,6 +69,82 @@ router.get("/:id", async (req, res) => {
     res.json({ success: true, data: video, related });
   } catch (err) {
     if (err.name === "CastError") return res.status(404).json({ success: false, message: "Video not found" });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// POST /videos/upload-init  — step 1: thumbnail + metadata → presigned URL for direct video upload
+router.post("/upload-init", adminAuth, (req, res) => {
+  thumbOnlyUpload(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message });
+    try {
+      const { title, description, tags, category, videoType } = req.body;
+      if (!title?.trim()) return res.status(400).json({ success: false, message: "Title is required" });
+      if (!req.file) return res.status(400).json({ success: false, message: "Thumbnail is required" });
+
+      const thumbFile = req.file;
+      const videoId = new mongoose.Types.ObjectId();
+
+      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToWasabi(
+        thumbFile.path, videoId.toString(), thumbFile.mimetype
+      );
+      fs.unlinkSync(thumbFile.path);
+
+      const { url: uploadUrl, key: rawKey } = await createRawUploadUrl(
+        videoId.toString(), videoType || "video/mp4"
+      );
+
+      const video = await Video.create({
+        _id: videoId,
+        title: title.trim(),
+        description: description?.trim() || "",
+        videoUrl: "",
+        videoPublicId: `videos/${videoId}`,
+        thumbnailUrl,
+        thumbnailPublicId: thumbnailKey,
+        duration: 0,
+        tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+        category: category || null,
+        status: "processing",
+        rawVideoKey: rawKey,
+      });
+
+      res.status(201).json({ success: true, data: { videoId: video._id, uploadUrl, video } });
+    } catch (err) {
+      console.error("Upload init error:", err);
+      res.status(500).json({ success: false, message: "Init failed: " + err.message });
+    }
+  });
+});
+
+// POST /videos/:id/process  — step 3: trigger FFmpeg after client uploaded to Wasabi
+router.post("/:id/process", adminAuth, async (req, res) => {
+  try {
+    const video = await Video.findById(req.params.id);
+    if (!video) return res.status(404).json({ success: false, message: "Video not found" });
+    if (!video.rawVideoKey) return res.status(400).json({ success: false, message: "No raw video to process" });
+
+    res.json({ success: true, message: "Processing started" });
+
+    (async () => {
+      const ext = path.extname(video.rawVideoKey) || ".mp4";
+      const tmpPath = path.join(os.tmpdir(), `raw-${video._id}${ext}`);
+      try {
+        await downloadRawFromWasabi(video.rawVideoKey, tmpPath);
+        const duration = await getVideoDuration(tmpPath);
+        const outputDir = await convertToHLS(tmpPath, video._id.toString());
+        fs.unlinkSync(tmpPath);
+        const hlsUrl = await uploadHLSToWasabi(outputDir, video._id.toString());
+        await deleteRawFromWasabi(video.rawVideoKey);
+        await Video.findByIdAndUpdate(video._id, { videoUrl: hlsUrl, duration, status: "ready", rawVideoKey: null });
+        console.log(`✅ HLS ready: ${hlsUrl}`);
+      } catch (bgErr) {
+        console.error("Process error:", bgErr);
+        try { fs.unlinkSync(tmpPath); } catch {}
+        await Video.findByIdAndUpdate(video._id, { status: "error" });
+      }
+    })();
+  } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
