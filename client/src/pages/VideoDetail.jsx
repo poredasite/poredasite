@@ -176,7 +176,7 @@ export default function VideoDetail() {
         {/* ── Related videos — below player, full-width grid ───────── */}
         {related.length > 0 && (
           <div className="mt-8">
-            <h2 className="font-display font-bold text-base text-white mb-4">Sıradaki</h2>
+            <h2 className="font-display font-bold text-base text-white mb-4">Dimdik yapan videolara da bak!!</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-5">
               {related.map((v) => (
                 <VideoCard key={v._id} video={v} />
