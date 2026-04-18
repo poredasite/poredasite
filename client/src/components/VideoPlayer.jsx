@@ -44,12 +44,14 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
     if (!video || !src) return;
 
     if (!src.includes(".m3u8")) {
+      console.log("[VideoPlayer] MP4 src:", src);
       video.src = src;
       setHlsReady(true);
       return;
     }
 
     const streamSrc = buildStreamUrl(src, videoId);
+    console.log("[VideoPlayer] HLS src:", src, "→ proxy:", streamSrc);
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = streamSrc;
@@ -166,8 +168,11 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
         setPlaying(false);
       }
     } catch (err) {
-      if (err.name !== "AbortError" && err.name !== "NotSupportedError") {
+      if (err.name === "NotSupportedError") {
+        setHlsError(true);
+      } else if (err.name !== "AbortError") {
         console.error("Playback error:", err);
+        setHlsError(true);
       }
     }
     resetHideTimer();
@@ -282,6 +287,7 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
         onPlaying={() => { setPlaying(true); setBuffering(false); }}
         onPause={() => setPlaying(false)}
         onEnded={() => { setPlaying(false); setShowControls(true); }}
+        onError={() => { setBuffering(false); setPlaying(false); setHlsError(true); }}
         onClick={handleVideoClick}
         onDoubleClick={handleVideoDoubleClick}
         aria-label={title}
