@@ -108,11 +108,17 @@ export function useVideoPreview(videoId, previewUrl, onNavigate) {
   const onTouchStart = useCallback((e) => {
     if (!previewUrl) return;
 
-    // Remember if this card was ALREADY playing before this touch.
-    // Used by onCardClick to decide first-tap vs second-tap.
-    wasPlayingRef.current = previewManager.current === videoId;
+    const alreadyActive = previewManager.current === videoId;
+    wasPlayingRef.current = alreadyActive;
 
-    // Start (stops whatever was playing via previewManager).
+    if (alreadyActive) {
+      // Same card touched again → don't restart, just resume if paused.
+      const v = videoRef.current;
+      if (v && v.paused) v.play().catch(() => {});
+      return;
+    }
+
+    // Different card (or first touch) → start from beginning.
     previewManager.start(videoId, doStop);
     doPlay();
   }, [previewUrl, videoId, doStop, doPlay]);

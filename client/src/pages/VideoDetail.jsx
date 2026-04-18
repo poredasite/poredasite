@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { formatDistanceToNow, format } from "date-fns";
+import { useParams, useNavigate } from "react-router-dom";
+import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { videoApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
-import { TopBannerAd, SidebarAd, InstreamVideoAd, BelowDescriptionAd } from "../components/AdPlaceholders";
+import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd } from "../components/AdPlaceholders";
 import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
 
@@ -81,181 +81,109 @@ export default function VideoDetail() {
         videoUrl={video.videoUrl}
       />
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 animate-fade-in">
+      <div className="max-w-[1400px] mx-auto px-2 sm:px-6 py-4 sm:py-6 animate-fade-in">
         <TopBannerAd />
-        <div className="flex flex-col xl:flex-row gap-5 xl:gap-8">
 
-          {/* ── Main column ───────────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
-            {/* Instream / Video Player */}
-            {video.status !== "ready" || !video.videoUrl ? (
-              <div className="w-full aspect-video bg-surface-800 rounded-2xl flex flex-col items-center justify-center gap-3">
-                {video.status === "error" ? (
-                  <>
-                    <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                    </svg>
-                    <p className="text-gray-400 text-sm">Video işlenirken hata oluştu.</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-10 h-10 border-[3px] border-brand-500/30 border-t-brand-400 rounded-full animate-spin" />
-                    <p className="text-gray-400 text-sm">Video işleniyor, lütfen bekleyin...</p>
-                    <p className="text-gray-600 text-xs">Uzun videolar birkaç dakika sürebilir</p>
-                  </>
-                )}
-              </div>
-            ) : instreamSlot?.enabled && showInstream
-              ? <InstreamVideoAd onSkip={() => setShowInstream(false)} />
-              : <VideoPlayer src={video.videoUrl} poster={video.thumbnailUrl} title={video.title} videoId={video._id} mp4FallbackUrl={video.mp4FallbackUrl || null} />
-            }
-
-            {/* Video title */}
-            <h1 className="font-display font-bold text-xl sm:text-2xl text-white mt-5 mb-2 leading-tight">
-              {video.title}
-            </h1>
-
-            {/* Meta row */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-4
-                            border-b border-surface-700/50">
-              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        {/* ── Video player + info ──────────────────────────────────── */}
+        <div className="max-w-5xl mx-auto">
+          {video.status !== "ready" || !video.videoUrl ? (
+            <div className="w-full aspect-video bg-surface-800 rounded-2xl flex flex-col items-center justify-center gap-3">
+              {video.status === "error" ? (
+                <>
+                  <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
-                  <strong className="text-white">{formatViews(video.views)}</strong> izlenme
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  {format(new Date(video.createdAt), "d MMM yyyy", { locale: tr })}
-                </span>
-              </div>
-
-              {/* Paylaş button */}
-              <button
-                onClick={() => {
-                  navigator.clipboard?.writeText(window.location.href);
-                }}
-                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white
-                           transition-colors px-3 py-1.5 rounded-lg hover:bg-surface-700"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-                Paylaş
-              </button>
+                  <p className="text-gray-400 text-sm">Video işlenirken hata oluştu.</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-10 h-10 border-[3px] border-brand-500/30 border-t-brand-400 rounded-full animate-spin" />
+                  <p className="text-gray-400 text-sm">Video işleniyor, lütfen bekleyin...</p>
+                  <p className="text-gray-600 text-xs">Uzun videolar birkaç dakika sürebilir</p>
+                </>
+              )}
             </div>
+          ) : instreamSlot?.enabled && showInstream
+            ? <InstreamVideoAd onSkip={() => setShowInstream(false)} />
+            : <VideoPlayer src={video.videoUrl} poster={video.thumbnailUrl} title={video.title} videoId={video._id} mp4FallbackUrl={video.mp4FallbackUrl || null} />
+          }
 
-            {/* Description */}
-            {video.description && (
-              <div className="mt-4 bg-surface-800/60 rounded-xl p-4">
-                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
-                  {descExpanded ? video.description : shortDesc}
-                  {hasLongDesc && !descExpanded && "..."}
-                </p>
-                {hasLongDesc && (
-                  <button
-                    onClick={() => setDescExpanded(!descExpanded)}
-                    className="text-brand-400 hover:text-brand-300 text-sm font-medium mt-2 transition-colors"
-                  >
-                    {descExpanded ? "Daha az göster" : "Daha fazla göster"}
-                  </button>
-                )}
-              </div>
-            )}
+          {/* Title */}
+          <h1 className="font-display font-bold text-xl sm:text-2xl text-white mt-5 mb-2 leading-tight">
+            {video.title}
+          </h1>
 
-            {/* Tags */}
-            {video.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {video.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs bg-surface-800 text-brand-400 px-2.5 py-1 rounded-full
-                               border border-brand-500/20 font-mono"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Below description ad */}
-            <BelowDescriptionAd />
-
-            {/* Mobile: related videos — horizontal single row */}
-            {related.length > 0 && (
-              <div className="xl:hidden mt-6">
-                <h2 className="font-display font-bold text-base text-white mb-3">
-                  Sıradaki
-                </h2>
-                <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-3 px-3">
-                  {related.map((v) => (
-                    <div key={v._id} className="flex-shrink-0 w-44 snap-start">
-                      <VideoCard video={v} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-surface-700/50">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <strong className="text-white">{formatViews(video.views)}</strong> izlenme
+              </span>
+              <span className="flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {format(new Date(video.createdAt), "d MMM yyyy", { locale: tr })}
+              </span>
+            </div>
+            <button
+              onClick={() => navigator.clipboard?.writeText(window.location.href)}
+              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-surface-700"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Paylaş
+            </button>
           </div>
 
-          {/* ── Sidebar ────────────────────────────────────────────── */}
-          <div className="hidden xl:block xl:w-80 2xl:w-96 flex-shrink-0 space-y-5">
-            {/* Related Videos */}
-            {related.length > 0 && (
-              <div>
-                <h2 className="font-display font-bold text-base text-white mb-3">
-                  Sıradaki
-                </h2>
-                <div className="space-y-3">
-                  {related.map((v) => (
-                    <Link
-                      key={v._id}
-                      to={`/video/${v._id}`}
-                      className="flex gap-3 group rounded-xl p-2 hover:bg-surface-800
-                                 transition-colors duration-200"
-                    >
-                      {/* Thumbnail */}
-                      <div className="w-40 aspect-video rounded-lg overflow-hidden flex-shrink-0 bg-surface-800">
-                        <img
-                          src={v.thumbnailUrl}
-                          alt={v.title}
-                          loading="lazy"
-                          className="w-full h-full object-cover group-hover:scale-105
-                                     transition-transform duration-300"
-                        />
-                      </div>
-                      {/* Info */}
-                      <div className="flex-1 min-w-0 pt-0.5">
-                        <p className="text-white text-xs font-display font-semibold
-                                      line-clamp-2 group-hover:text-brand-300 transition-colors">
-                          {v.title}
-                        </p>
-                        <p className="text-gray-500 text-xs mt-1.5">
-                          {formatViews(v.views)} izlenme
-                        </p>
-                        <p className="text-gray-600 text-xs">
-                          {formatDistanceToNow(new Date(v.createdAt), { addSuffix: true, locale: tr })}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Description */}
+          {video.description && (
+            <div className="mt-4 bg-surface-800/60 rounded-xl p-4">
+              <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                {descExpanded ? video.description : shortDesc}
+                {hasLongDesc && !descExpanded && "..."}
+              </p>
+              {hasLongDesc && (
+                <button
+                  onClick={() => setDescExpanded(!descExpanded)}
+                  className="text-brand-400 hover:text-brand-300 text-sm font-medium mt-2 transition-colors"
+                >
+                  {descExpanded ? "Daha az göster" : "Daha fazla göster"}
+                </button>
+              )}
+            </div>
+          )}
 
-            {/* Sidebar Ad — below related videos */}
-            <SidebarAd />
-          </div>
+          {/* Tags */}
+          {video.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {video.tags.map((tag) => (
+                <span key={tag} className="text-xs bg-surface-800 text-brand-400 px-2.5 py-1 rounded-full border border-brand-500/20 font-mono">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
 
+          <BelowDescriptionAd />
         </div>
+
+        {/* ── Related videos — below player, full-width grid ───────── */}
+        {related.length > 0 && (
+          <div className="mt-8">
+            <h2 className="font-display font-bold text-base text-white mb-4">Sıradaki</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-5">
+              {related.map((v) => (
+                <VideoCard key={v._id} video={v} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

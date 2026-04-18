@@ -147,7 +147,7 @@ export default function Home() {
         url="/"
       />
 
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-5 py-4">
+      <div className="max-w-[1600px] mx-auto px-2 sm:px-5 py-4">
 
         <TopBannerAd />
 
