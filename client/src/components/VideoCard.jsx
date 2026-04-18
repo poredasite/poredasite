@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useInView } from "react-intersection-observer";
 import { formatDistanceToNow, format } from "date-fns";
+import Hls from "hls.js";
 
 function formatViews(n) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
@@ -24,56 +25,90 @@ function getCategories(video) {
   return [];
 }
 
+function getPreviewUrl(video) {
+  if (video.previewVideoUrl) return video.previewVideoUrl;
+  if (video.videoUrl) return video.videoUrl;
+  return null;
+}
+
 export default function VideoCard({ video, priority = false }) {
-  const [imgLoaded, setImgLoaded]     = useState(false);
-  const [imgError, setImgError]       = useState(false);
-  const [isHovered, setIsHovered]     = useState(false);
-  const [previewSrc, setPreviewSrc]   = useState(null);   // loaded lazily on first hover
+  const [imgLoaded, setImgLoaded]       = useState(false);
+  const [imgError, setImgError]         = useState(false);
+  const [isHovered, setIsHovered]       = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false); // video gerçekten başladıysa
   const [previewError, setPreviewError] = useState(false);
 
-  const videoRef      = useRef(null);
-  const hoverTimer    = useRef(null);
+  const videoRef   = useRef(null);
+  const hlsRef     = useRef(null);
+  const hoverTimer = useRef(null);
 
   const { ref, inView } = useInView({ triggerOnce: true, rootMargin: "200px" });
   const shouldLoad = priority || inView;
-  const cats = getCategories(video);
+  const cats       = getCategories(video);
+  const previewUrl = getPreviewUrl(video);
+  const hasPreview = !!previewUrl && !previewError;
 
-  const hasPreview = !!video.previewVideoUrl && !previewError;
-  const showPreview = isHovered && hasPreview && !!previewSrc;
+  const startPreview = useCallback(() => {
+    const vid = videoRef.current;
+    if (!vid || !previewUrl || previewError) return;
 
-  // ── Hover handlers ─────────────────────────────────────────────────────────
+    const isHLS = previewUrl.includes(".m3u8");
+
+    if (isHLS && Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: false, startLevel: 0, maxBufferLength: 10 });
+      hlsRef.current = hls;
+      hls.loadSource(previewUrl);
+      hls.attachMedia(vid);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        vid.play().catch(() => setPreviewError(true));
+      });
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) setPreviewError(true);
+      });
+    } else if (isHLS && vid.canPlayType("application/vnd.apple.mpegurl")) {
+      // Safari native HLS
+      vid.src = previewUrl;
+      vid.play().catch(() => setPreviewError(true));
+    } else {
+      // MP4
+      vid.src = previewUrl;
+      vid.play().catch(() => setPreviewError(true));
+    }
+  }, [previewUrl, previewError]);
+
+  const stopPreview = useCallback(() => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    const vid = videoRef.current;
+    if (vid) {
+      vid.pause();
+      vid.currentTime = 0;
+      vid.src = "";
+      vid.load();
+    }
+    setPreviewPlaying(false);
+  }, []);
+
   const handleMouseEnter = useCallback(() => {
     hoverTimer.current = setTimeout(() => {
       setIsHovered(true);
-      // Set src on first hover (lazy load)
-      if (video.previewVideoUrl && !previewError) {
-        setPreviewSrc(video.previewVideoUrl);
-      }
-    }, 280);
-  }, [video.previewVideoUrl, previewError]);
+      startPreview();
+    }, 300);
+  }, [startPreview]);
 
   const handleMouseLeave = useCallback(() => {
     clearTimeout(hoverTimer.current);
     setIsHovered(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
+    stopPreview();
+  }, [stopPreview]);
+
+  // Cleanup on unmount
+  useEffect(() => () => {
+    clearTimeout(hoverTimer.current);
+    stopPreview();
   }, []);
-
-  // Play / pause when hover state changes
-  useEffect(() => {
-    const vid = videoRef.current;
-    if (!vid || !previewSrc) return;
-    if (isHovered) {
-      vid.play().catch(() => setPreviewError(true));
-    } else {
-      vid.pause();
-    }
-  }, [isHovered, previewSrc]);
-
-  // Cleanup timer on unmount
-  useEffect(() => () => clearTimeout(hoverTimer.current), []);
 
   return (
     <Link
@@ -83,15 +118,12 @@ export default function VideoCard({ video, priority = false }) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* ── Thumbnail container ────────────────────────────────────────────── */}
       <div ref={ref} className="video-thumbnail rounded-xl overflow-hidden relative">
 
         {/* Skeleton */}
-        {!imgLoaded && !imgError && (
-          <div className="absolute inset-0 skeleton" />
-        )}
+        {!imgLoaded && !imgError && <div className="absolute inset-0 skeleton" />}
 
-        {/* Thumbnail image */}
+        {/* Thumbnail */}
         {shouldLoad && !imgError && (
           <img
             src={video.thumbnailUrl}
@@ -100,9 +132,9 @@ export default function VideoCard({ video, priority = false }) {
             decoding="async"
             onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
-            className={`absolute inset-0 w-full h-full object-cover transition-all duration-500
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500
               ${imgLoaded ? "opacity-100" : "opacity-0"}
-              ${showPreview ? "opacity-0" : ""}`}
+              ${previewPlaying ? "opacity-0" : ""}`}
           />
         )}
 
@@ -116,18 +148,18 @@ export default function VideoCard({ video, priority = false }) {
           </div>
         )}
 
-        {/* ── Hover preview video ──────────────────────────────────────────── */}
+        {/* Preview video — her zaman DOM'da, src hover'da set edilir */}
         {hasPreview && (
           <video
             ref={videoRef}
-            src={previewSrc || undefined}
             muted
             loop
             playsInline
-            preload="none"
+            onPlay={() => setPreviewPlaying(true)}
+            onPause={() => setPreviewPlaying(false)}
             onError={() => setPreviewError(true)}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300
-              ${showPreview ? "opacity-100" : "opacity-0"}`}
+              ${previewPlaying ? "opacity-100" : "opacity-0"}`}
           />
         )}
 
@@ -138,28 +170,11 @@ export default function VideoCard({ video, priority = false }) {
           </span>
         )}
 
-        {/* Play button overlay */}
-        <div className="absolute inset-0 z-10 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
-          <div className={`w-11 h-11 bg-brand-500/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg
-            transition-all duration-300
-            ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100"}`}
-          >
-            <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 ml-0.5">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Live preview badge */}
-        {showPreview && (
-          <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-brand-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-fade-in">
-            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-            ÖNIZLEME
-          </div>
-        )}
+        {/* Subtle hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-all duration-300 pointer-events-none" />
       </div>
 
-      {/* ── Info ───────────────────────────────────────────────────────────── */}
+      {/* Info */}
       <div className="px-0.5">
         <h3 className="text-white text-sm font-display font-semibold leading-snug line-clamp-2 group-hover:text-brand-300 transition-colors duration-200 mb-1.5">
           {video.title}
