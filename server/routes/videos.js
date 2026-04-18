@@ -156,21 +156,24 @@ router.post("/:id/process", adminAuth, async (req, res) => {
         const duration = await getVideoDuration(tmpPath);
         const id = video._id.toString();
 
-        // All encoding tasks in parallel
-        const [codecInfo, previewPath, outputDir, mp4FallbackPath] = await Promise.all([
-          extractCodecInfo(tmpPath),
-          generatePreviewClip(tmpPath, id, duration).catch((e) => { console.error("❌ Preview generate failed:", e.message); return null; }),
-          convertToHLS(tmpPath, id),
-          generateMp4Fallback(tmpPath, id).catch(() => null),
-        ]);
+        // Sequential encoding to avoid OOM (SIGKILL) on Railway
+        const codecInfo = await extractCodecInfo(tmpPath);
+        const outputDir = await convertToHLS(tmpPath, id);
+        const hlsUrl = await uploadHLSToStorage(outputDir, id);
+
+        const previewPath = await generatePreviewClip(tmpPath, id, duration)
+          .catch((e) => { console.error("❌ Preview generate failed:", e.message); return null; });
+        const previewUrl = previewPath
+          ? await uploadPreviewToStorage(previewPath, id).catch((e) => { console.error("❌ Preview upload failed:", e.message); return null; })
+          : null;
+
+        const mp4FallbackPath = await generateMp4Fallback(tmpPath, id)
+          .catch((e) => { console.error("❌ MP4 fallback failed:", e.message); return null; });
+        const mp4FallbackUrl = mp4FallbackPath
+          ? await uploadMp4FallbackToStorage(mp4FallbackPath, id).catch(() => null)
+          : null;
 
         fs.unlinkSync(tmpPath);
-
-        const [previewUrl, hlsUrl, mp4FallbackUrl] = await Promise.all([
-          previewPath ? uploadPreviewToStorage(previewPath, id).catch((e) => { console.error("❌ Preview upload failed:", e.message); return null; }) : null,
-          uploadHLSToStorage(outputDir, id),
-          mp4FallbackPath ? uploadMp4FallbackToStorage(mp4FallbackPath, id).catch(() => null) : null,
-        ]);
 
         await deleteRawFromStorage(video.rawVideoKey);
         await Video.findByIdAndUpdate(video._id, {
