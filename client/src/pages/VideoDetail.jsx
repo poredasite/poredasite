@@ -189,15 +189,17 @@ export default function VideoDetail() {
             {/* Below description ad */}
             <BelowDescriptionAd />
 
-            {/* Mobile: related videos */}
+            {/* Mobile: related videos — horizontal single row */}
             {related.length > 0 && (
               <div className="xl:hidden mt-6">
                 <h2 className="font-display font-bold text-base text-white mb-3">
                   Sıradaki
                 </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {related.slice(0, 6).map((v) => (
-                    <VideoCard key={v._id} video={v} />
+                <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-3 px-3">
+                  {related.map((v) => (
+                    <div key={v._id} className="flex-shrink-0 w-44 snap-start">
+                      <VideoCard video={v} />
+                    </div>
                   ))}
                 </div>
               </div>

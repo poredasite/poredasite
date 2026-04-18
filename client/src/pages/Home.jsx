@@ -230,7 +230,7 @@ export default function Home() {
 
         {/* Video grid */}
         {!loading && !error && videos.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-x-3 gap-y-5 animate-fade-in">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
             {gridItems.map((item, idx) =>
               item.type === "ad"
                 ? <InFeedAd key={item.key} />
@@ -241,7 +241,7 @@ export default function Home() {
 
         {/* Load-more skeletons */}
         {loadingMore && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-x-3 gap-y-5 mt-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 mt-5">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex flex-col gap-2.5">
                 <div className="skeleton rounded-xl" style={{ aspectRatio: "16/9" }} />

@@ -1,24 +1,16 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import previewManager from '../lib/previewManager';
 
-// "pointer: coarse" is the reliable touch-device signal.
-// Avoids the Android bug where hover:hover sometimes returns true.
 const IS_TOUCH =
   typeof window !== 'undefined' &&
   (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
 
-const HOVER_DELAY      = 200;  // ms — desktop intent threshold
-const TOUCH_DELAY      = 150;  // ms — mobile intent threshold
-const SCROLL_THRESHOLD = 15;   // px — movement that means "scrolling, not tapping"
+const HOVER_DELAY      = 200;
+const TOUCH_DELAY      = 150;
+const SCROLL_THRESHOLD = 15;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useVideoPreview(videoId, previewUrl, onNavigate)
-//
-// Returns:
-//   containerProps  — spread onto the card wrapper div
-//   videoProps      — spread onto the <video> element
-//   isPlaying       — whether preview is currently playing
-//   onCardClick     — click handler (desktop: navigate; mobile: tap logic)
 // ─────────────────────────────────────────────────────────────────────────────
 export function useVideoPreview(videoId, previewUrl, onNavigate) {
   const videoRef   = useRef(null);
@@ -26,43 +18,60 @@ export function useVideoPreview(videoId, previewUrl, onNavigate) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const delayTimer   = useRef(null);
-  const touchOrigin  = useRef(null);  // { x, y } while touch is active
-  const previewArmed = useRef(false); // did THIS touch session start a preview?
+  const touchOrigin  = useRef(null);   // { x, y } while touch active, null when cancelled
+  const previewArmed = useRef(false);  // did this touch session officially commit a preview?
   const isVisible    = useRef(false);
 
-  // ── Release all video resources ─────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  // Synchronous viewport check — fallback when IntersectionObserver hasn't fired yet.
+  const isInViewport = useCallback(() => {
+    const el = wrapperRef.current;
+    if (!el) return false;
+    const r  = el.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    if (r.height === 0) return false;
+    const visH = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    return visH / r.height >= 0.5;
+  }, []);
+
+  // ── Release all video resources ───────────────────────────────────────────
+  // Use removeAttribute('src') — NOT v.src = '' — so v.load() does NOT fire
+  // an error event that could race-condition with a subsequent play attempt.
   const releaseVideo = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
     v.pause();
     v.currentTime = 0;
-    v.src = '';
+    v.removeAttribute('src');
     v.load();
   }, []);
 
-  // ── Stop handler — stored in previewManager ──────────────────────────────
+  // ── Stop handler — stored in previewManager ───────────────────────────────
   const doStop = useCallback(() => {
     releaseVideo();
     setIsPlaying(false);
   }, [releaseVideo]);
 
-  // ── Start preview ────────────────────────────────────────────────────────
-  const doStart = useCallback(() => {
-    if (!previewUrl || !isVisible.current) return;
+  // ── Officially commit this card as the active preview ─────────────────────
+  // Called 150 ms after touch (or immediately for desktop).
+  // Sets previewArmed so click handler knows not to navigate.
+  const commitPreview = useCallback(() => {
     previewArmed.current = true;
     previewManager.start(videoId, doStop);
-    const v = videoRef.current;
-    if (!v) return;
-    // Only set src when actually starting — keeps network idle until needed.
-    if (!v.src) v.src = previewUrl;
-    v.currentTime = 0;
-    v.play().catch(() => {});
-  }, [videoId, previewUrl, doStop]);
+  }, [videoId, doStop]);
 
-  // ── IntersectionObserver: ≥50 % visible to play, <50 % to stop ──────────
+  // ── IntersectionObserver ──────────────────────────────────────────────────
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
+
+    // Seed synchronously so first-touch on visible cards works immediately.
+    const r  = el.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    isVisible.current = r.height > 0 &&
+      (Math.min(r.bottom, vh) - Math.max(r.top, 0)) / r.height >= 0.5;
+
     const obs = new IntersectionObserver(
       ([entry]) => {
         isVisible.current = entry.intersectionRatio >= 0.5;
@@ -77,33 +86,43 @@ export function useVideoPreview(videoId, previewUrl, onNavigate) {
     return () => obs.disconnect();
   }, [videoId]);
 
-  // ── Mobile: stop when the page scrolls while preview is playing ──────────
-  //
-  // After touchend the preview intentionally keeps running.
-  // A window "scroll" event fires as soon as the next scroll gesture moves
-  // the page — that's our signal to stop.
+  // ── Mobile: stop when user scrolls while preview is playing ───────────────
+  // After touchend, the preview keeps running. A new scroll gesture fires the
+  // window 'scroll' event — that's our stop signal.
   useEffect(() => {
     if (!IS_TOUCH || !isPlaying) return;
-    const onScroll = () => previewManager.stop(videoId);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const stop = () => previewManager.stop(videoId);
+    window.addEventListener('scroll', stop, { passive: true });
+    return () => window.removeEventListener('scroll', stop);
   }, [isPlaying, videoId]);
 
-  // ── Cleanup on unmount ───────────────────────────────────────────────────
+  // ── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       clearTimeout(delayTimer.current);
       if (previewManager.current === videoId) previewManager.stop(videoId);
-      releaseVideo();
+      else releaseVideo();
     };
   }, [videoId, releaseVideo]);
 
-  // ── Desktop: mouseenter / mouseleave ────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // DESKTOP handlers
+  // ─────────────────────────────────────────────────────────────────────────
+
   const onMouseEnter = useCallback(() => {
     if (IS_TOUCH || !previewUrl) return;
     clearTimeout(delayTimer.current);
-    delayTimer.current = setTimeout(doStart, HOVER_DELAY);
-  }, [previewUrl, doStart]);
+    delayTimer.current = setTimeout(() => {
+      if (!isVisible.current && !isInViewport()) return;
+      previewArmed.current = true;
+      previewManager.start(videoId, doStop);
+      const v = videoRef.current;
+      if (!v) return;
+      if (!v.getAttribute('src')) v.src = previewUrl;
+      v.currentTime = 0;
+      v.play().catch(() => {});
+    }, HOVER_DELAY);
+  }, [previewUrl, videoId, doStop, isInViewport]);
 
   const onMouseLeave = useCallback(() => {
     if (IS_TOUCH) return;
@@ -111,39 +130,53 @@ export function useVideoPreview(videoId, previewUrl, onNavigate) {
     if (previewManager.current === videoId) previewManager.stop(videoId);
   }, [videoId]);
 
-  // ── Mobile: touchstart ───────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // MOBILE handlers
   //
-  // Records touch origin and arms the 150 ms delay timer.
-  // previewArmed is reset here so the click handler knows whether
-  // THIS touch session started a preview or was a quick tap.
+  // WHY play() is called inside onTouchStart (user gesture):
+  //   iOS Safari requires a user-gesture context for video.play() even on
+  //   muted video in some versions. A setTimeout callback is NOT a gesture.
+  //   Calling play() directly in the touchstart handler guarantees it works.
+  //
+  // HOW SCROLL DETECTION WORKS:
+  //   Phase 1 — during 150 ms delay:
+  //     touchmove watches Δx/Δy against touchOrigin. If either exceeds
+  //     SCROLL_THRESHOLD (15 px) the gesture is classified as a scroll:
+  //     timer is cancelled, video is paused and released, touchOrigin set
+  //     to null so further moves are ignored.
+  //
+  //   Phase 2 — after preview is playing (even after touchend):
+  //     A window 'scroll' listener (added while isPlaying === true) fires
+  //     on the first scroll event and stops the active preview.
+  // ─────────────────────────────────────────────────────────────────────────
+
   const onTouchStart = useCallback((e) => {
     if (!previewUrl) return;
     previewArmed.current = false;
     const t = e.touches[0];
     touchOrigin.current = { x: t.clientX, y: t.clientY };
     clearTimeout(delayTimer.current);
-    delayTimer.current = setTimeout(doStart, TOUCH_DELAY);
-  }, [previewUrl, doStart]);
 
-  // ── Mobile: touchmove ────────────────────────────────────────────────────
-  //
-  // HOW SCROLL DETECTION WORKS:
-  //
-  // While a touch is active we continuously compare the current finger
-  // position against where the touch began (touchOrigin).
-  //
-  // If either axis exceeds SCROLL_THRESHOLD (15 px):
-  //   → The gesture is a scroll, not a tap
-  //   → Cancel the pending delay timer (preview never starts)
-  //   → If the preview somehow already started, stop it immediately
-  //   → Null-out touchOrigin so subsequent moves are ignored
-  //
-  // This covers two phases:
-  //   Phase 1 – during the 150 ms delay: timer is cancelled, no preview starts
-  //   Phase 2 – if preview is already playing: preview is stopped mid-scroll
-  //
-  // After touchend the touch origin is gone; further scroll is caught by
-  // the window "scroll" listener added when isPlaying becomes true.
+    const v = videoRef.current;
+    if (!v) return;
+
+    // Stop whatever is currently playing so we don't have two videos loading.
+    if (previewManager.current && previewManager.current !== videoId) {
+      previewManager.stop(previewManager.current);
+    }
+
+    // Set src and call play() HERE — inside the user gesture — for iOS.
+    if (!v.getAttribute('src')) v.src = previewUrl;
+    v.currentTime = 0;
+    v.play().catch(() => {});
+
+    // After TOUCH_DELAY with no scroll → officially register with manager.
+    delayTimer.current = setTimeout(() => {
+      if (!touchOrigin.current) return; // scroll cancelled
+      commitPreview();
+    }, TOUCH_DELAY);
+  }, [previewUrl, videoId, commitPreview]);
+
   const onTouchMove = useCallback((e) => {
     if (!touchOrigin.current) return;
     const t  = e.touches[0];
@@ -152,53 +185,52 @@ export function useVideoPreview(videoId, previewUrl, onNavigate) {
     if (dx > SCROLL_THRESHOLD || dy > SCROLL_THRESHOLD) {
       touchOrigin.current = null;
       clearTimeout(delayTimer.current);
+      // If already committed to manager, stop via manager. Otherwise release directly.
       if (previewManager.current === videoId) previewManager.stop(videoId);
+      else releaseVideo();
     }
-  }, [videoId]);
+  }, [videoId, releaseVideo]);
 
-  // touchend — intentionally not handled. Preview keeps playing after lift.
+  // touchend — intentionally NOT handled. Preview keeps playing after lift.
 
-  // ── Click / tap handler ──────────────────────────────────────────────────
+  // ── Click / tap navigation ────────────────────────────────────────────────
   //
-  // Desktop: always navigate (hover already showed preview).
+  // Desktop: always navigate (hover already handles the preview).
   //
   // Mobile tap logic:
-  //   • Quick tap (< 150 ms) — previewArmed stays false  → navigate
-  //   • Long tap  (≥ 150 ms) — previewArmed becomes true → keep preview, don't navigate
-  //   • Second tap on active card                         → stop + navigate
+  //   • Quick tap  (< 150 ms, previewArmed=false) → navigate directly
+  //   • Long hold  (≥ 150 ms, previewArmed=true)  → keep preview, don't navigate
+  //   • Second tap on already-previewing card      → stop + navigate
   const onCardClick = useCallback(() => {
     if (!IS_TOUCH) {
       onNavigate?.();
       return;
     }
     if (previewManager.current === videoId) {
-      // Already previewing → second tap → navigate
+      // Already showing this preview → second tap → navigate
       previewManager.stop(videoId);
       onNavigate?.();
     } else if (!previewArmed.current) {
-      // Quick tap, no preview started → navigate
+      // Quick tap that never started a preview → navigate
       onNavigate?.();
     }
-    // Long tap that started a preview → do nothing; preview keeps playing
+    // else: long-hold started preview, user lifted finger → keep playing
   }, [videoId, onNavigate]);
 
-  // ── Video element events ─────────────────────────────────────────────────
+  // ── Video element events ──────────────────────────────────────────────────
   const onPlay  = useCallback(() => setIsPlaying(true),  []);
   const onPause = useCallback(() => setIsPlaying(false), []);
+
+  // Only handle errors when a real src is loaded — not the no-op error that
+  // fires from v.load() after removeAttribute('src') during cleanup.
   const onError = useCallback(() => {
+    if (!videoRef.current?.getAttribute('src')) return;
     releaseVideo();
     setIsPlaying(false);
   }, [releaseVideo]);
 
-  // ── Assembled prop bags ──────────────────────────────────────────────────
-  const containerProps = {
-    ref: wrapperRef,
-    onMouseEnter,
-    onMouseLeave,
-    onTouchStart,
-    onTouchMove,
-  };
-
+  // ─────────────────────────────────────────────────────────────────────────
+  const containerProps = { ref: wrapperRef, onMouseEnter, onMouseLeave, onTouchStart, onTouchMove };
   const videoProps = {
     ref: videoRef,
     muted:      true,
