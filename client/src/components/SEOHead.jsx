@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { generateVideoSchema, serializeSchema } from "../lib/videoSchema";
 
 const SITE_NAME = "xxxporeda";
 const SITE_URL = import.meta.env.VITE_SITE_URL || "https://xxxporeda.com";
@@ -15,6 +16,7 @@ export default function SEOHead({
   noIndex = false,
   prevPage = null,
   nextPage = null,
+  videoObject = null,   // full video document → generates rich VideoObject schema
 }) {
   const fullTitle = title ? `${title} — ${SITE_NAME}` : `${SITE_NAME} Porno izle`;
   const canonicalUrl = url ? `${SITE_URL}${url}` : SITE_URL;
@@ -49,21 +51,22 @@ export default function SEOHead({
       {videoUrl && <meta property="og:video" content={videoUrl} />}
       {videoUrl && <meta property="og:video:type" content="video/mp4" />}
 
-      {/* Schema.org JSON-LD */}
-      {videoUrl && (
-        <script type="application/ld+json">
-          {JSON.stringify({
+      {/* Schema.org JSON-LD — rich VideoObject when videoObject is supplied */}
+      {videoObject ? (
+        <script type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeSchema(generateVideoSchema(videoObject)) }}
+        />
+      ) : videoUrl ? (
+        <script type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeSchema({
             "@context": "https://schema.org",
             "@type": "VideoObject",
-            name: title,
-            description: description,
-            thumbnailUrl: image,
-            contentUrl: videoUrl,
-            embedUrl: canonicalUrl,
+            name: title, description, thumbnailUrl: image,
+            contentUrl: videoUrl, embedUrl: canonicalUrl,
             uploadDate: new Date().toISOString(),
-          })}
-        </script>
-      )}
+          })}}
+        />
+      ) : null}
     </Helmet>
   );
 }

@@ -29,8 +29,8 @@ function CategoryBar({ activeCategory, onSelect }) {
         onClick={() => onSelect(null)}
         className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap touch-manipulation
           ${!activeCategory
-            ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20"
-            : "bg-surface-800 text-gray-400 border border-white/8 hover:border-brand-500/40 hover:text-white"}`}
+            ? "bg-brand-500 text-white"
+            : "bg-white/5 text-neutral-400 border border-white/8 hover:text-white hover:bg-white/8"}`}
       >
         Tümü
       </button>
@@ -45,8 +45,8 @@ function CategoryBar({ activeCategory, onSelect }) {
           onClick={() => onSelect(cat._id)}
           className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap touch-manipulation
             ${activeCategory === cat._id
-              ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20"
-              : "bg-surface-800 text-gray-400 border border-white/8 hover:border-brand-500/40 hover:text-white"}`}
+              ? "bg-brand-500 text-white"
+              : "bg-white/5 text-neutral-400 border border-white/8 hover:text-white hover:bg-white/8"}`}
         >
           {cat.name}
           {cat.videoCount > 0 && (

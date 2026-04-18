@@ -8,10 +8,11 @@ const path = require("path");
 
 const { PutBucketCorsCommand } = require("@aws-sdk/client-s3");
 const { s3, BUCKET } = require("./config/storage");
-const videosRouter = require("./routes/videos");
+const videosRouter    = require("./routes/videos");
 const categoriesRouter = require("./routes/categories");
-const settingsRouter = require("./routes/settings");
-const streamRouter = require("./routes/stream");
+const settingsRouter   = require("./routes/settings");
+const streamRouter     = require("./routes/stream");
+const sitemap          = require("./services/sitemapService");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -82,40 +83,16 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Sitemap
-app.get("/sitemap.xml", async (req, res) => {
-  try {
-    const Video = require("./models/Video");
-    const videos = await Video.find({ status: "ready" }).select("_id slug updatedAt tags").sort({ createdAt: -1 });
-    const baseUrl = process.env.CLIENT_URL || "http://localhost:5173";
+// ─── Sitemap (production-grade, chunked, video-schema) ───────────────────────
+const xmlHdr = (res) => res.header("Content-Type", "application/xml");
 
-    // Collect unique tags across all videos
-    const tagSet = new Set();
-    for (const v of videos) (v.tags || []).forEach((t) => tagSet.add(t.toLowerCase()));
+app.get("/sitemap.xml",            async (req, res) => { try { xmlHdr(res); res.send(await sitemap.getSitemapIndex()); }    catch { res.status(500).send("<!-- sitemap error -->"); } });
+app.get("/sitemap-videos.xml",     async (req, res) => { try { xmlHdr(res); res.send(await sitemap.getVideoSitemap(1)); }   catch { res.status(500).send("<!-- sitemap error -->"); } });
+app.get("/sitemap-videos-:n.xml",  async (req, res) => { try { xmlHdr(res); res.send(await sitemap.getVideoSitemap(parseInt(req.params.n) || 1)); } catch { res.status(500).send("<!-- sitemap error -->"); } });
+app.get("/sitemap-tags.xml",       async (req, res) => { try { xmlHdr(res); res.send(await sitemap.getTagSitemap()); }      catch { res.status(500).send("<!-- sitemap error -->"); } });
+app.get("/sitemap-categories.xml", async (req, res) => { try { xmlHdr(res); res.send(await sitemap.getCategorySitemap()); } catch { res.status(500).send("<!-- sitemap error -->"); } });
 
-    const today = new Date().toISOString().split("T")[0];
-    const urls = [
-      `<url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`,
-      ...videos.map((v) =>
-        `<url><loc>${baseUrl}/video/${v._id}</loc><lastmod>${
-          v.updatedAt?.toISOString().split("T")[0] || today
-        }</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>`
-      ),
-      ...[...tagSet].map((tag) =>
-        `<url><loc>${baseUrl}/tag/${encodeURIComponent(tag)}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>`
-      ),
-    ].join("\n    ");
-    res.header("Content-Type", "application/xml");
-    res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    ${urls}
-</urlset>`);
-  } catch (err) {
-    res.status(500).send("Error generating sitemap");
-  }
-});
-
-// Robots.txt
+// Robots.txt — updated with all sitemaps
 app.get("/robots.txt", (req, res) => {
   const baseUrl = process.env.CLIENT_URL || "http://localhost:5173";
   res.type("text/plain");
@@ -178,6 +155,7 @@ mongoose
       const server = app.listen(PORT, () => {
         console.log(`🚀 Server running on http://localhost:${PORT}`);
         console.log(`📡 Environment: ${process.env.NODE_ENV || "development"}`);
+        sitemap.startScheduler();
       });
       server.timeout = 20 * 60 * 1000; // 20 dakika
       server.keepAliveTimeout = 20 * 60 * 1000;

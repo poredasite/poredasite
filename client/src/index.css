@@ -3,92 +3,48 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    @apply scroll-smooth;
-  }
+  html { @apply scroll-smooth; }
+  body { @apply antialiased; }
 }
 
 @layer components {
   /* Skeleton shimmer */
   .skeleton {
-    @apply bg-surface-800 rounded overflow-hidden relative;
-    background: linear-gradient(90deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%);
+    @apply bg-neutral-800 rounded overflow-hidden relative;
+    background: linear-gradient(90deg, #111 0%, #1c1c1c 50%, #111 100%);
     background-size: 200% 100%;
     animation: shimmer 1.6s infinite;
   }
 
-  /* Button base */
+  /* Buttons */
   .btn-primary {
-    @apply bg-brand-500 text-white font-display font-semibold
-           px-6 py-2.5 rounded-lg transition-all duration-200
-           touch-manipulation min-h-[44px];
-  }
-  .btn-primary:hover {
-    @apply bg-brand-400;
-  }
-  .btn-primary:active {
-    @apply scale-95;
-  }
-  .btn-primary:disabled {
-    @apply opacity-50 cursor-not-allowed;
+    @apply bg-brand-500 text-white font-semibold px-5 py-2.5 rounded-lg
+           transition-colors duration-200 touch-manipulation min-h-[44px]
+           hover:bg-brand-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-ghost {
-    @apply border border-surface-600 text-gray-300 font-display font-medium
-           px-4 py-2 rounded-lg transition-all duration-200
-           touch-manipulation min-h-[44px];
-  }
-  .btn-ghost:hover {
-    @apply border-surface-500 bg-surface-700 text-white;
-  }
-  .btn-ghost:active {
-    @apply scale-95;
-  }
-
-  /* Card hover glow */
-  .card-hover {
-    @apply transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,107,0,0.12)];
+    @apply border border-white/10 text-neutral-400 font-medium px-4 py-2 rounded-lg
+           transition-colors duration-200 touch-manipulation min-h-[44px]
+           hover:border-white/20 hover:text-white active:scale-95;
   }
 
   /* Ad placeholder */
   .ad-placeholder {
-    @apply border border-dashed border-surface-600 rounded-xl
+    @apply border border-dashed border-white/5 rounded-xl
            flex items-center justify-center
-           text-surface-600 text-xs font-mono tracking-widest uppercase
+           text-neutral-700 text-xs font-mono tracking-widest uppercase
            select-none cursor-default;
   }
 
-  /* Video grid item */
-  .video-thumbnail {
-    @apply relative overflow-hidden rounded-xl aspect-video bg-surface-800;
-  }
-
-  /* Thumbnail image — scale on hover unless a preview video is playing */
-  .video-thumbnail img {
-    @apply w-full h-full object-cover transition-all duration-500;
-  }
-  .group:hover .video-thumbnail img:not(.preview-active) {
-    @apply scale-105;
-  }
-
-  /* Preview video element */
-  .video-thumbnail video {
-    @apply w-full h-full object-cover;
-  }
-
-  /* Focus visible ring */
   *:focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-surface-900;
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-black;
   }
 }
 
 @layer utilities {
   .text-gradient {
     @apply bg-gradient-to-r from-brand-400 to-brand-300 bg-clip-text text-transparent;
-  }
-
-  .bg-noise {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   }
 
   .line-clamp-2 {
@@ -98,23 +54,28 @@
     -webkit-line-clamp: 2;
   }
 
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-
   .line-clamp-3 {
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
 }
 
-/* Custom video player */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
 video::-webkit-media-controls-panel {
   background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
 }

@@ -17,7 +17,8 @@ const {
   generatePreviewClip, uploadPreviewToStorage,
   generateMp4Fallback, uploadMp4FallbackToStorage,
 } = require("../utils/hls");
-const { CDN_URL } = require("../config/storage");
+const { CDN_URL }  = require("../config/storage");
+const sitemap      = require("../services/sitemapService");
 
 const diskUpload = multer({
   storage: multer.diskStorage({
@@ -310,6 +311,7 @@ router.post("/:id/process", adminAuth, async (req, res) => {
         fs.unlinkSync(tmpPath);
 
         await deleteRawFromStorage(video.rawVideoKey);
+        sitemap.invalidateCache();
         await Video.findByIdAndUpdate(video._id, {
           videoUrl: hlsUrl,
           duration,
