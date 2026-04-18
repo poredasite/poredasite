@@ -10,6 +10,8 @@ const s3 = new S3Client({
     secretAccessKey: process.env.R2_SECRET_KEY,
   },
   forcePathStyle: true,
+  requestChecksumCalculation: "when_required",
+  responseChecksumValidation: "when_required",
 });
 
 module.exports = {
