@@ -1,4 +1,4 @@
-import { HashRouter as BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AdminProvider } from "./context/AdminContext";
 import { AdsProvider } from "./context/AdsContext";
 import Navbar from "./components/Navbar";
