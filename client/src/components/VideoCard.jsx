@@ -93,6 +93,8 @@ export default function VideoCard({ video, priority = false }) {
     setPreviewPlaying(false);
   }, []);
 
+  const previewActivated = useRef(false);
+
   const handleMouseEnter = useCallback(() => {
     hoverTimer.current = setTimeout(() => startPreview(), 300);
   }, [startPreview]);
@@ -100,6 +102,24 @@ export default function VideoCard({ video, priority = false }) {
   const handleMouseLeave = useCallback(() => {
     clearTimeout(hoverTimer.current);
     stopPreview();
+  }, [stopPreview]);
+
+  // Mobile: long-press to preview, release to stop (short tap still navigates)
+  const handleTouchStart = useCallback(() => {
+    previewActivated.current = false;
+    hoverTimer.current = setTimeout(() => {
+      previewActivated.current = true;
+      startPreview();
+    }, 600);
+  }, [startPreview]);
+
+  const handleTouchEnd = useCallback((e) => {
+    clearTimeout(hoverTimer.current);
+    if (previewActivated.current) {
+      e.preventDefault(); // don't navigate on release after preview
+      stopPreview();
+      previewActivated.current = false;
+    }
   }, [stopPreview]);
 
   useEffect(() => () => {
@@ -114,6 +134,9 @@ export default function VideoCard({ video, priority = false }) {
       aria-label={`İzle: ${video.title}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
       {/* Thumbnail container */}
       <div ref={ref} className="relative rounded-xl overflow-hidden bg-surface-800" style={{ aspectRatio: "16/9" }}>
@@ -169,10 +192,10 @@ export default function VideoCard({ video, priority = false }) {
           </span>
         )}
 
-        {/* Play icon on hover (desktop) */}
+        {/* Play icon on hover/long-press */}
         <div className={`absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 pointer-events-none flex items-center justify-center`}>
           <div className={`w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
-            previewPlaying ? "opacity-0 scale-75" : "opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100"
+            previewPlaying ? "opacity-0 scale-75" : "opacity-0 group-hover:opacity-100 group-active:opacity-100 scale-75 group-hover:scale-100 group-active:scale-100"
           }`}>
             <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 ml-0.5">
               <path d="M8 5v14l11-7z" />

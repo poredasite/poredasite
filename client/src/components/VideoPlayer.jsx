@@ -77,37 +77,34 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
     });
 
     hls.on(Hls.Events.ERROR, (_, data) => {
-      if (data.fatal) {
-        switch (data.type) {
-          case Hls.ErrorTypes.NETWORK_ERROR:
-            if (!usingProxy && proxyUrl !== src) {
-              // CDN failed (likely CORS) — switch to proxy
-              usingProxy = true;
-              networkRetries = 0;
-              hls.loadSource(proxyUrl);
-              hls.startLoad();
-            } else {
-              networkRetries += 1;
-              if (networkRetries <= 2) {
-                hls.startLoad();
-              } else {
-                hls.destroy();
-                setBuffering(false);
-                setPlaying(false);
-                setHlsError(true);
-              }
-            }
-            break;
-          case Hls.ErrorTypes.MEDIA_ERROR:
-            hls.recoverMediaError();
-            break;
-          default:
-            hls.destroy();
-            setBuffering(false);
-            setPlaying(false);
-            setHlsError(true);
-            break;
+      if (!data.fatal) return;
+      if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        if (!usingProxy && proxyUrl !== src) {
+          usingProxy = true;
+          networkRetries = 0;
+          hls.destroy();
+          const hls2 = new Hls({ enableWorker: false, lowLatencyMode: false, backBufferLength: 90 });
+          hls2.attachMedia(video);
+          hls2.on(Hls.Events.MEDIA_ATTACHED, () => hls2.loadSource(proxyUrl));
+          hls2.on(Hls.Events.MANIFEST_PARSED, () => {
+            setHlsReady(true);
+            if (pendingPlay.current) { pendingPlay.current = false; video.play().catch(() => {}); }
+          });
+          hls2.on(Hls.Events.ERROR, (__, d) => {
+            if (d.fatal) { hls2.destroy(); setBuffering(false); setPlaying(false); setHlsError(true); }
+          });
+        } else {
+          networkRetries += 1;
+          if (networkRetries <= 2) hls.startLoad();
+          else { hls.destroy(); setBuffering(false); setPlaying(false); setHlsError(true); }
         }
+      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        hls.recoverMediaError();
+      } else {
+        hls.destroy();
+        setBuffering(false);
+        setPlaying(false);
+        setHlsError(true);
       }
     });
 
@@ -196,10 +193,31 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
 
   function toggleFullscreen() {
     const el = containerRef.current;
+    const vid = videoRef.current;
     if (!el) return;
-    if (!document.fullscreenElement) { el.requestFullscreen?.(); setFullscreen(true); }
-    else { document.exitFullscreen?.(); setFullscreen(false); }
+    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (!isFs) {
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (vid?.webkitEnterFullscreen) vid.webkitEnterFullscreen(); // iOS Safari
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
   }
+
+  // Sync fullscreen state with browser events (handles hardware back button etc.)
+  useEffect(() => {
+    const onChange = () => {
+      setFullscreen(!!(document.fullscreenElement || document.webkitFullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+    };
+  }, []);
 
   function setVideoSpeed(s) {
     const v = videoRef.current;
