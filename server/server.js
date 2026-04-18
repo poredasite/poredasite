@@ -6,6 +6,8 @@ const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 
+const { PutBucketCorsCommand } = require("@aws-sdk/client-s3");
+const { s3, BUCKET } = require("./config/storage");
 const videosRouter = require("./routes/videos");
 const categoriesRouter = require("./routes/categories");
 const settingsRouter = require("./routes/settings");
@@ -135,12 +137,33 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
 });
 
+// ─── R2 CORS Setup ───────────────────────────────────────────────
+// HLS.js segment fetches require CORS headers from R2 public domain
+
+function applyR2Cors() {
+  if (!BUCKET) return;
+  s3.send(new PutBucketCorsCommand({
+    Bucket: BUCKET,
+    CORSConfiguration: {
+      CORSRules: [{
+        AllowedOrigins: ["*"],
+        AllowedMethods: ["GET", "HEAD"],
+        AllowedHeaders: ["*"],
+        MaxAgeSeconds: 86400,
+      }],
+    },
+  }))
+    .then(() => console.log("✅ R2 CORS configured"))
+    .catch((err) => console.error("⚠️ R2 CORS setup failed (videos may not stream):", err.message));
+}
+
 // ─── Database & Start ─────────────────────────────────────────────
 
 mongoose
     .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/poreda")
     .then(() => {
       console.log("✅ MongoDB connected");
+      applyR2Cors();
       const server = app.listen(PORT, () => {
         console.log(`🚀 Server running on http://localhost:${PORT}`);
         console.log(`📡 Environment: ${process.env.NODE_ENV || "development"}`);

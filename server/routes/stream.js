@@ -15,7 +15,7 @@ function proxyWasabi(key, contentType, cacheSeconds, req, res) {
     })
     .catch((err) => {
       const status = err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404 ? 404 : 500;
-      if (status === 500) console.error("Stream proxy error:", key, err.message);
+      console.error(`Stream proxy error [${status}] key=${key}:`, err.message);
       res.status(status).end();
     });
 }

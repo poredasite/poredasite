@@ -3,10 +3,9 @@ import Hls from "hls.js";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
 
-function buildStreamUrl(src, videoId) {
+function buildProxyUrl(src, videoId) {
   if (!src?.includes(".m3u8")) return src;
   if (videoId) return `${API_BASE}/api/stream/${videoId}/index.m3u8`;
-  // Fallback: extract videoId from URL pattern /videos/{id}/index.m3u8
   const match = src.match(/\/videos\/([^/]+)\/index\.m3u8/);
   if (match) return `${API_BASE}/api/stream/${match[1]}/index.m3u8`;
   return src;
@@ -44,17 +43,14 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
     if (!video || !src) return;
 
     if (!src.includes(".m3u8")) {
-      console.log("[VideoPlayer] MP4 src:", src);
       video.src = src;
       setHlsReady(true);
       return;
     }
 
-    const streamSrc = buildStreamUrl(src, videoId);
-    console.log("[VideoPlayer] HLS src:", src, "→ proxy:", streamSrc);
-
+    // iOS Safari: native HLS — use direct CDN URL (no CORS needed for <video> src)
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = streamSrc;
+      video.src = src;
       setHlsReady(true);
       return;
     }
@@ -64,7 +60,11 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
       return;
     }
 
+    // HLS.js: try direct CDN first (CORS set via R2 config), proxy as fallback
     let networkRetries = 0;
+    let usingProxy = false;
+    const proxyUrl = buildProxyUrl(src, videoId);
+
     const hls = new Hls({ enableWorker: false, lowLatencyMode: false, backBufferLength: 90 });
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -79,14 +79,22 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
       if (data.fatal) {
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            networkRetries += 1;
-            if (networkRetries <= 3) {
+            if (!usingProxy && proxyUrl !== src) {
+              // CDN failed (likely CORS) — switch to proxy
+              usingProxy = true;
+              networkRetries = 0;
+              hls.loadSource(proxyUrl);
               hls.startLoad();
             } else {
-              hls.destroy();
-              setBuffering(false);
-              setPlaying(false);
-              setHlsError(true);
+              networkRetries += 1;
+              if (networkRetries <= 2) {
+                hls.startLoad();
+              } else {
+                hls.destroy();
+                setBuffering(false);
+                setPlaying(false);
+                setHlsError(true);
+              }
             }
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
@@ -104,7 +112,7 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
 
     hls.attachMedia(video);
     hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-      hls.loadSource(streamSrc);
+      hls.loadSource(src);
     });
 
     return () => { hls.destroy(); };
