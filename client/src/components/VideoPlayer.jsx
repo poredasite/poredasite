@@ -50,6 +50,9 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
   const longPressTimer = useRef(null);
   const touchStartPos = useRef(null);
   const hlsInstanceRef = useRef(null);
+  // Stall detection: if buffering >8s with no canplay event, the MSE decoder silently
+  // rejected the codec (common with non-standard H.264 profiles). Try MP4 fallback.
+  const stallTimer = useRef(null);
 
   // HLS.js setup for m3u8 streams
   useEffect(() => {
@@ -89,12 +92,17 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
         }
 
         const hlsConfig = {
-            enableWorker: false, 
-            lowLatencyMode: false, 
-            backBufferLength: 90,
-            // Eğer proxy kullanıyorsak, manifest içindeki ts dosyalarını da proxy üzerinden çekmesi için xhrSetup kullanabiliriz
-            // Ancak stream.js zaten m3u8'i dönüyor, eğer m3u8 içindeki ts yolları relative ise (örn: "seg000.ts")
-            // tarayıcı zaten m3u8'in indirildiği URL'yi base alır. Yani m3u8 proxy'den iniyorsa ts'ler de otomatik proxy'ye gider.
+          enableWorker: false,
+          lowLatencyMode: false,
+          backBufferLength: 90,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+          // Retry failed segment/manifest loads — transient R2 CDN errors should self-heal
+          fragLoadingMaxRetry: 6,
+          fragLoadingRetryDelay: 1000,
+          manifestLoadingMaxRetry: 3,
+          levelLoadingMaxRetry: 4,
+          startLevel: -1,
         };
 
         const hls = new Hls(hlsConfig);
@@ -160,11 +168,12 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
     // İlk deneme direkt CDN (R2) üzerinden
     initHls(false);
 
-    return () => { 
-        if (hlsInstanceRef.current) {
-            hlsInstanceRef.current.destroy(); 
-            hlsInstanceRef.current = null;
-        }
+    return () => {
+      clearTimeout(stallTimer.current);
+      if (hlsInstanceRef.current) {
+        hlsInstanceRef.current.destroy();
+        hlsInstanceRef.current = null;
+      }
     };
   }, [src, videoId]);
 
@@ -384,9 +393,29 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
         preload="metadata"
         onTimeUpdate={() => setCurrent(videoRef.current?.currentTime || 0)}
         onDurationChange={() => setDuration(videoRef.current?.duration || 0)}
-        onWaiting={() => setBuffering(true)}
-        onCanPlay={() => setBuffering(false)}
-        onPlaying={() => { setPlaying(true); setBuffering(false); }}
+        onWaiting={() => {
+          setBuffering(true);
+          // Silent MSE failure detection: if buffering persists >8s while HLS is active,
+          // the browser decoded the manifest but silently refused the codec/profile.
+          // This is the most common "plays on mobile, black screen on web" cause.
+          if (mp4FallbackUrl && hlsInstanceRef.current) {
+            clearTimeout(stallTimer.current);
+            stallTimer.current = setTimeout(() => {
+              const v = videoRef.current;
+              const hls = hlsInstanceRef.current;
+              if (!v || !hls) return;
+              console.warn("[VideoPlayer] HLS stall detected (8s) — switching to MP4 fallback");
+              hls.destroy();
+              hlsInstanceRef.current = null;
+              v.src = mp4FallbackUrl;
+              v.load();
+              setHlsReady(true);
+              setBuffering(false);
+            }, 8000);
+          }
+        }}
+        onCanPlay={() => { setBuffering(false); clearTimeout(stallTimer.current); }}
+        onPlaying={() => { setPlaying(true); setBuffering(false); clearTimeout(stallTimer.current); }}
         onPause={() => setPlaying(false)}
         onEnded={() => { setPlaying(false); setShowControls(true); }}
         onError={() => { setBuffering(false); setPlaying(false); setHlsError(true); }}

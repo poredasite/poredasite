@@ -60,28 +60,42 @@ function convertToHLS(inputPath, videoId) {
   const outputDir = path.join(os.tmpdir(), `hls-${videoId}`);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  // GPU mode: set FFMPEG_GPU=nvenc (NVIDIA) | amf (AMD) | qsv (Intel)
-  // GPU sadece lokal sunucuda çalışır, Railway'de CPU kullanılır
   const gpu = process.env.FFMPEG_GPU;
   const videoCodec = gpu === "nvenc" ? "h264_nvenc"
                    : gpu === "amf"   ? "h264_amf"
                    : gpu === "qsv"   ? "h264_qsv"
                    : "libx264";
 
-  const qualityOpts = gpu === "nvenc" ? ["-rc vbr", "-cq 22", "-preset p2"]
-                    : gpu === "amf"   ? ["-quality speed", "-qp_i 22", "-qp_p 22"]
-                    : gpu === "qsv"   ? ["-global_quality 22", "-preset veryfast"]
-                    : ["-crf 22", "-preset veryfast"];
+  // Profile + level MUST be declared per-encoder to guarantee enforcement.
+  // Level 4.1 = max 1080p@30fps — accepted by all browsers' MSE implementations.
+  // Without explicit level, GPU encoders default to 5.0+ which Chrome MSE silently rejects.
+  const qualityOpts = gpu === "nvenc"
+    ? ["-rc vbr", "-cq 22", "-preset p2", "-profile:v main", "-level 4.1"]
+    : gpu === "amf"
+    ? ["-quality speed", "-qp_i 22", "-qp_p 22", "-profile:v main", "-level 4.1"]
+    : gpu === "qsv"
+    ? ["-global_quality 22", "-preset veryfast", "-profile:v main", "-level 4.1"]
+    : ["-crf 22", "-preset veryfast", "-profile:v main", "-level 4.1"];
 
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
         `-c:v ${videoCodec}`,
         ...qualityOpts,
-        "-profile:v main", // Force main profile for better browser compatibility
-        "-pix_fmt yuv420p", // FORCE 8-bit pixel format (Web tarayıcıları 10-bit/HDR videolarda hata verir)
-        "-c:a aac", "-b:a 128k",
+        // Force 8-bit YUV 4:2:0 — browsers cannot MSE-decode 10-bit or 4:4:4 H.264
+        "-pix_fmt yuv420p",
+        // Force keyframe at every segment boundary.
+        // Without this, segments may not start with an IDR frame: Chrome/FF MSE stalls silently,
+        // mobile hardware decoders recover by scanning backwards (so mobile works, web doesn't).
+        "-force_key_frames expr:gte(t,n_forced*6)",
+        // Disable scene-change keyframe insertion so only forced keyframes exist (CPU path).
+        // GPU encoders ignore this flag harmlessly.
+        "-sc_threshold 0",
+        // Stereo 48kHz AAC — 5.1/surround or 44.1kHz audio causes silent MSE decode failure on web.
+        "-c:a aac", "-b:a 128k", "-ar 48000", "-ac 2",
         "-hls_time 6", "-hls_list_size 0",
+        // EXT-X-INDEPENDENT-SEGMENTS: every segment is self-contained, no cross-segment refs.
+        "-hls_flags independent_segments",
         `-hls_segment_filename ${path.join(outputDir, "seg%03d.ts")}`,
         "-f hls",
       ])
@@ -121,8 +135,12 @@ function generatePreviewClip(inputPath, videoId, duration) {
         `-filter_complex ${filterComplex}`,
         "-map [out]",
         "-c:v libx264",
+        "-profile:v main",
+        "-level 4.1",
         "-crf 30",
         "-preset veryfast",
+        // 10-bit source clips will fail on Chrome MSE without this
+        "-pix_fmt yuv420p",
         "-an",
         "-movflags +faststart",
       ])
