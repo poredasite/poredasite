@@ -63,11 +63,17 @@
     @apply relative overflow-hidden rounded-xl aspect-video bg-surface-800;
   }
 
+  /* Thumbnail image — scale on hover unless a preview video is playing */
   .video-thumbnail img {
-    @apply w-full h-full object-cover transition-transform duration-500;
+    @apply w-full h-full object-cover transition-all duration-500;
   }
-  .group:hover .video-thumbnail img {
+  .group:hover .video-thumbnail img:not(.preview-active) {
     @apply scale-105;
+  }
+
+  /* Preview video element */
+  .video-thumbnail video {
+    @apply w-full h-full object-cover;
   }
 
   /* Focus visible ring */

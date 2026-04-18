@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useInView } from "react-intersection-observer";
 import { formatDistanceToNow, format } from "date-fns";
 
@@ -25,23 +25,73 @@ function getCategories(video) {
 }
 
 export default function VideoCard({ video, priority = false }) {
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded]     = useState(false);
+  const [imgError, setImgError]       = useState(false);
+  const [isHovered, setIsHovered]     = useState(false);
+  const [previewSrc, setPreviewSrc]   = useState(null);   // loaded lazily on first hover
+  const [previewError, setPreviewError] = useState(false);
+
+  const videoRef      = useRef(null);
+  const hoverTimer    = useRef(null);
+
   const { ref, inView } = useInView({ triggerOnce: true, rootMargin: "200px" });
   const shouldLoad = priority || inView;
   const cats = getCategories(video);
+
+  const hasPreview = !!video.previewVideoUrl && !previewError;
+  const showPreview = isHovered && hasPreview && !!previewSrc;
+
+  // ── Hover handlers ─────────────────────────────────────────────────────────
+  const handleMouseEnter = useCallback(() => {
+    hoverTimer.current = setTimeout(() => {
+      setIsHovered(true);
+      // Set src on first hover (lazy load)
+      if (video.previewVideoUrl && !previewError) {
+        setPreviewSrc(video.previewVideoUrl);
+      }
+    }, 280);
+  }, [video.previewVideoUrl, previewError]);
+
+  const handleMouseLeave = useCallback(() => {
+    clearTimeout(hoverTimer.current);
+    setIsHovered(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  }, []);
+
+  // Play / pause when hover state changes
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid || !previewSrc) return;
+    if (isHovered) {
+      vid.play().catch(() => setPreviewError(true));
+    } else {
+      vid.pause();
+    }
+  }, [isHovered, previewSrc]);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => clearTimeout(hoverTimer.current), []);
 
   return (
     <Link
       to={`/video/${video._id}`}
       className="group flex flex-col gap-2.5 focus-visible:ring-brand-500 rounded-xl p-1.5 hover:bg-surface-800/40 transition-all duration-200 -m-1.5"
-      aria-label={`Watch: ${video.title}`}
+      aria-label={`İzle: ${video.title}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      {/* Thumbnail */}
-      <div ref={ref} className="video-thumbnail group rounded-lg overflow-hidden">
-        {(!imgLoaded || !shouldLoad) && !imgError && (
+      {/* ── Thumbnail container ────────────────────────────────────────────── */}
+      <div ref={ref} className="video-thumbnail rounded-xl overflow-hidden relative">
+
+        {/* Skeleton */}
+        {!imgLoaded && !imgError && (
           <div className="absolute inset-0 skeleton" />
         )}
+
+        {/* Thumbnail image */}
         {shouldLoad && !imgError && (
           <img
             src={video.thumbnailUrl}
@@ -50,9 +100,13 @@ export default function VideoCard({ video, priority = false }) {
             decoding="async"
             onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
-            className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+            className={`absolute inset-0 w-full h-full object-cover transition-all duration-500
+              ${imgLoaded ? "opacity-100" : "opacity-0"}
+              ${showPreview ? "opacity-0" : ""}`}
           />
         )}
+
+        {/* Error fallback */}
         {imgError && (
           <div className="absolute inset-0 flex items-center justify-center bg-surface-800">
             <svg className="w-10 h-10 text-surface-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,19 +115,51 @@ export default function VideoCard({ video, priority = false }) {
             </svg>
           </div>
         )}
+
+        {/* ── Hover preview video ──────────────────────────────────────────── */}
+        {hasPreview && (
+          <video
+            ref={videoRef}
+            src={previewSrc || undefined}
+            muted
+            loop
+            playsInline
+            preload="none"
+            onError={() => setPreviewError(true)}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300
+              ${showPreview ? "opacity-100" : "opacity-0"}`}
+          />
+        )}
+
+        {/* Duration badge */}
         {video.duration > 0 && (
-          <span className="absolute bottom-2 right-2 bg-black/80 text-white text-xs font-mono px-1.5 py-0.5 rounded font-medium">
+          <span className="absolute bottom-2 right-2 z-10 bg-black/80 text-white text-xs font-mono px-1.5 py-0.5 rounded font-medium">
             {formatDuration(video.duration)}
           </span>
         )}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
-          <div className="w-11 h-11 bg-brand-500/90 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300">
-            <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 ml-0.5"><path d="M8 5v14l11-7z" /></svg>
+
+        {/* Play button overlay */}
+        <div className="absolute inset-0 z-10 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
+          <div className={`w-11 h-11 bg-brand-500/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg
+            transition-all duration-300
+            ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100"}`}
+          >
+            <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 ml-0.5">
+              <path d="M8 5v14l11-7z" />
+            </svg>
           </div>
         </div>
+
+        {/* Live preview badge */}
+        {showPreview && (
+          <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-brand-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-fade-in">
+            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+            ÖNIZLEME
+          </div>
+        )}
       </div>
 
-      {/* Info */}
+      {/* ── Info ───────────────────────────────────────────────────────────── */}
       <div className="px-0.5">
         <h3 className="text-white text-sm font-display font-semibold leading-snug line-clamp-2 group-hover:text-brand-300 transition-colors duration-200 mb-1.5">
           {video.title}
@@ -87,8 +173,8 @@ export default function VideoCard({ video, priority = false }) {
         </div>
         {cats.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {cats.slice(0, 2).map(cat => (
-              <span key={cat._id} className="text-[10px] text-brand-500/70 font-medium bg-brand-500/8 px-1.5 py-0.5 rounded">
+            {cats.slice(0, 2).map((cat) => (
+              <span key={cat._id} className="text-[10px] text-brand-500/70 font-medium bg-brand-500/10 px-1.5 py-0.5 rounded">
                 {cat.name}
               </span>
             ))}
