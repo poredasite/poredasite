@@ -40,6 +40,7 @@ function convertToHLS(inputPath, videoId) {
       .outputOptions([
         `-c:v ${videoCodec}`,
         ...qualityOpts,
+        "-profile:v main", // Force main profile for better browser compatibility
         "-c:a aac", "-b:a 128k",
         "-hls_time 6", "-hls_list_size 0",
         `-hls_segment_filename ${path.join(outputDir, "seg%03d.ts")}`,
