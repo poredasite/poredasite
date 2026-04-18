@@ -132,8 +132,8 @@ function generatePreviewClip(inputPath, videoId, duration) {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        `-filter_complex ${filterComplex}`,
-        "-map [out]",
+        "-filter_complex", filterComplex,
+        "-map", "[out]",
         "-c:v libx264",
         "-profile:v main",
         "-level 4.1",

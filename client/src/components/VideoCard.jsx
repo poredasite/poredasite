@@ -7,10 +7,15 @@ import Hls from "hls.js";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
 
-const IS_HOVER_DEVICE =
-  typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches;
+// (pointer: coarse) = parmak/dokunmatik ekran — çok daha güvenilir detection.
+// (hover: hover) Android'da bazı cihazlarda yanlış true döndürüyor, kullanma.
+const IS_TOUCH =
+  typeof window !== "undefined" &&
+  (window.matchMedia("(pointer: coarse)").matches ||
+    "ontouchstart" in window ||
+    navigator.maxTouchPoints > 0);
 
-// --- Global singleton: only one card previews at a time ---
+// --- Global singleton: aynı anda yalnızca bir kart preview oynatır ---
 let activePreviewId = null;
 const setActivePreview = (id) => {
   if (activePreviewId !== id) {
@@ -18,7 +23,7 @@ const setActivePreview = (id) => {
     document.dispatchEvent(new CustomEvent("activepreviewchange", { detail: { id } }));
   }
 };
-// ----------------------------------------------------------
+// --------------------------------------------------------------------
 
 function getProxyUrl(url, videoId) {
   if (!url?.includes(".m3u8")) return url;
@@ -49,135 +54,106 @@ function getCategories(video) {
   return [];
 }
 
-function classifyPlayError(err) {
-  switch (err?.name) {
-    case "NotAllowedError":   return "autoplay-blocked (NotAllowedError)";
-    case "AbortError":        return "aborted (AbortError)";
-    case "NotSupportedError": return "codec-not-supported (NotSupportedError)";
-    case "NetworkError":      return "network-error (NetworkError)";
-    default: return `unknown (${err?.name}: ${err?.message})`;
-  }
+function logPlayError(id, err, label = "") {
+  const reason =
+    err?.name === "NotAllowedError"   ? "autoplay-blocked"        :
+    err?.name === "AbortError"        ? "aborted"                 :
+    err?.name === "NotSupportedError" ? "codec-not-supported"     :
+    err?.name === "NetworkError"      ? "network-error"           :
+    `unknown(${err?.name})`;
+  console.warn(`[Preview ${id}]${label} play() → ${reason}: ${err?.message}`);
 }
 
 export default function VideoCard({ video, priority = false }) {
   const navigate = useNavigate();
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [imgLoaded,     setImgLoaded]     = useState(false);
+  const [imgError,      setImgError]      = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
-  const [previewError, setPreviewError] = useState(false);
+  const [previewError,  setPreviewError]  = useState(false);
   const [isActivePreview, setIsActivePreview] = useState(false);
 
-  const videoRef     = useRef(null);
-  const hlsRef       = useRef(null);
-  const hlsReadyRef  = useRef(false);
-  const isActiveRef  = useRef(false);
-  const hoverIntentTimer = useRef(null);
+  const videoRef        = useRef(null);
+  const hlsRef          = useRef(null);
+  const hlsReadyRef     = useRef(false);
+  const isActiveRef     = useRef(false);   // sync ref: effect callbacks read this
+  const hadMouseEnter   = useRef(false);   // true while a real mouse is over this card
+  const hoverTimer      = useRef(null);
 
   const { ref, inView } = useInView({ threshold: 0.7 });
   const { ref: imgRef, inView: imgInView } = useInView({ triggerOnce: true, rootMargin: "300px" });
 
   const shouldLoadImg = priority || imgInView;
-  const cats = getCategories(video);
+  const cats          = getCategories(video);
 
   const previewUrl = video.previewVideoUrl || null;
   const hasPreview = !!previewUrl && !previewError;
-  const isMp4 = previewUrl?.includes(".mp4");
-  const isHLS  = previewUrl?.includes(".m3u8");
+  const isMp4      = previewUrl?.includes(".mp4");
+  const isHLS      = previewUrl?.includes(".m3u8");
 
   useEffect(() => { isActiveRef.current = isActivePreview; }, [isActivePreview]);
 
-  // ── HLS initialisation (lazy) ────────────────────────────────────────────
+  // ── HLS setup (lazy) ────────────────────────────────────────────────────
   const ensureHlsReady = useCallback(() => {
     const vid = videoRef.current;
     if (!vid || !isHLS || hlsRef.current) return;
 
     if (vid.canPlayType("application/vnd.apple.mpegurl")) {
+      // iOS Safari: native HLS
       if (!vid.src) vid.src = previewUrl;
       hlsReadyRef.current = true;
       return;
     }
-
-    if (!Hls.isSupported()) {
-      console.error(`[Preview ${video._id}] HLS.js not supported`);
-      setPreviewError(true);
-      return;
-    }
+    if (!Hls.isSupported()) { setPreviewError(true); return; }
 
     const hls = new Hls({ enableWorker: false, startLevel: 0, maxBufferLength: 10 });
     hlsRef.current = hls;
     hls.loadSource(getProxyUrl(previewUrl, video._id));
     hls.attachMedia(vid);
-
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       hlsReadyRef.current = true;
-      // Still active? Play now (we're in a callback, not a gesture — but HLS has no choice)
       if (isActiveRef.current) {
-        vid.play().catch((err) => {
-          console.warn(`[Preview ${video._id}] HLS post-manifest play: ${classifyPlayError(err)}`);
-          setPreviewError(true);
-        });
+        vid.play().catch((e) => { logPlayError(video._id, e, " [HLS manifest]"); setPreviewError(true); });
       }
     });
-
-    hls.on(Hls.Events.ERROR, (_, data) => {
-      if (data.fatal) {
-        console.error(`[Preview ${video._id}] HLS fatal: ${data.type}/${data.details}`);
-        setPreviewError(true);
-      }
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      if (d.fatal) { console.error(`[Preview ${video._id}] HLS fatal: ${d.type}/${d.details}`); setPreviewError(true); }
     });
   }, [isHLS, previewUrl, video._id]);
 
-  // ── Pre-warm: set src + load metadata as soon as card enters viewport ────
-  // This makes readyState >= 1 BEFORE the user taps, so play() fires instantly.
+  // ── Pre-warm: src + metadata yükle, kart görünür olunca ─────────────────
+  // Böylece kullanıcı tap ettiğinde readyState >= 1, play() anında başlar.
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid || !previewUrl || !inView) return;
-
-    if (isMp4 && !vid.src) {
-      vid.src = previewUrl;   // triggers preload="metadata"
-    } else if (isHLS) {
-      ensureHlsReady();       // fetch manifest ahead of tap
-    }
+    if (isMp4 && !vid.src) vid.src = previewUrl;
+    else if (isHLS)         ensureHlsReady();
   }, [inView, previewUrl, isMp4, isHLS, ensureHlsReady]);
 
-  // ── Core play — call SYNCHRONOUSLY from a click/touchend handler ─────────
-  // iOS Safari only recognises click & touchend as valid user gestures for
-  // video.play(). pointerdown and touchstart are NOT reliable on iOS.
-  // useEffect is async → breaks the gesture chain → NotAllowedError.
-  // Therefore: NEVER drive mobile play() from a useEffect.
+  // ── Temel play fonksiyonu ─────────────────────────────────────────────────
+  // MUTLAKA bir user gesture handler içinden (touchstart, click) çağırılmalı.
   const tryPlay = useCallback(() => {
     const vid = videoRef.current;
     if (!vid || !previewUrl || previewError) return;
 
     if (isMp4) {
-      // src should already be set by the pre-warm effect, but guard anyway
       if (!vid.src) { vid.src = previewUrl; vid.load(); }
-
       const p = vid.play();
       if (!p) return;
       p.catch(async (err) => {
-        const reason = classifyPlayError(err);
-        console.warn(`[Preview ${video._id}] play() failed — ${reason}`);
+        logPlayError(video._id, err);
         if (err.name === "AbortError") return;
-
+        // Bir kez retry yap
         await new Promise((r) => setTimeout(r, 300));
         const v2 = videoRef.current;
         if (!v2 || !isActiveRef.current) return;
-        v2.play().catch((err2) => {
-          console.error(`[Preview ${video._id}] retry failed — ${classifyPlayError(err2)}`);
-          setPreviewError(true);
-        });
+        v2.play().catch((e2) => { logPlayError(video._id, e2, " [retry]"); setPreviewError(true); });
       });
     } else if (isHLS) {
       if (hlsReadyRef.current) {
-        const p = vid.play();
-        if (p) p.catch((err) => {
-          console.warn(`[Preview ${video._id}] HLS play failed — ${classifyPlayError(err)}`);
-          setPreviewError(true);
-        });
+        const p = videoRef.current?.play();
+        if (p) p.catch((e) => { logPlayError(video._id, e); setPreviewError(true); });
       } else {
-        // Manifest not ready yet; ensureHlsReady will play on MANIFEST_PARSED
-        ensureHlsReady();
+        ensureHlsReady(); // MANIFEST_PARSED handler devralır
       }
     }
   }, [previewUrl, previewError, isMp4, isHLS, ensureHlsReady, video._id]);
@@ -187,12 +163,12 @@ export default function VideoCard({ video, priority = false }) {
     if (vid && !vid.paused) vid.pause();
   }, []);
 
-  // Stop when scrolled out
+  // Görünümden çıkınca durdur
   useEffect(() => {
     if (!inView && isActiveRef.current) setActivePreview(null);
   }, [inView]);
 
-  // Sync with global active-preview event
+  // Global active-preview event sync
   useEffect(() => {
     const handler = (e) => setIsActivePreview(e.detail.id === video._id);
     setIsActivePreview(activePreviewId === video._id);
@@ -200,11 +176,13 @@ export default function VideoCard({ video, priority = false }) {
     return () => document.removeEventListener("activepreviewchange", handler);
   }, [video._id]);
 
-  // Effect handles DESKTOP hover (play driven by hover state change).
-  // Mobile play is driven directly from onClick — NEVER from this effect.
+  // Effect: sadece MASAÜSTÜ hover akışı için play() çağırır.
+  // Mobilde play() gesture handler içinden (touchstart/click) çağrılır,
+  // effect'ten çağrılmaz — bu kural kırılırsa iOS NotAllowedError verir.
   useEffect(() => {
     if (isActivePreview) {
-      if (IS_HOVER_DEVICE) tryPlay();
+      if (hadMouseEnter.current) tryPlay(); // masaüstü hover
+      // mobil: play() zaten touchstart veya onClick içinde çağrıldı
     } else {
       stopPreview();
     }
@@ -212,45 +190,61 @@ export default function VideoCard({ video, priority = false }) {
 
   // Cleanup
   useEffect(() => () => {
-    clearTimeout(hoverIntentTimer.current);
+    clearTimeout(hoverTimer.current);
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
   }, []);
 
-  // ── Desktop: hover intent ────────────────────────────────────────────────
+  // ── Masaüstü: hover intent ───────────────────────────────────────────────
   const handleMouseEnter = useCallback(() => {
-    if (!IS_HOVER_DEVICE || !hasPreview) return;
-    hoverIntentTimer.current = setTimeout(() => setActivePreview(video._id), 150);
+    hadMouseEnter.current = true;
+    if (!hasPreview) return;
+    hoverTimer.current = setTimeout(() => setActivePreview(video._id), 150);
   }, [video._id, hasPreview]);
 
   const handleMouseLeave = useCallback(() => {
-    clearTimeout(hoverIntentTimer.current);
-    if (IS_HOVER_DEVICE) setActivePreview(null);
+    hadMouseEnter.current = false;
+    clearTimeout(hoverTimer.current);
+    setActivePreview(null);
   }, []);
 
-  // ── Mobile & Desktop click ───────────────────────────────────────────────
-  // On mobile, click fires from touchend — universally accepted by iOS/Android
-  // as a valid user gesture for video.play(). We call tryPlay() directly here,
-  // bypassing any state/effect chain that would break the gesture requirement.
+  // ── Mobil: touchstart — Android Chrome bu event'i user gesture sayar ────
+  // play() burada çağrılırsa Android'de hemen başlar.
+  // iOS bunu user gesture saymaz, NotAllowedError verir (sessizce yutulur);
+  // iOS'ta gerçek play() aşağıdaki onClick içinde tetiklenir.
+  const handleTouchStart = useCallback(() => {
+    if (!hasPreview || activePreviewId === video._id) return;
+    const vid = videoRef.current;
+    if (!vid) return;
+    if (isMp4 && !vid.src) { vid.src = previewUrl; vid.load(); }
+    // Sessizce dene — iOS'ta zaten fail eder, onClick devralır
+    vid.play().catch(() => {});
+  }, [hasPreview, video._id, previewUrl, isMp4]);
+
+  // ── onClick: iOS için kesin user gesture kaynağı (touchend → click) ─────
+  // hadMouseEnter ref'i ile gerçek mouse click vs touch click ayırt edilir.
   const handleCardClick = useCallback(() => {
-    if (IS_HOVER_DEVICE) {
+    // Gerçek mouse hover sonrası click = masaüstü → direkt navigate et
+    if (hadMouseEnter.current) {
       navigate(`/video/${video._id}`);
       return;
     }
 
+    // Mobil yol
     if (!hasPreview) {
       navigate(`/video/${video._id}`);
       return;
     }
 
     if (activePreviewId === video._id) {
-      // Second tap on same card → navigate
+      // İkinci tap veya zaten oynuyor → navigate et
       navigate(`/video/${video._id}`);
       setActivePreview(null);
-    } else {
-      // First tap → start preview directly within this click gesture
-      setActivePreview(video._id); // stops any other card via CustomEvent
-      tryPlay();                   // play() called here, inside click = valid gesture ✓
+      return;
     }
+
+    // İlk tap: preview başlat — play() bu click gesture içinde çağrılıyor ✓
+    setActivePreview(video._id);
+    tryPlay();
   }, [hasPreview, video._id, navigate, tryPlay]);
 
   const handleTitleClick = useCallback((e) => {
@@ -262,11 +256,12 @@ export default function VideoCard({ video, priority = false }) {
     <div
       className="group flex flex-col gap-2 focus-visible:ring-brand-500 rounded-xl touch-manipulation"
       aria-label={`İzle: ${video.title}`}
+      onTouchStart={handleTouchStart}
       onClick={handleCardClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Thumbnail container */}
+      {/* Thumbnail kapsayıcı */}
       <div ref={ref} className="relative rounded-xl overflow-hidden bg-surface-800" style={{ aspectRatio: "16/9" }}>
 
         <div ref={imgRef} className="absolute inset-0 w-full h-full pointer-events-none">
@@ -297,9 +292,9 @@ export default function VideoCard({ video, priority = false }) {
         )}
 
         {/* Preview video
-            · muted + playsInline + webkit-playsinline — iOS autoplay requirements
-            · preload="metadata" — browser loads first frame once src is set
-            · src is set via the pre-warm effect when card enters viewport        */}
+            muted + playsInline + webkit-playsinline → iOS autoplay şartı
+            preload="metadata"  → src set edilince ilk kare + süre yüklenir
+            src başlangıçta yok; kart görünüme girince pre-warm effect set eder */}
         {hasPreview && (
           <video
             ref={videoRef}
@@ -310,11 +305,8 @@ export default function VideoCard({ video, priority = false }) {
             webkit-playsinline="true"
             onPlay={() => setPreviewPlaying(true)}
             onPause={() => setPreviewPlaying(false)}
-            onError={() => {
-              console.error(`[Preview ${video._id}] video element error`);
-              setPreviewError(true);
-            }}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+            onError={() => { console.error(`[Preview ${video._id}] video element error`); setPreviewError(true); }}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 pointer-events-none ${
               previewPlaying ? "opacity-100" : "opacity-0"
             }`}
           />
@@ -330,14 +322,12 @@ export default function VideoCard({ video, priority = false }) {
           <div className={`w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
             previewPlaying ? "opacity-0 scale-75" : "opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100"
           }`}>
-            <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6 ml-1">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6 ml-1"><path d="M8 5v14l11-7z" /></svg>
           </div>
         </div>
       </div>
 
-      {/* Info */}
+      {/* Bilgi */}
       <div className="px-0.5">
         <h3
           onClick={handleTitleClick}
@@ -353,8 +343,7 @@ export default function VideoCard({ video, priority = false }) {
         {cats.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
             {cats.slice(0, 2).map((cat) => (
-              <span key={cat._id}
-                className="text-[10px] text-brand-500/70 font-medium bg-brand-500/10 px-1.5 py-0.5 rounded-full">
+              <span key={cat._id} className="text-[10px] text-brand-500/70 font-medium bg-brand-500/10 px-1.5 py-0.5 rounded-full">
                 {cat.name}
               </span>
             ))}

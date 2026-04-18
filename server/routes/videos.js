@@ -159,7 +159,7 @@ router.post("/:id/process", adminAuth, async (req, res) => {
         // All encoding tasks in parallel
         const [codecInfo, previewPath, outputDir, mp4FallbackPath] = await Promise.all([
           extractCodecInfo(tmpPath),
-          generatePreviewClip(tmpPath, id, duration).catch(() => null),
+          generatePreviewClip(tmpPath, id, duration).catch((e) => { console.error("❌ Preview generate failed:", e.message); return null; }),
           convertToHLS(tmpPath, id),
           generateMp4Fallback(tmpPath, id).catch(() => null),
         ]);
@@ -167,7 +167,7 @@ router.post("/:id/process", adminAuth, async (req, res) => {
         fs.unlinkSync(tmpPath);
 
         const [previewUrl, hlsUrl, mp4FallbackUrl] = await Promise.all([
-          previewPath ? uploadPreviewToStorage(previewPath, id).catch(() => null) : null,
+          previewPath ? uploadPreviewToStorage(previewPath, id).catch((e) => { console.error("❌ Preview upload failed:", e.message); return null; }) : null,
           uploadHLSToStorage(outputDir, id),
           mp4FallbackPath ? uploadMp4FallbackToStorage(mp4FallbackPath, id).catch(() => null) : null,
         ]);
