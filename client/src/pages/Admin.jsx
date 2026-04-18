@@ -65,7 +65,7 @@ function AdminLogin({ onLogin }) {
 
 // ─── Multi Upload Queue ───────────────────────────────────────────
 function emptyItem() {
-  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0 };
+  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
 }
 
 function CategoryMultiSelect({ allCategories, selected, onChange }) {
@@ -224,11 +224,11 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
             </p>
           )}
           {item.status === "error" && (
-            <p className="text-xs text-red-400 flex items-center gap-1.5">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <p className="text-xs text-red-400 flex items-start gap-1.5">
+              <svg className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-              Yükleme başarısız
+              {item.errorMsg || "Yükleme başarısız"}
             </p>
           )}
         </div>
@@ -261,7 +261,13 @@ function MultiUploadQueue({ onSuccess }) {
   }
 
   async function uploadSingle(item) {
-    updateItem(item.id, { status: "uploading", progress: 0 });
+    updateItem(item.id, { status: "uploading", progress: 0, errorMsg: null });
+    const fail = (msg) => {
+      updateItem(item.id, { status: "error", errorMsg: msg });
+      toast.error(`"${item.title}": ${msg}`);
+    };
+
+    let videoId;
     try {
       const fd = new FormData();
       fd.append("title", item.title.trim());
@@ -272,31 +278,37 @@ function MultiUploadQueue({ onSuccess }) {
       fd.append("videoType", item.videoFile.type || "video/mp4");
 
       const initRes = await videoApi.initUpload(fd);
-      const { videoId, uploadUrl } = initRes.data;
+      videoId = initRes.data.videoId;
+      const uploadUrl = initRes.data.uploadUrl;
 
       await videoApi.uploadDirect(uploadUrl, item.videoFile, (p) => updateItem(item.id, { progress: p }));
-
-      updateItem(item.id, { status: "processing", progress: 0 });
-      await videoApi.processVideo(videoId);
-
-      pollRefs.current[item.id] = setInterval(async () => {
-        try {
-          const statusRes = await videoApi.getById(videoId);
-          const status = statusRes.data?.status;
-          if (status === "ready") {
-            clearInterval(pollRefs.current[item.id]);
-            updateItem(item.id, { status: "done" });
-            onSuccess?.();
-          } else if (status === "error") {
-            clearInterval(pollRefs.current[item.id]);
-            updateItem(item.id, { status: "error" });
-          }
-        } catch {}
-      }, 2000);
     } catch (err) {
-      updateItem(item.id, { status: "error" });
-      toast.error(`"${item.title}" yüklenemedi: ${err.message}`);
+      // Fails here = init (thumbnail/auth) or direct R2 upload
+      return fail(err.message);
     }
+
+    updateItem(item.id, { status: "processing", progress: 0 });
+
+    try {
+      await videoApi.processVideo(videoId);
+    } catch (err) {
+      return fail(`FFmpeg başlatılamadı: ${err.message}`);
+    }
+
+    pollRefs.current[item.id] = setInterval(async () => {
+      try {
+        const statusRes = await videoApi.getById(videoId);
+        const s = statusRes.data?.status;
+        if (s === "ready") {
+          clearInterval(pollRefs.current[item.id]);
+          updateItem(item.id, { status: "done" });
+          onSuccess?.();
+        } else if (s === "error") {
+          clearInterval(pollRefs.current[item.id]);
+          fail("FFmpeg encode başarısız — sunucu logunu kontrol et");
+        }
+      } catch {}
+    }, 2000);
   }
 
   async function uploadAll() {

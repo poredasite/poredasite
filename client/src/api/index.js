@@ -38,9 +38,16 @@ export const videoApi = {
       xhr.upload.onprogress = (e) => {
         if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded * 100) / e.total));
       };
-      xhr.onload = () => (xhr.status < 400 ? resolve() : reject(new Error(`Yükleme başarısız (${xhr.status})`)));
-      xhr.onerror = () => reject(new Error("Network error during upload"));
-      xhr.ontimeout = () => reject(new Error("Upload timed out"));
+      xhr.onload = () => {
+        if (xhr.status < 400) return resolve();
+        console.error(`[uploadDirect] R2 PUT failed — HTTP ${xhr.status}`, xhr.responseText?.slice(0, 300));
+        reject(new Error(`R2 yükleme başarısız (HTTP ${xhr.status})`));
+      };
+      xhr.onerror = () => {
+        console.error("[uploadDirect] Network error — büyük ihtimalle R2 CORS ayarı eksik");
+        reject(new Error("Network hatası — R2 CORS ayarını kontrol et"));
+      };
+      xhr.ontimeout = () => reject(new Error("Upload zaman aşımı"));
       xhr.open("PUT", presignedUrl);
       xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
       xhr.send(file);
