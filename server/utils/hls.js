@@ -41,6 +41,7 @@ function convertToHLS(inputPath, videoId) {
         `-c:v ${videoCodec}`,
         ...qualityOpts,
         "-profile:v main", // Force main profile for better browser compatibility
+        "-pix_fmt yuv420p", // FORCE 8-bit pixel format (Web tarayıcıları 10-bit/HDR videolarda hata verir)
         "-c:a aac", "-b:a 128k",
         "-hls_time 6", "-hls_list_size 0",
         `-hls_segment_filename ${path.join(outputDir, "seg%03d.ts")}`,

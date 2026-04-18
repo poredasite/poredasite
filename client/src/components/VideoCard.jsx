@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useInView } from "react-intersection-observer";
 import { formatDistanceToNow } from "date-fns";
@@ -6,6 +6,11 @@ import { tr } from "date-fns/locale";
 import Hls from "hls.js";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
+
+// --- Global state for touch preview ---
+let activePreviewId = null;
+let setActivePreview = () => {};
+// ------------------------------------
 
 function getProxyUrl(url, videoId) {
   if (!url?.includes(".m3u8")) return url;
@@ -37,14 +42,19 @@ function getCategories(video) {
 }
 
 export default function VideoCard({ video, priority = false }) {
+  const navigate = useNavigate();
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [previewError, setPreviewError] = useState(false);
+  const [isActivePreview, setIsActivePreview] = useState(false);
 
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const hoverTimer = useRef(null);
+  const cardRef = useRef(null);
+  const touchStartPos = useRef({ x: 0, y: 0 });
+  const isDragging = useRef(false);
 
   const { ref, inView } = useInView({ triggerOnce: true, rootMargin: "300px" });
   const shouldLoad = priority || inView;
@@ -55,13 +65,13 @@ export default function VideoCard({ video, priority = false }) {
   const isMp4 = previewUrl?.includes(".mp4");
 
   const startPreview = useCallback(() => {
+    if (previewPlaying) return;
     const vid = videoRef.current;
     if (!vid || !previewUrl || previewError) return;
 
     const isHLS = previewUrl.includes(".m3u8");
 
     if (isHLS && Hls.isSupported()) {
-      // Use proxy URL to avoid CORS issues with HLS segments
       const proxySrc = getProxyUrl(previewUrl, video._id);
       const hls = new Hls({ enableWorker: false, startLevel: 0, maxBufferLength: 15 });
       hlsRef.current = hls;
@@ -80,9 +90,10 @@ export default function VideoCard({ video, priority = false }) {
       vid.src = previewUrl;
       vid.play().catch(() => setPreviewError(true));
     }
-  }, [previewUrl, previewError, video._id, isMp4]);
+  }, [previewUrl, previewError, video._id, isMp4, previewPlaying]);
 
   const stopPreview = useCallback(() => {
+    if (!previewPlaying) return;
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
     const vid = videoRef.current;
     if (vid) {
@@ -92,10 +103,9 @@ export default function VideoCard({ video, priority = false }) {
       vid.load();
     }
     setPreviewPlaying(false);
-  }, []);
+  }, [previewPlaying]);
 
-  const previewActivated = useRef(false);
-
+  // --- Desktop hover ---
   const handleMouseEnter = useCallback(() => {
     hoverTimer.current = setTimeout(() => startPreview(), 300);
   }, [startPreview]);
@@ -105,39 +115,85 @@ export default function VideoCard({ video, priority = false }) {
     stopPreview();
   }, [stopPreview]);
 
-  // Mobile: long-press to preview, release to stop (short tap still navigates)
-  const handleTouchStart = useCallback(() => {
-    previewActivated.current = false;
-    hoverTimer.current = setTimeout(() => {
-      previewActivated.current = true;
-      startPreview();
-    }, 600);
-  }, [startPreview]);
+  // --- Mobile touch & drag ---
+  const handleTouchStart = useCallback((e) => {
+    isDragging.current = false;
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    setActivePreview(video._id);
+  }, [video._id]);
 
-  const handleTouchEnd = useCallback((e) => {
-    clearTimeout(hoverTimer.current);
-    if (previewActivated.current) {
-      e.preventDefault(); // don't navigate on release after preview
-      stopPreview();
-      previewActivated.current = false;
+  const handleTouchMove = useCallback((e) => {
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+    if (dx > 10 || dy > 10) {
+      isDragging.current = true;
     }
-  }, [stopPreview]);
+
+    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+    const cardEl = targetEl?.closest('[data-videoid]');
+    const currentVideoId = cardEl?.dataset.videoid || null;
+    
+    if (currentVideoId && activePreviewId !== currentVideoId) {
+      setActivePreview(currentVideoId);
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    setActivePreview(null);
+  }, []);
+
+  const handleClick = useCallback(() => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      return;
+    }
+    navigate(`/video/${video._id}`);
+  }, [navigate, video._id]);
+
+  // --- Effect for global state ---
+  useEffect(() => {
+    cardRef.current.dataset.videoid = video._id;
+    
+    const handler = (id) => setIsActivePreview(id === video._id);
+    setActivePreview = (id) => {
+      activePreviewId = id;
+      const event = new CustomEvent('activepreviewchange', { detail: { id } });
+      document.dispatchEvent(event);
+    };
+    document.addEventListener('activepreviewchange', (e) => handler(e.detail.id));
+
+    return () => {
+      document.removeEventListener('activepreviewchange', (e) => handler(e.detail.id));
+    };
+  }, [video._id]);
+
+  useEffect(() => {
+    if (isActivePreview) {
+      startPreview();
+    } else {
+      stopPreview();
+    }
+  }, [isActivePreview, startPreview, stopPreview]);
 
   useEffect(() => () => {
     clearTimeout(hoverTimer.current);
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    if (hlsRef.current) { hlsRef.current.destroy(); }
   }, []);
 
   return (
-    <Link
-      to={`/video/${video._id}`}
+    <div
+      ref={cardRef}
       className="group flex flex-col gap-2 focus-visible:ring-brand-500 rounded-xl touch-manipulation"
       aria-label={`İzle: ${video.title}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
+      onClick={handleClick}
     >
       {/* Thumbnail container */}
       <div ref={ref} className="relative rounded-xl overflow-hidden bg-surface-800" style={{ aspectRatio: "16/9" }}>
@@ -226,6 +282,6 @@ export default function VideoCard({ video, priority = false }) {
           </div>
         )}
       </div>
-    </Link>
+    </div>
   );
 }
