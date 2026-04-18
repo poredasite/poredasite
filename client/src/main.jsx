@@ -16,7 +16,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             background: "#161d27",
             color: "#e8eaed",
             border: "1px solid #263040",
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "'Inter', sans-serif",
           },
           success: {
             iconTheme: { primary: "#ff6b00", secondary: "#080b0f" },

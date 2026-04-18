@@ -138,18 +138,13 @@ export default function Navbar() {
 
 function MobileBottomNav({ isAdmin }) {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const isPopular = searchParams.get("sort") === "views";
-  const isHome = location.pathname === "/" && !isPopular;
+
+  if (!isAdmin) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-[60] md:hidden bg-surface-900/95 backdrop-blur-md border-t border-white/8">
       <div className="flex items-center justify-around h-14 px-1 max-w-md mx-auto">
-        <BottomNavItem to="/" icon={HiHome} label="Ana Sayfa" active={isHome} />
-        <BottomNavItem to="/?sort=views" icon={HiFire} label="Popüler" active={isPopular} />
-        {isAdmin && (
-          <BottomNavItem to="/admin-baba" icon={HiCog} label="Admin" active={location.pathname === "/admin-baba"} />
-        )}
+        <BottomNavItem to="/admin-baba" icon={HiCog} label="Admin" active={location.pathname === "/admin-baba"} />
       </div>
     </nav>
   );

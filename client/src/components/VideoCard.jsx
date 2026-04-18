@@ -138,12 +138,12 @@ export default function VideoCard({ video, priority = false }) {
       <div className="px-0.5">
         <h3
           onClick={handleTitleClick}
-          className="text-white text-sm font-display font-semibold leading-snug line-clamp-2 group-hover:text-brand-300 transition-colors duration-200 mb-1 cursor-pointer"
+          className="text-white text-base font-display font-semibold leading-snug line-clamp-2 group-hover:text-brand-300 transition-colors duration-200 mb-1 cursor-pointer"
         >
           {video.title}
         </h3>
 
-        <div className="flex items-center gap-1.5 text-gray-600 text-xs">
+        <div className="flex items-center gap-1.5 text-gray-500 text-sm">
           <span className="font-medium">{formatViews(video.views)} izlenme</span>
           <span>·</span>
           <span>{formatDistanceToNow(new Date(video.createdAt), { addSuffix: true, locale: tr })}</span>

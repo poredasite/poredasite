@@ -50,7 +50,7 @@ export default function App() {
           <ErrorBoundary>
             <div className="min-h-screen flex flex-col bg-black">
               <Navbar />
-              <main className="flex-1 pb-16 md:pb-0">
+              <main className="flex-1">
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
                     <Route path="/" element={<Home />} />
