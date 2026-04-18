@@ -52,6 +52,7 @@ export default function VideoCard({ video, priority = false }) {
 
   const previewUrl = video.previewVideoUrl || video.videoUrl || null;
   const hasPreview = !!previewUrl && !previewError;
+  const isMp4 = previewUrl?.includes(".mp4");
 
   const startPreview = useCallback(() => {
     const vid = videoRef.current;
@@ -75,11 +76,11 @@ export default function VideoCard({ video, priority = false }) {
     } else if (isHLS && vid.canPlayType("application/vnd.apple.mpegurl")) {
       vid.src = previewUrl;
       vid.play().catch(() => setPreviewError(true));
-    } else {
+    } else if (isMp4) {
       vid.src = previewUrl;
       vid.play().catch(() => setPreviewError(true));
     }
-  }, [previewUrl, previewError, video._id]);
+  }, [previewUrl, previewError, video._id, isMp4]);
 
   const stopPreview = useCallback(() => {
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
