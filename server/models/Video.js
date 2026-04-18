@@ -62,6 +62,10 @@ const videoSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    previewVideoUrl: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

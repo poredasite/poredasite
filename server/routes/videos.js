@@ -9,7 +9,7 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 const Video = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
-const { getVideoDuration, convertToHLS, uploadHLSToStorage, uploadThumbnailToStorage, deleteFromStorage, createRawUploadUrl, downloadRawFromStorage, deleteRawFromStorage } = require("../utils/hls");
+const { getVideoDuration, convertToHLS, uploadHLSToStorage, uploadThumbnailToStorage, deleteFromStorage, createRawUploadUrl, downloadRawFromStorage, deleteRawFromStorage, generatePreviewClip, uploadPreviewToStorage } = require("../utils/hls");
 const { CDN_URL } = require("../config/storage");
 
 const diskUpload = multer({
@@ -141,17 +141,29 @@ router.post("/:id/process", adminAuth, async (req, res) => {
       try {
         await downloadRawFromStorage(video.rawVideoKey, tmpPath);
         const duration = await getVideoDuration(tmpPath);
-        const outputDir = await convertToHLS(tmpPath, video._id.toString());
+
+        // Preview clip ve HLS paralel üret
+        const [previewPath, outputDir] = await Promise.all([
+          generatePreviewClip(tmpPath, video._id.toString(), duration).catch(() => null),
+          convertToHLS(tmpPath, video._id.toString()),
+        ]);
+
         fs.unlinkSync(tmpPath);
-        const hlsUrl = await uploadHLSToStorage(outputDir, video._id.toString());
+
+        const [previewUrl, hlsUrl] = await Promise.all([
+          previewPath ? uploadPreviewToStorage(previewPath, video._id.toString()).catch(() => null) : null,
+          uploadHLSToStorage(outputDir, video._id.toString()),
+        ]);
+
         await deleteRawFromStorage(video.rawVideoKey);
         await Video.findByIdAndUpdate(video._id, {
           videoUrl: hlsUrl,
           duration,
           rawVideoKey: null,
           status: "ready",
+          ...(previewUrl ? { previewVideoUrl: previewUrl } : {}),
         });
-        console.log(`✅ HLS ready: ${hlsUrl}`);
+        console.log(`✅ HLS ready: ${hlsUrl}${previewUrl ? " | preview: " + previewUrl : ""}`);
       } catch (bgErr) {
         console.error("HLS encode error:", bgErr);
         try { fs.unlinkSync(tmpPath); } catch {}

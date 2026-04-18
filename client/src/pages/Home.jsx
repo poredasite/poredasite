@@ -48,7 +48,6 @@ function CategoryBar({ activeCategory, onSelect }) {
               ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20"
               : "bg-surface-800 text-gray-400 border border-white/8 hover:border-brand-500/40 hover:text-white"}`}
         >
-          {cat.icon && <span className="mr-1.5">{cat.icon}</span>}
           {cat.name}
           {cat.videoCount > 0 && (
             <span className="ml-1.5 text-xs opacity-40">{cat.videoCount}</span>

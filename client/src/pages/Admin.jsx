@@ -306,9 +306,17 @@ function MultiUploadQueue({ onSuccess }) {
       return;
     }
     setUploading(true);
-    for (const item of pending) {
-      await uploadSingle(item);
+
+    // Max 3 paralel upload
+    const CONCURRENCY = 3;
+    const chunks = [];
+    for (let i = 0; i < pending.length; i += CONCURRENCY) {
+      chunks.push(pending.slice(i, i + CONCURRENCY));
     }
+    for (const chunk of chunks) {
+      await Promise.allSettled(chunk.map(item => uploadSingle(item)));
+    }
+
     setUploading(false);
   }
 

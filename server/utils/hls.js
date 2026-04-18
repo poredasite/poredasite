@@ -52,6 +52,59 @@ function convertToHLS(inputPath, videoId) {
   });
 }
 
+// PornHub tarzı highlight preview: videonun 5 farklı noktasından 2'şer saniyelik kesit → 10sn montaj
+function generatePreviewClip(inputPath, videoId, duration) {
+  const outPath = path.join(os.tmpdir(), `preview-${videoId}.mp4`);
+  const dur = duration || 60;
+
+  // Videonun %15-%85'i arasında 5 eşit nokta (intro ve outro atlanıyor)
+  const CLIPS = 5;
+  const CLIP_DUR = 2;
+  const points = Array.from({ length: CLIPS }, (_, i) => {
+    const pct = 0.15 + (i / (CLIPS - 1)) * 0.70;
+    return Math.floor(dur * pct);
+  });
+
+  // Her nokta için: trim → PTS sıfırla → scale
+  const filterParts = points.map((t, i) =>
+    `[0:v]trim=start=${t}:duration=${CLIP_DUR},setpts=PTS-STARTPTS,scale=640:-2[c${i}]`
+  );
+  const concatInputs = points.map((_, i) => `[c${i}]`).join("");
+  const filterComplex = [
+    ...filterParts,
+    `${concatInputs}concat=n=${CLIPS}:v=1:a=0[out]`,
+  ].join(";");
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        `-filter_complex ${filterComplex}`,
+        "-map [out]",
+        "-c:v libx264",
+        "-crf 30",
+        "-preset veryfast",
+        "-an",
+        "-movflags +faststart",
+      ])
+      .output(outPath)
+      .on("end", () => resolve(outPath))
+      .on("error", reject)
+      .run();
+  });
+}
+
+async function uploadPreviewToStorage(filePath, videoId) {
+  const key = `previews/${videoId}.mp4`;
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    Body: fs.readFileSync(filePath),
+    ContentType: "video/mp4",
+  }));
+  fs.unlinkSync(filePath);
+  return `${CDN_URL}/${key}`;
+}
+
 async function uploadHLSToStorage(outputDir, videoId) {
   const files = fs.readdirSync(outputDir);
   for (const file of files) {
@@ -113,6 +166,7 @@ async function deleteFromStorage(prefix) {
 module.exports = {
   getVideoDuration, convertToHLS,
   uploadHLSToStorage, uploadThumbnailToStorage,
+  generatePreviewClip, uploadPreviewToStorage,
   createRawUploadUrl, downloadRawFromStorage,
   deleteRawFromStorage, deleteFromStorage,
 };
