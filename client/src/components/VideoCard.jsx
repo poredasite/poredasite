@@ -10,8 +10,10 @@ const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").r
 // --- Global state for active preview ---
 let activePreviewId = null;
 let setActivePreview = (id) => {
-  activePreviewId = id;
-  document.dispatchEvent(new CustomEvent('activepreviewchange', { detail: { id } }));
+  if (activePreviewId !== id) {
+    activePreviewId = id;
+    document.dispatchEvent(new CustomEvent('activepreviewchange', { detail: { id } }));
+  }
 };
 // -------------------------------------
 
@@ -54,11 +56,9 @@ export default function VideoCard({ video, priority = false }) {
 
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
-  const cardRef = useRef(null);
 
-  // 70% visibility threshold for autoplay
+  // 70% visibility threshold to stop playback when scrolling away
   const { ref, inView } = useInView({ threshold: 0.7 });
-  // We use a larger rootMargin to load images before they come into view
   const { ref: imgRef, inView: imgInView } = useInView({ triggerOnce: true, rootMargin: "300px" });
   
   const shouldLoadImg = priority || imgInView;
@@ -69,11 +69,9 @@ export default function VideoCard({ video, priority = false }) {
   const isMp4 = previewUrl?.includes(".mp4");
 
   const startPreview = useCallback(() => {
-    if (previewPlaying) return;
     const vid = videoRef.current;
     if (!vid || !previewUrl || previewError) return;
 
-    // Restart from 0 seconds
     vid.currentTime = 0;
 
     const isHLS = previewUrl.includes(".m3u8");
@@ -101,36 +99,26 @@ export default function VideoCard({ video, priority = false }) {
       vid.src = previewUrl;
       vid.play().catch(() => setPreviewError(true));
     }
-  }, [previewUrl, previewError, video._id, isMp4, previewPlaying]);
+  }, [previewUrl, previewError, video._id, isMp4]);
 
   const stopPreview = useCallback(() => {
-    if (!previewPlaying) return;
     const vid = videoRef.current;
     if (vid) {
       vid.pause();
     }
-    setPreviewPlaying(false);
-  }, [previewPlaying]);
+  }, []);
 
-  // Handle intersection observer trigger
+  // Stop playback if video scrolls out of view
   useEffect(() => {
-    if (inView) {
-      setActivePreview(video._id);
-    } else if (activePreviewId === video._id) {
-      // If we scroll out of view and we were the active preview, clear it
+    if (!inView && isActivePreview) {
       setActivePreview(null);
     }
-  }, [inView, video._id]);
+  }, [inView, isActivePreview]);
 
   // Listen for global active preview changes
   useEffect(() => {
-    const handler = (e) => {
-      setIsActivePreview(e.detail.id === video._id);
-    };
-    
-    // Set initial state in case this mounts while already active
+    const handler = (e) => setIsActivePreview(e.detail.id === video._id);
     setIsActivePreview(activePreviewId === video._id);
-    
     document.addEventListener('activepreviewchange', handler);
     return () => document.removeEventListener('activepreviewchange', handler);
   }, [video._id]);
@@ -144,14 +132,19 @@ export default function VideoCard({ video, priority = false }) {
     }
   }, [isActivePreview, startPreview, stopPreview]);
 
-  // Touch and Hover interactions to explicitly activate
-  const handleInteraction = useCallback(() => {
-    setActivePreview(video._id);
-  }, [video._id]);
+  // Main interaction: toggle play/pause for this card
+  const handleCardClick = () => {
+    if (isActivePreview) {
+      setActivePreview(null); // Pause if already active
+    } else {
+      setActivePreview(video._id); // Play if not active
+    }
+  };
 
-  const handleClick = useCallback(() => {
+  const handleTitleClick = (e) => {
+    e.stopPropagation(); // Prevent card click from firing
     navigate(`/video/${video._id}`);
-  }, [navigate, video._id]);
+  };
 
   useEffect(() => () => {
     if (hlsRef.current) { hlsRef.current.destroy(); }
@@ -159,12 +152,9 @@ export default function VideoCard({ video, priority = false }) {
 
   return (
     <div
-      ref={cardRef}
-      className="group flex flex-col gap-2 focus-visible:ring-brand-500 rounded-xl touch-manipulation cursor-pointer"
+      className="group flex flex-col gap-2 focus-visible:ring-brand-500 rounded-xl touch-manipulation"
       aria-label={`İzle: ${video.title}`}
-      onClick={handleClick}
-      onMouseEnter={handleInteraction}
-      onTouchStart={handleInteraction}
+      onClick={handleCardClick}
     >
       {/* Thumbnail container */}
       <div ref={ref} className="relative rounded-xl overflow-hidden bg-surface-800" style={{ aspectRatio: "16/9" }}>
@@ -204,6 +194,7 @@ export default function VideoCard({ video, priority = false }) {
           <video
             ref={videoRef}
             muted
+            loop
             playsInline
             onPlay={() => setPreviewPlaying(true)}
             onPause={() => setPreviewPlaying(false)}
@@ -221,12 +212,12 @@ export default function VideoCard({ video, priority = false }) {
           </span>
         )}
 
-        {/* Play icon on hover/long-press */}
+        {/* Play icon overlay */}
         <div className={`absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 pointer-events-none flex items-center justify-center`}>
-          <div className={`w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
-            previewPlaying ? "opacity-0 scale-75" : "opacity-0 group-hover:opacity-100 group-active:opacity-100 scale-75 group-hover:scale-100 group-active:scale-100"
+          <div className={`w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
+            previewPlaying ? "opacity-0 scale-75" : "opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100"
           }`}>
-            <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 ml-0.5">
+            <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6 ml-1">
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
@@ -235,7 +226,10 @@ export default function VideoCard({ video, priority = false }) {
 
       {/* Info */}
       <div className="px-0.5">
-        <h3 className="text-white text-sm font-display font-semibold leading-snug line-clamp-2 group-hover:text-brand-300 transition-colors duration-200 mb-1">
+        <h3
+          onClick={handleTitleClick}
+          className="text-white text-sm font-display font-semibold leading-snug line-clamp-2 group-hover:text-brand-300 transition-colors duration-200 mb-1 cursor-pointer"
+        >
           {video.title}
         </h3>
         <div className="flex items-center gap-1.5 text-gray-600 text-xs">
