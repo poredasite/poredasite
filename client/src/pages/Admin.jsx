@@ -292,7 +292,7 @@ function MultiUploadQueue({ onSuccess }) {
             updateItem(item.id, { status: "error" });
           }
         } catch {}
-      }, 4000);
+      }, 2000);
     } catch (err) {
       updateItem(item.id, { status: "error" });
       toast.error(`"${item.title}" yüklenemedi: ${err.message}`);

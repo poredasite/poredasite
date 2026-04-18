@@ -22,10 +22,24 @@ function convertToHLS(inputPath, videoId) {
   const outputDir = path.join(os.tmpdir(), `hls-${videoId}`);
   fs.mkdirSync(outputDir, { recursive: true });
 
+  // GPU mode: set FFMPEG_GPU=nvenc (NVIDIA) | amf (AMD) | qsv (Intel)
+  // GPU sadece lokal sunucuda çalışır, Railway'de CPU kullanılır
+  const gpu = process.env.FFMPEG_GPU;
+  const videoCodec = gpu === "nvenc" ? "h264_nvenc"
+                   : gpu === "amf"   ? "h264_amf"
+                   : gpu === "qsv"   ? "h264_qsv"
+                   : "libx264";
+
+  const qualityOpts = gpu === "nvenc" ? ["-rc vbr", "-cq 22", "-preset p2"]
+                    : gpu === "amf"   ? ["-quality speed", "-qp_i 22", "-qp_p 22"]
+                    : gpu === "qsv"   ? ["-global_quality 22", "-preset veryfast"]
+                    : ["-crf 22", "-preset veryfast"];
+
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-c:v libx264", "-crf 22", "-preset fast",
+        `-c:v ${videoCodec}`,
+        ...qualityOpts,
         "-c:a aac", "-b:a 128k",
         "-hls_time 6", "-hls_list_size 0",
         `-hls_segment_filename ${path.join(outputDir, "seg%03d.ts")}`,
