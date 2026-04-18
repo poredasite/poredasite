@@ -1,7 +1,18 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import Hls from "hls.js";
 
-export default function VideoPlayer({ src, poster, title }) {
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
+
+function buildStreamUrl(src, videoId) {
+  if (!src?.includes(".m3u8")) return src;
+  if (videoId) return `${API_BASE}/api/stream/${videoId}/index.m3u8`;
+  // Fallback: extract videoId from URL pattern /videos/{id}/index.m3u8
+  const match = src.match(/\/videos\/([^/]+)\/index\.m3u8/);
+  if (match) return `${API_BASE}/api/stream/${match[1]}/index.m3u8`;
+  return src;
+}
+
+export default function VideoPlayer({ src, poster, title, videoId }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -38,8 +49,10 @@ export default function VideoPlayer({ src, poster, title }) {
       return;
     }
 
+    const streamSrc = buildStreamUrl(src, videoId);
+
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
+      video.src = streamSrc;
       setHlsReady(true);
       return;
     }
@@ -49,7 +62,8 @@ export default function VideoPlayer({ src, poster, title }) {
       return;
     }
 
-    const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 90 });
+    let networkRetries = 0;
+    const hls = new Hls({ enableWorker: false, lowLatencyMode: false, backBufferLength: 90 });
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       setHlsReady(true);
@@ -63,7 +77,15 @@ export default function VideoPlayer({ src, poster, title }) {
       if (data.fatal) {
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            hls.startLoad();
+            networkRetries += 1;
+            if (networkRetries <= 3) {
+              hls.startLoad();
+            } else {
+              hls.destroy();
+              setBuffering(false);
+              setPlaying(false);
+              setHlsError(true);
+            }
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
             hls.recoverMediaError();
@@ -80,11 +102,11 @@ export default function VideoPlayer({ src, poster, title }) {
 
     hls.attachMedia(video);
     hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-      hls.loadSource(src);
+      hls.loadSource(streamSrc);
     });
 
     return () => { hls.destroy(); };
-  }, [src]);
+  }, [src, videoId]);
 
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
