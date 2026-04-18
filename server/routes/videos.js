@@ -125,20 +125,16 @@ router.post("/upload-init", adminAuth, (req, res) => {
   });
 });
 
-// POST /videos/:id/process  — step 3: trigger FFmpeg, serve MP4 immediately (progressive)
+// POST /videos/:id/process  — trigger FFmpeg HLS encode in background
 router.post("/:id/process", adminAuth, async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ success: false, message: "Video not found" });
     if (!video.rawVideoKey) return res.status(400).json({ success: false, message: "No raw video to process" });
 
-    // ── Progressive: raw MP4 anında izlenebilir ──────────────────────
-    const rawMp4Url = `${CDN_URL}/${video.rawVideoKey}`;
-    await Video.findByIdAndUpdate(video._id, { videoUrl: rawMp4Url, status: "ready" });
-
     res.json({ success: true, message: "Processing started" });
 
-    // ── Arka planda HLS encode ────────────────────────────────────────
+    // ── Background HLS encode ─────────────────────────────────────────
     (async () => {
       const ext = path.extname(video.rawVideoKey) || ".mp4";
       const tmpPath = path.join(os.tmpdir(), `raw-${video._id}${ext}`);
@@ -149,12 +145,17 @@ router.post("/:id/process", adminAuth, async (req, res) => {
         fs.unlinkSync(tmpPath);
         const hlsUrl = await uploadHLSToStorage(outputDir, video._id.toString());
         await deleteRawFromStorage(video.rawVideoKey);
-        await Video.findByIdAndUpdate(video._id, { videoUrl: hlsUrl, duration, rawVideoKey: null });
+        await Video.findByIdAndUpdate(video._id, {
+          videoUrl: hlsUrl,
+          duration,
+          rawVideoKey: null,
+          status: "ready",
+        });
         console.log(`✅ HLS ready: ${hlsUrl}`);
       } catch (bgErr) {
-        console.error("HLS encode error (MP4 still serving):", bgErr);
+        console.error("HLS encode error:", bgErr);
         try { fs.unlinkSync(tmpPath); } catch {}
-        // status "ready" kalır, MP4 üzerinden yayın devam eder
+        await Video.findByIdAndUpdate(video._id, { status: "error" });
       }
     })();
   } catch (err) {

@@ -88,10 +88,22 @@ export default function VideoDetail() {
           {/* ── Main column ───────────────────────────────────────── */}
           <div className="flex-1 min-w-0">
             {/* Instream / Video Player */}
-            {!video.videoUrl ? (
+            {video.status !== "ready" || !video.videoUrl ? (
               <div className="w-full aspect-video bg-surface-800 rounded-2xl flex flex-col items-center justify-center gap-3">
-                <div className="w-10 h-10 border-3 border-brand-500/30 border-t-brand-400 rounded-full animate-spin" />
-                <p className="text-gray-400 text-sm">Video işleniyor, lütfen bekleyin...</p>
+                {video.status === "error" ? (
+                  <>
+                    <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    <p className="text-gray-400 text-sm">Video işlenirken hata oluştu.</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-10 h-10 border-[3px] border-brand-500/30 border-t-brand-400 rounded-full animate-spin" />
+                    <p className="text-gray-400 text-sm">Video işleniyor, lütfen bekleyin...</p>
+                    <p className="text-gray-600 text-xs">Uzun videolar birkaç dakika sürebilir</p>
+                  </>
+                )}
               </div>
             ) : instreamSlot?.enabled && showInstream
               ? <InstreamVideoAd onSkip={() => setShowInstream(false)} />
