@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useInView } from "react-intersection-observer";
 import { useAds } from "../context/AdsContext";
 
-// ─── Core: inject HTML + re-execute scripts ───────────────────────
+// ─── Core: inject HTML + re-execute scripts ────────────────────────
 function AdSlot({ html, style, className }) {
   const ref = useRef(null);
 
@@ -9,37 +10,60 @@ function AdSlot({ html, style, className }) {
     if (!ref.current || !html) return;
     const el = ref.current;
     el.innerHTML = "";
-    el.appendChild(document.createRange().createContextualFragment(html));
-    el.querySelectorAll("script").forEach((old) => {
-      const s = document.createElement("script");
-      [...old.attributes].forEach((a) => s.setAttribute(a.name, a.value));
-      s.textContent = old.textContent;
-      old.replaceWith(s);
-    });
+    try {
+      el.appendChild(document.createRange().createContextualFragment(html));
+      el.querySelectorAll("script").forEach((old) => {
+        const s = document.createElement("script");
+        [...old.attributes].forEach((a) => s.setAttribute(a.name, a.value));
+        s.textContent = old.textContent;
+        old.replaceWith(s);
+      });
+    } catch {}
   }, [html]);
 
   return <div ref={ref} style={style} className={className} />;
 }
 
+// Lazy ad — only mounts when visible
+function LazyAdSlot({ html, style, className, minHeight = 90 }) {
+  const { ref, inView } = useInView({ triggerOnce: true, rootMargin: "200px" });
+  return (
+    <div ref={ref} style={{ minHeight, ...style }} className={className}>
+      {inView && html && <AdSlot html={html} style={{ width: "100%", height: "100%" }} />}
+    </div>
+  );
+}
+
 function slotStyle(slot) {
   if (!slot) return {};
-  const w = slot.width  ? (String(slot.width).includes("%")  ? slot.width  : `${slot.width}px`)  : "100%";
+  const w = slot.width ? (String(slot.width).includes("%") ? slot.width : `${slot.width}px`) : "100%";
   const h = slot.height ? (String(slot.height).includes("%") ? slot.height : `${slot.height}px`) : undefined;
   return { width: w, ...(h ? { height: h } : {}) };
 }
 
-// ─── Top Banner ───────────────────────────────────────────────────
+function Placeholder({ label, style }) {
+  return (
+    <div
+      className="ad-placeholder rounded-xl flex items-center justify-center"
+      style={{ minHeight: 90, ...style }}
+    >
+      <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">{label}</span>
+    </div>
+  );
+}
+
+// ─── Top Banner ────────────────────────────────────────────────────
 export function TopBannerAd() {
   const { getSlot } = useAds();
   const slot = getSlot("topBanner");
   if (!slot?.enabled) return null;
+
+  const style = slotStyle(slot);
   return (
-    <div className="flex justify-center mb-6">
+    <div className="flex justify-center mb-6" style={{ minHeight: slot.height ? `${slot.height}px` : 90 }}>
       {slot.code
-        ? <AdSlot html={slot.code} style={slotStyle(slot)} />
-        : <div className="ad-placeholder rounded-xl" style={{ ...slotStyle(slot), minHeight: "90px" }}>
-            <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Banner Reklam</span>
-          </div>
+        ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
+        : <Placeholder label="Banner Reklam" style={style} />
       }
     </div>
   );
@@ -50,13 +74,13 @@ export function SidebarAd() {
   const { getSlot } = useAds();
   const slot = getSlot("sidebar");
   if (!slot?.enabled) return null;
+
+  const style = slotStyle(slot);
   return (
-    <div className="sticky top-24 mb-5">
+    <div className="sticky top-24 mb-5" style={{ minHeight: slot.height || 250 }}>
       {slot.code
-        ? <AdSlot html={slot.code} style={slotStyle(slot)} />
-        : <div className="ad-placeholder rounded-xl" style={{ ...slotStyle(slot), minHeight: "250px" }}>
-            <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Kenar Reklam</span>
-          </div>
+        ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 250} />
+        : <Placeholder label="Kenar Reklam" style={{ ...style, minHeight: 250 }} />
       }
     </div>
   );
@@ -67,19 +91,20 @@ export function InFeedAd() {
   const { getSlot } = useAds();
   const slot = getSlot("inFeed");
   if (!slot?.enabled) return null;
+
+  const style = slotStyle(slot);
   return (
-    <div className="col-span-full flex justify-center my-1">
+    <div className="col-span-full flex justify-center my-1" style={{ minHeight: slot.height || 90 }}>
       {slot.code
-        ? <AdSlot html={slot.code} style={slotStyle(slot)} />
-        : <div className="ad-placeholder rounded-xl w-full" style={{ minHeight: "90px" }}>
-            <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Feed Reklam</span>
-          </div>
+        ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
+        : <Placeholder label="Feed Reklam" style={{ width: "100%", minHeight: 90 }} />
       }
     </div>
   );
 }
 
-// ─── Sticky Banner (fixed bottom) ─────────────────────────────────
+// ─── Sticky Banner ────────────────────────────────────────────────
+// Positioned above mobile bottom nav (bottom-16 on mobile, bottom-0 on desktop)
 export function StickyBannerAd() {
   const [closed, setClosed] = useState(false);
   const { getSlot } = useAds();
@@ -88,13 +113,14 @@ export function StickyBannerAd() {
   if (closed || !slot?.enabled || !slot?.code) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center bg-black/20 backdrop-blur-sm">
+    <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-50 flex justify-center bg-black/30 backdrop-blur-sm">
       <div className="relative">
         <button
           onClick={() => setClosed(true)}
           className="absolute -top-6 right-0 bg-surface-800 text-gray-400 hover:text-white text-xs px-2 py-0.5 rounded-t-md transition-colors"
+          aria-label="Reklamı kapat"
         >
-          ✕ Kapat
+          ✕
         </button>
         <AdSlot html={slot.code} style={slotStyle(slot)} />
       </div>
@@ -119,13 +145,15 @@ export function PopunderAd() {
       const div = document.createElement("div");
       div.style.display = "none";
       document.body.appendChild(div);
-      div.appendChild(document.createRange().createContextualFragment(slot.code));
-      div.querySelectorAll("script").forEach((old) => {
-        const s = document.createElement("script");
-        [...old.attributes].forEach((a) => s.setAttribute(a.name, a.value));
-        s.textContent = old.textContent;
-        old.replaceWith(s);
-      });
+      try {
+        div.appendChild(document.createRange().createContextualFragment(slot.code));
+        div.querySelectorAll("script").forEach((old) => {
+          const s = document.createElement("script");
+          [...old.attributes].forEach((a) => s.setAttribute(a.name, a.value));
+          s.textContent = old.textContent;
+          old.replaceWith(s);
+        });
+      } catch {}
       document.removeEventListener("click", fire);
     }
 
@@ -136,7 +164,7 @@ export function PopunderAd() {
   return null;
 }
 
-// ─── Instant Message / Interstitial ──────────────────────────────
+// ─── Instant Message / Interstitial ───────────────────────────────
 export function InstantMessageAd() {
   const [show, setShow] = useState(false);
   const [countdown, setCountdown] = useState(5);
@@ -149,7 +177,7 @@ export function InstantMessageAd() {
     const t = setTimeout(() => {
       setShow(true);
       sessionStorage.setItem("im_shown", "1");
-    }, 2000);
+    }, 3000);
     return () => clearTimeout(t);
   }, [slot?.enabled, slot?.code]);
 
@@ -166,13 +194,14 @@ export function InstantMessageAd() {
       <div className="relative max-w-full">
         <AdSlot html={slot.code} style={slotStyle(slot)} />
         <button
-          onClick={() => setShow(false)}
+          onClick={() => countdown <= 0 && setShow(false)}
           disabled={countdown > 0}
-          className={`absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors
-            ${countdown > 0
+          className={`absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+            countdown > 0
               ? "bg-surface-700 text-gray-500 cursor-not-allowed"
               : "bg-brand-500 hover:bg-brand-400 text-white cursor-pointer"
-            }`}
+          }`}
+          aria-label={countdown > 0 ? `${countdown} saniye` : "Kapat"}
         >
           {countdown > 0 ? countdown : "✕"}
         </button>
@@ -181,24 +210,24 @@ export function InstantMessageAd() {
   );
 }
 
-// ─── Below Description ───────────────────────────────────────────
+// ─── Below Description ────────────────────────────────────────────
 export function BelowDescriptionAd() {
   const { getSlot } = useAds();
   const slot = getSlot("belowDescription");
   if (!slot?.enabled) return null;
+
+  const style = slotStyle(slot);
   return (
-    <div className="flex justify-center my-4">
+    <div className="flex justify-center my-4" style={{ minHeight: slot.height || 90 }}>
       {slot.code
-        ? <AdSlot html={slot.code} style={slotStyle(slot)} />
-        : <div className="ad-placeholder rounded-xl" style={{ ...slotStyle(slot), minHeight: "90px" }}>
-            <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Açıklama Altı Reklam</span>
-          </div>
+        ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
+        : <Placeholder label="Açıklama Altı Reklam" style={style} />
       }
     </div>
   );
 }
 
-// ─── Instream Video (pre-roll) ────────────────────────────────────
+// ─── Instream Video (pre-roll) ─────────────────────────────────────
 export function InstreamVideoAd({ onSkip }) {
   const { getSlot } = useAds();
   const slot = getSlot("instreamVideo");
@@ -208,7 +237,6 @@ export function InstreamVideoAd({ onSkip }) {
   const [countdown, setCountdown] = useState(5);
   const [canSkip, setCanSkip] = useState(false);
 
-  // IMA SDK VAST pre-roll
   useEffect(() => {
     if (!slot?.enabled) { onSkip?.(); return; }
     if (!slot?.vastUrl) return;
@@ -260,7 +288,6 @@ export function InstreamVideoAd({ onSkip }) {
     return () => { destroyed = true; adsManagerRef.current?.destroy(); };
   }, [slot?.enabled, slot?.vastUrl]);
 
-  // Skip countdown (IMA veya HTML kod için)
   useEffect(() => {
     if (!slot?.enabled) return;
     if (countdown <= 0) { setCanSkip(true); return; }
@@ -272,7 +299,6 @@ export function InstreamVideoAd({ onSkip }) {
 
   const h = slot.height ? `${slot.height}px` : "360px";
 
-  // VAST URL → IMA SDK container
   if (slot.vastUrl) {
     return (
       <div className="relative w-full rounded-2xl overflow-hidden mb-4 bg-black" style={{ height: h }}>
@@ -283,9 +309,9 @@ export function InstreamVideoAd({ onSkip }) {
         </div>
         <div className="absolute bottom-4 right-4 z-10">
           {!canSkip
-            ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded font-mono">{countdown}s sonra geç</span>
+            ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg font-mono">{countdown}s sonra geç</span>
             : <button onClick={() => { adsManagerRef.current?.skip(); onSkip?.(); }}
-                className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded transition-colors">
+                className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
                 Reklamı Geç →
               </button>
           }
@@ -294,7 +320,6 @@ export function InstreamVideoAd({ onSkip }) {
     );
   }
 
-  // HTML kod → eski yöntem
   const style = slotStyle(slot);
   return (
     <div className="relative w-full rounded-2xl overflow-hidden mb-4 bg-black flex items-center justify-center" style={{ minHeight: style.height || "300px" }}>
@@ -309,8 +334,8 @@ export function InstreamVideoAd({ onSkip }) {
       </div>
       <div className="absolute bottom-4 right-4">
         {!canSkip
-          ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded font-mono">{countdown}s sonra geç</span>
-          : <button onClick={onSkip} className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded transition-colors">
+          ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg font-mono">{countdown}s sonra geç</span>
+          : <button onClick={onSkip} className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
               Reklamı Geç →
             </button>
         }

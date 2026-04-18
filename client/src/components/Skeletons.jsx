@@ -22,12 +22,16 @@ export function VideoCardSkeleton() {
   );
 }
 
-// Grid of card skeletons
-export function VideoGridSkeleton({ count = 8 }) {
+// Grid of card skeletons — matches Home.jsx grid
+export function VideoGridSkeleton({ count = 12 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-x-3 gap-y-5">
       {Array.from({ length: count }).map((_, i) => (
-        <VideoCardSkeleton key={i} />
+        <div key={i} className="flex flex-col gap-2">
+          <div className="skeleton rounded-xl w-full" style={{ aspectRatio: "16/9" }} />
+          <div className="skeleton h-4 rounded w-3/4" />
+          <div className="skeleton h-3 rounded w-1/2" />
+        </div>
       ))}
     </div>
   );

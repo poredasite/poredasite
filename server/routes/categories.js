@@ -4,20 +4,38 @@ const Category = require("../models/Category");
 const Video = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
 
-// GET /categories — list all with video counts
+// GET /categories — list all with video counts (single aggregation, no N+1)
 router.get("/", async (req, res) => {
   try {
-    const categories = await Category.find().sort({ name: 1 });
+    const [categories, countAgg] = await Promise.all([
+      Category.find().sort({ name: 1 }),
+      Video.aggregate([
+        { $match: { status: "ready" } },
+        {
+          $project: {
+            allCats: {
+              $setUnion: [
+                { $ifNull: ["$categories", []] },
+                { $cond: { if: "$category", then: ["$category"], else: [] } },
+              ],
+            },
+          },
+        },
+        { $unwind: "$allCats" },
+        { $group: { _id: "$allCats", count: { $sum: 1 } } },
+      ]),
+    ]);
 
-    // Attach live video counts
-    const withCounts = await Promise.all(
-      categories.map(async (cat) => {
-        const count = await Video.countDocuments({ $or: [{ category: cat._id }, { categories: cat._id }] });
-        return { ...cat.toObject(), videoCount: count };
-      })
+    const countMap = Object.fromEntries(
+      countAgg.map((c) => [c._id.toString(), c.count])
     );
 
-    res.json({ success: true, data: withCounts });
+    const data = categories.map((cat) => ({
+      ...cat.toObject(),
+      videoCount: countMap[cat._id.toString()] || 0,
+    }));
+
+    res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -83,7 +101,6 @@ router.delete("/:id", adminAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: "Category not found" });
     }
 
-    // Remove category reference from videos
     await Video.updateMany(
       { $or: [{ category: category._id }, { categories: category._id }] },
       { $unset: { category: 1 }, $pull: { categories: category._id } }

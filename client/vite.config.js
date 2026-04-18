@@ -5,10 +5,14 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: "dist",
+    sourcemap: false,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ["react", "react-dom", "react-router-dom"],
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "hls":          ["hls.js"],
+          "ui-vendor":    ["date-fns", "react-icons"],
         },
       },
     },
