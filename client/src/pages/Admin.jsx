@@ -201,7 +201,7 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
           {item.status === "uploading" && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-gray-500">
-                <span>Wasabi'ye yükleniyor...</span>
+                <span>Depolamaya yükleniyor...</span>
                 <span className="font-mono text-brand-400">{item.progress}%</span>
               </div>
               <div className="h-1 bg-surface-700 rounded-full overflow-hidden">

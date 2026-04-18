@@ -38,7 +38,7 @@ export const videoApi = {
       xhr.upload.onprogress = (e) => {
         if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded * 100) / e.total));
       };
-      xhr.onload = () => (xhr.status < 400 ? resolve() : reject(new Error(`Wasabi upload failed: ${xhr.status}`)));
+      xhr.onload = () => (xhr.status < 400 ? resolve() : reject(new Error(`Yükleme başarısız (${xhr.status})`)));
       xhr.onerror = () => reject(new Error("Network error during upload"));
       xhr.ontimeout = () => reject(new Error("Upload timed out"));
       xhr.open("PUT", presignedUrl);
