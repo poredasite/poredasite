@@ -59,7 +59,11 @@ export const videoApi = {
 
   update: (id, data) => api.patch(`/videos/${id}`, data),
 
-  getSitemap: () => api.get("/videos/sitemap"),
+  getSitemap:  () => api.get("/videos/sitemap"),
+  getSidebar:  () => api.get("/videos/sidebar"),
+  getByTag:    (tag, params = {}) => api.get(`/videos/tag/${encodeURIComponent(tag)}`, { params }),
+  getTagMeta:  (tag) => api.get(`/videos/tag/${encodeURIComponent(tag)}/meta`),
+  recordWatch: (id, data) => api.post(`/videos/${id}/watch`, data),
 };
 
 // ─── Category API ─────────────────────────────────────────────────

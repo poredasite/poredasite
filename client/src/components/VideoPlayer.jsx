@@ -26,7 +26,7 @@ function buildProxyUrl(src, videoId) {
   return src;
 }
 
-export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUrl }) {
+export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUrl, onWatchProgress }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -49,7 +49,9 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
   const speedToastTimer = useRef(null);
   const longPressTimer = useRef(null);
   const touchStartPos = useRef(null);
-  const hlsInstanceRef = useRef(null);
+  const hlsInstanceRef    = useRef(null);
+  const watchedSecondsRef = useRef(0);
+  const playStartRef      = useRef(null);
   // Stall detection: if buffering >8s with no canplay event, the MSE decoder silently
   // rejected the codec (common with non-standard H.264 profiles). Try MP4 fallback.
   const stallTimer = useRef(null);
@@ -59,7 +61,9 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
     const video = videoRef.current;
     setHlsReady(false);
     setHlsError(false);
-    pendingPlay.current = false;
+    pendingPlay.current    = false;
+    watchedSecondsRef.current = 0;
+    playStartRef.current      = null;
     
     if (hlsInstanceRef.current) {
         hlsInstanceRef.current.destroy();
@@ -415,9 +419,32 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
           }
         }}
         onCanPlay={() => { setBuffering(false); clearTimeout(stallTimer.current); }}
-        onPlaying={() => { setPlaying(true); setBuffering(false); clearTimeout(stallTimer.current); }}
-        onPause={() => setPlaying(false)}
-        onEnded={() => { setPlaying(false); setShowControls(true); }}
+        onPlaying={() => {
+          setPlaying(true); setBuffering(false); clearTimeout(stallTimer.current);
+          playStartRef.current = Date.now();
+        }}
+        onPause={() => {
+          setPlaying(false);
+          if (playStartRef.current) {
+            watchedSecondsRef.current += (Date.now() - playStartRef.current) / 1000;
+            playStartRef.current = null;
+          }
+          onWatchProgress?.({
+            watchedSeconds: Math.floor(watchedSecondsRef.current),
+            duration: videoRef.current?.duration || 0,
+          });
+        }}
+        onEnded={() => {
+          setPlaying(false); setShowControls(true);
+          if (playStartRef.current) {
+            watchedSecondsRef.current += (Date.now() - playStartRef.current) / 1000;
+            playStartRef.current = null;
+          }
+          onWatchProgress?.({
+            watchedSeconds: Math.floor(watchedSecondsRef.current),
+            duration: videoRef.current?.duration || 0,
+          });
+        }}
         onError={() => { setBuffering(false); setPlaying(false); setHlsError(true); }}
         onClick={handleVideoClick}
         onDoubleClick={handleVideoDoubleClick}

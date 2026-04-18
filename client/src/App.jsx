@@ -9,9 +9,11 @@ import { StickyBannerAd, PopunderAd, InstantMessageAd } from "./components/AdPla
 import StaticPage from "./pages/StaticPage";
 import NotFound from "./pages/NotFound";
 
-const Home = lazy(() => import("./pages/Home"));
+const Home        = lazy(() => import("./pages/Home"));
 const VideoDetail = lazy(() => import("./pages/VideoDetail"));
-const Admin = lazy(() => import("./pages/Admin"));
+const Admin       = lazy(() => import("./pages/Admin"));
+const TagPage     = lazy(() => import("./pages/TagPage"));
+const EmbedPage   = lazy(() => import("./pages/EmbedPage"));
 
 function PageLoader() {
   return (
@@ -55,6 +57,8 @@ export default function App() {
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/video/:id" element={<VideoDetail />} />
+                    <Route path="/tag/:tag"  element={<TagPage />} />
+                    <Route path="/embed/:id" element={<EmbedPage />} />
                     <Route path="/admin-baba" element={<Admin />} />
                     <Route path="/hakkimizda" element={<StaticPage />} />
                     <Route path="/gizlilik" element={<StaticPage />} />

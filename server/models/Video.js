@@ -44,6 +44,9 @@ const videoSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    watchSessions:  { type: Number, default: 0, min: 0 },
+    avgWatchTime:   { type: Number, default: 0, min: 0 },
+    completionRate: { type: Number, default: 0, min: 0, max: 1 },
     tags: [{ type: String, trim: true }],
     category: {
       type: mongoose.Schema.Types.ObjectId,
@@ -99,5 +102,6 @@ videoSchema.index({ title: "text", description: "text" });
 videoSchema.index({ createdAt: -1 });
 videoSchema.index({ views: -1 });
 videoSchema.index({ status: 1 });
+videoSchema.index({ tags: 1 });
 
 module.exports = mongoose.model("Video", videoSchema);

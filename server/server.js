@@ -86,14 +86,23 @@ app.get("/api/health", (req, res) => {
 app.get("/sitemap.xml", async (req, res) => {
   try {
     const Video = require("./models/Video");
-    const videos = await Video.find().select("_id slug updatedAt").sort({ createdAt: -1 });
+    const videos = await Video.find({ status: "ready" }).select("_id slug updatedAt tags").sort({ createdAt: -1 });
     const baseUrl = process.env.CLIENT_URL || "http://localhost:5173";
+
+    // Collect unique tags across all videos
+    const tagSet = new Set();
+    for (const v of videos) (v.tags || []).forEach((t) => tagSet.add(t.toLowerCase()));
+
+    const today = new Date().toISOString().split("T")[0];
     const urls = [
       `<url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`,
       ...videos.map((v) =>
-          `<url><loc>${baseUrl}/video/${v._id}</loc><lastmod>${
-              v.updatedAt?.toISOString().split("T")[0] || new Date().toISOString().split("T")[0]
-          }</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>`
+        `<url><loc>${baseUrl}/video/${v._id}</loc><lastmod>${
+          v.updatedAt?.toISOString().split("T")[0] || today
+        }</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>`
+      ),
+      ...[...tagSet].map((tag) =>
+        `<url><loc>${baseUrl}/tag/${encodeURIComponent(tag)}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>`
       ),
     ].join("\n    ");
     res.header("Content-Type", "application/xml");

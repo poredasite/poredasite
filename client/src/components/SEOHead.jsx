@@ -13,6 +13,8 @@ export default function SEOHead({
   type = "website",
   videoUrl,
   noIndex = false,
+  prevPage = null,
+  nextPage = null,
 }) {
   const fullTitle = title ? `${title} — ${SITE_NAME}` : `${SITE_NAME} Porno izle`;
   const canonicalUrl = url ? `${SITE_URL}${url}` : SITE_URL;
@@ -24,6 +26,8 @@ export default function SEOHead({
       <meta name="description" content={description} />
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
       <link rel="canonical" href={canonicalUrl} />
+      {prevPage && <link rel="prev" href={`${SITE_URL}${prevPage}`} />}
+      {nextPage && <link rel="next" href={`${SITE_URL}${nextPage}`} />}
 
       {/* Open Graph */}
       <meta property="og:type" content={type} />

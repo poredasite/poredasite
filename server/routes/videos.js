@@ -35,6 +35,66 @@ const thumbOnlyUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
 }).single("thumbnail");
 
+// ── Related-video scoring (tag overlap + category + popularity) ───────────────
+// Fetches up to 80 candidates sharing tags/category, scores in-memory, fills
+// remainder with trending. Safe for 10k+ collections because MongoDB filters
+// before Node processes.
+async function getRelatedVideos(video, limit = 12) {
+  const tags   = video.tags || [];
+  const catIds = [
+    ...(Array.isArray(video.categories) ? video.categories.map((c) => c._id ?? c) : []),
+    video.category ? (video.category._id ?? video.category) : null,
+  ].filter(Boolean);
+
+  const orClauses = [];
+  if (tags.length)   orClauses.push({ tags: { $in: tags } });
+  if (catIds.length) orClauses.push({ category: { $in: catIds } }, { categories: { $in: catIds } });
+
+  const baseSelect = "_id title thumbnailUrl views createdAt duration tags category categories";
+
+  const [candidates, trending] = await Promise.all([
+    orClauses.length
+      ? Video.find({ _id: { $ne: video._id }, status: "ready", $or: orClauses })
+          .limit(80).select(baseSelect + " avgWatchTime completionRate")
+          .populate("category", "name slug")
+          .populate("categories", "name slug")
+          .lean()
+      : Promise.resolve([]),
+    Video.find({ _id: { $ne: video._id }, status: "ready" })
+      .sort({ views: -1 }).limit(20)
+      .select(baseSelect + " avgWatchTime completionRate")
+      .lean(),
+  ]);
+
+  const tagSet = new Set(tags.map((t) => t.toLowerCase()));
+  const catSet = new Set(catIds.map(String));
+
+  const scoreVideo = (v) => {
+    let s = 0;
+    s += (v.tags || []).filter((t) => tagSet.has(t.toLowerCase())).length * 3;
+    const vc = [
+      ...(v.categories || []).map((c) => String(c._id || c)),
+      v.category ? String(v.category._id || v.category) : "",
+    ].filter(Boolean);
+    if (vc.some((c) => catSet.has(c))) s += 2;
+    s += Math.min(2, Math.log10((v.views || 0) + 1) / 3);
+    // Watch time signals: clickbait drops here, genuinely watched content rises
+    s += Math.min(3, ((v.avgWatchTime || 0) / 1800) * 3);  // up to 3pts for 30min avg
+    s += (v.completionRate || 0) * 2;                       // up to 2pts for 100% completion
+    return s;
+  };
+
+  // Deduplicate; candidates take priority (already scored), trending fills gaps
+  const pool = new Map();
+  for (const v of candidates) pool.set(String(v._id), { ...v, _s: scoreVideo(v) });
+  for (const v of trending)   if (!pool.has(String(v._id))) pool.set(String(v._id), { ...v, _s: scoreVideo(v) });
+
+  return [...pool.values()]
+    .sort((a, b) => b._s - a._s)
+    .slice(0, limit)
+    .map(({ _s, ...v }) => v);
+}
+
 // GET /videos
 router.get("/", async (req, res) => {
   try {
@@ -68,6 +128,82 @@ router.get("/sitemap", async (req, res) => {
   }
 });
 
+// GET /videos/sidebar  — trending + recent for sidebar widgets
+router.get("/sidebar", async (req, res) => {
+  try {
+    const [trending, recent] = await Promise.all([
+      Video.find({ status: "ready" }).sort({ views: -1 }).limit(8)
+        .select("_id title thumbnailUrl views duration createdAt").lean(),
+      Video.find({ status: "ready" }).sort({ createdAt: -1 }).limit(8)
+        .select("_id title thumbnailUrl views duration createdAt").lean(),
+    ]);
+    res.json({ success: true, data: { trending, recent } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /videos/tag/:tag/meta  — related tags + categories for a tag (SEO landing page)
+router.get("/tag/:tag/meta", async (req, res) => {
+  try {
+    const tag = decodeURIComponent(req.params.tag);
+    const sample = await Video.find({ status: "ready", tags: tag })
+      .limit(120).select("tags category categories").lean();
+
+    // Count co-occurring tags
+    const tagCount = {};
+    const catMap   = {};
+    for (const v of sample) {
+      for (const t of (v.tags || [])) {
+        if (t.toLowerCase() !== tag.toLowerCase()) tagCount[t] = (tagCount[t] || 0) + 1;
+      }
+      const cats = [
+        ...(v.categories || []),
+        ...(v.category ? [v.category] : []),
+      ];
+      for (const c of cats) if (c) catMap[String(c._id || c)] = c;
+    }
+
+    const relatedTags = Object.entries(tagCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([t]) => t);
+
+    // Fetch populated categories
+    const catIds = Object.keys(catMap);
+    const Category = require("../models/Category");
+    const categories = catIds.length
+      ? await Category.find({ _id: { $in: catIds } }).select("name slug icon").lean()
+      : [];
+
+    res.json({ success: true, data: { relatedTags, categories } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /videos/tag/:tag  — all videos with a specific tag, paginated
+router.get("/tag/:tag", async (req, res) => {
+  try {
+    const tag   = decodeURIComponent(req.params.tag);
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(48, parseInt(req.query.limit) || 24);
+    const skip  = (page - 1) * limit;
+    const filter = { status: "ready", tags: tag };
+    const [videos, total] = await Promise.all([
+      Video.find(filter).sort({ views: -1 }).skip(skip).limit(limit)
+        .select("-videoPublicId -thumbnailPublicId")
+        .populate("category",   "name icon color slug")
+        .populate("categories", "name icon color slug")
+        .lean(),
+      Video.countDocuments(filter),
+    ]);
+    res.json({ success: true, data: videos, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 // GET /videos/:id
 router.get("/:id", async (req, res) => {
   try {
@@ -76,9 +212,7 @@ router.get("/:id", async (req, res) => {
       .populate("category", "name icon color slug")
       .populate("categories", "name icon color slug");
     if (!video) return res.status(404).json({ success: false, message: "Video not found" });
-    const related = await Video.find({ _id: { $ne: video._id }, status: "ready" })
-      .sort({ views: -1 }).limit(8)
-      .select("_id title thumbnailUrl views createdAt duration");
+    const related = await getRelatedVideos(video, 12);
     const videoData = video.toObject();
     // Unified playback fields consumed by the frontend player
     videoData.hlsUrl = video.videoUrl;
@@ -255,6 +389,45 @@ router.post("/upload", adminAuth, (req, res) => {
       res.status(500).json({ success: false, message: "Upload failed: " + err.message });
     }
   });
+});
+
+// POST /videos/:id/watch  — record watch session, update running averages
+// Uses Welford's online algorithm so we never need to store individual events.
+router.post("/:id/watch", async (req, res) => {
+  try {
+    const { watchTime, duration } = req.body;
+    const wt = Math.min(Number(watchTime) || 0, 14400); // cap at 4h (data sanity)
+    const dur = Math.max(1, Number(duration) || 1);
+    if (wt < 3) return res.json({ success: true });      // ignore bounces
+
+    const rate = Math.min(1, wt / dur);
+
+    // Atomic running-average update — no read-modify-write race
+    await Video.findByIdAndUpdate(req.params.id, [
+      {
+        $set: {
+          watchSessions:  { $add: ["$watchSessions", 1] },
+          avgWatchTime:   {
+            $divide: [
+              { $add: [{ $multiply: ["$avgWatchTime", "$watchSessions"] }, wt] },
+              { $add: ["$watchSessions", 1] },
+            ],
+          },
+          completionRate: {
+            $divide: [
+              { $add: [{ $multiply: ["$completionRate", "$watchSessions"] }, rate] },
+              { $add: ["$watchSessions", 1] },
+            ],
+          },
+        },
+      },
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    if (err.name === "CastError") return res.json({ success: true }); // ignore bad ids
+    res.status(500).json({ success: false });
+  }
 });
 
 // DELETE /videos/:id
