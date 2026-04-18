@@ -3,11 +3,26 @@ import Hls from "hls.js";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
 
+// Bu fonksiyon m3u8 veya ts dosyasını senin backend'in üzerinden çekecek şekilde URL'i dönüştürür.
 function buildProxyUrl(src, videoId) {
-  if (!src?.includes(".m3u8")) return src;
-  if (videoId) return `${API_BASE}/api/stream/${videoId}/index.m3u8`;
-  const match = src.match(/\/videos\/([^/]+)\/index\.m3u8/);
-  if (match) return `${API_BASE}/api/stream/${match[1]}/index.m3u8`;
+  if (!src) return src;
+  
+  // Zaten API üzerinden geliyorsa dokunma
+  if (src.includes("/api/stream/")) return src;
+
+  // R2 public URL'ini senin API proxy'ne çevir
+  const match = src.match(/\/videos\/([^/]+)\/(.+)$/);
+  if (match) {
+    const vId = match[1];
+    const filename = match[2];
+    return `${API_BASE}/api/stream/${vId}/${filename}`;
+  }
+  
+  // Eğer sadece videoId verilmişse m3u8 proxy dön
+  if (videoId && src.includes(".m3u8")) {
+     return `${API_BASE}/api/stream/${videoId}/index.m3u8`;
+  }
+
   return src;
 }
 
@@ -34,6 +49,7 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
   const speedToastTimer = useRef(null);
   const longPressTimer = useRef(null);
   const touchStartPos = useRef(null);
+  const hlsInstanceRef = useRef(null);
 
   // HLS.js setup for m3u8 streams
   useEffect(() => {
@@ -41,6 +57,12 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
     setHlsReady(false);
     setHlsError(false);
     pendingPlay.current = false;
+    
+    if (hlsInstanceRef.current) {
+        hlsInstanceRef.current.destroy();
+        hlsInstanceRef.current = null;
+    }
+
     if (!video || !src) return;
 
     if (!src.includes(".m3u8")) {
@@ -49,7 +71,7 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
       return;
     }
 
-    // iOS Safari: native HLS — use direct CDN URL (no CORS needed for <video> src)
+    // iOS Safari: native HLS
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src;
       setHlsReady(true);
@@ -61,59 +83,80 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
       return;
     }
 
-    // HLS.js: try direct CDN first (CORS set via R2 config), proxy as fallback
-    let networkRetries = 0;
-    let usingProxy = false;
-    const proxyUrl = buildProxyUrl(src, videoId);
-
-    const hls = new Hls({ enableWorker: false, lowLatencyMode: false, backBufferLength: 90 });
-
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      setHlsReady(true);
-      if (pendingPlay.current) {
-        pendingPlay.current = false;
-        video.play().catch(() => {});
-      }
-    });
-
-    hls.on(Hls.Events.ERROR, (_, data) => {
-      if (!data.fatal) return;
-      if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-        if (!usingProxy && proxyUrl !== src) {
-          usingProxy = true;
-          networkRetries = 0;
-          hls.destroy();
-          const hls2 = new Hls({ enableWorker: false, lowLatencyMode: false, backBufferLength: 90 });
-          hls2.attachMedia(video);
-          hls2.on(Hls.Events.MEDIA_ATTACHED, () => hls2.loadSource(proxyUrl));
-          hls2.on(Hls.Events.MANIFEST_PARSED, () => {
-            setHlsReady(true);
-            if (pendingPlay.current) { pendingPlay.current = false; video.play().catch(() => {}); }
-          });
-          hls2.on(Hls.Events.ERROR, (__, d) => {
-            if (d.fatal) { hls2.destroy(); setBuffering(false); setPlaying(false); setHlsError(true); }
-          });
-        } else {
-          networkRetries += 1;
-          if (networkRetries <= 2) hls.startLoad();
-          else { hls.destroy(); setBuffering(false); setPlaying(false); setHlsError(true); }
+    const initHls = (useProxy = false) => {
+        if (hlsInstanceRef.current) {
+            hlsInstanceRef.current.destroy();
         }
-      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-        hls.recoverMediaError();
-      } else {
-        hls.destroy();
-        setBuffering(false);
-        setPlaying(false);
-        setHlsError(true);
-      }
-    });
 
-    hls.attachMedia(video);
-    hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-      hls.loadSource(src);
-    });
+        const hlsConfig = {
+            enableWorker: false, 
+            lowLatencyMode: false, 
+            backBufferLength: 90,
+            // Eğer proxy kullanıyorsak, manifest içindeki ts dosyalarını da proxy üzerinden çekmesi için xhrSetup kullanabiliriz
+            // Ancak stream.js zaten m3u8'i dönüyor, eğer m3u8 içindeki ts yolları relative ise (örn: "seg000.ts")
+            // tarayıcı zaten m3u8'in indirildiği URL'yi base alır. Yani m3u8 proxy'den iniyorsa ts'ler de otomatik proxy'ye gider.
+        };
 
-    return () => { hls.destroy(); };
+        const hls = new Hls(hlsConfig);
+        hlsInstanceRef.current = hls;
+
+        const currentSrc = useProxy ? buildProxyUrl(src, videoId) : src;
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setHlsReady(true);
+          if (pendingPlay.current) {
+            pendingPlay.current = false;
+            video.play().catch(() => {});
+          }
+        });
+
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (!data.fatal) {
+              // Bazen segment indirmede ufak hatalar olur, recovery dener
+              if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                  hls.recoverMediaError();
+              }
+              return;
+          }
+          
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            // R2'den çekerken CORS veya 404/403 gibi bir ağ hatası aldıysak proxy fallback yap
+            if (!useProxy) {
+              console.warn("Direct stream failed, falling back to proxy...", data);
+              initHls(true); // Proxy moduyla yeniden başlat
+            } else {
+              // Proxy de patladıysa tamamen hata ver
+              console.error("Proxy stream also failed", data);
+              hls.destroy(); 
+              setBuffering(false); 
+              setPlaying(false); 
+              setHlsError(true); 
+            }
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+          } else {
+            hls.destroy();
+            setBuffering(false);
+            setPlaying(false);
+            setHlsError(true);
+          }
+        });
+
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+          hls.loadSource(currentSrc);
+        });
+    };
+
+    // İlk deneme direkt CDN (R2) üzerinden
+    initHls(false);
+
+    return () => { 
+        if (hlsInstanceRef.current) {
+            hlsInstanceRef.current.destroy(); 
+            hlsInstanceRef.current = null;
+        }
+    };
   }, [src, videoId]);
 
   const resetHideTimer = useCallback(() => {
