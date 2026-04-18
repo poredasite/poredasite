@@ -9,7 +9,7 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 const Video = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
-const { getVideoDuration, convertToHLS, uploadHLSToWasabi, uploadThumbnailToWasabi, deleteFromWasabi, createRawUploadUrl, downloadRawFromWasabi, deleteRawFromWasabi } = require("../utils/hls");
+const { getVideoDuration, convertToHLS, uploadHLSToStorage, uploadThumbnailToStorage, deleteFromStorage, createRawUploadUrl, downloadRawFromStorage, deleteRawFromStorage } = require("../utils/hls");
 
 const diskUpload = multer({
   storage: multer.diskStorage({
@@ -91,7 +91,7 @@ router.post("/upload-init", adminAuth, (req, res) => {
       const videoId = new mongoose.Types.ObjectId();
       const categoriesArr = categoriesRaw ? JSON.parse(categoriesRaw) : (category ? [category] : []);
 
-      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToWasabi(
+      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToStorage(
         thumbFile.path, videoId.toString(), thumbFile.mimetype
       );
       fs.unlinkSync(thumbFile.path);
@@ -137,12 +137,12 @@ router.post("/:id/process", adminAuth, async (req, res) => {
       const ext = path.extname(video.rawVideoKey) || ".mp4";
       const tmpPath = path.join(os.tmpdir(), `raw-${video._id}${ext}`);
       try {
-        await downloadRawFromWasabi(video.rawVideoKey, tmpPath);
+        await downloadRawFromStorage(video.rawVideoKey, tmpPath);
         const duration = await getVideoDuration(tmpPath);
         const outputDir = await convertToHLS(tmpPath, video._id.toString());
         fs.unlinkSync(tmpPath);
-        const hlsUrl = await uploadHLSToWasabi(outputDir, video._id.toString());
-        await deleteRawFromWasabi(video.rawVideoKey);
+        const hlsUrl = await uploadHLSToStorage(outputDir, video._id.toString());
+        await deleteRawFromStorage(video.rawVideoKey);
         await Video.findByIdAndUpdate(video._id, { videoUrl: hlsUrl, duration, status: "ready", rawVideoKey: null });
         console.log(`✅ HLS ready: ${hlsUrl}`);
       } catch (bgErr) {
@@ -171,7 +171,7 @@ router.post("/upload", adminAuth, (req, res) => {
       const videoId = new mongoose.Types.ObjectId();
 
       // Upload thumbnail immediately
-      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToWasabi(
+      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToStorage(
         thumbFile.path, videoId.toString(), thumbFile.mimetype
       );
       fs.unlinkSync(thumbFile.path);
@@ -200,7 +200,7 @@ router.post("/upload", adminAuth, (req, res) => {
           const duration = await getVideoDuration(videoFile.path);
           const outputDir = await convertToHLS(videoFile.path, videoId.toString());
           fs.unlinkSync(videoFile.path);
-          const hlsUrl = await uploadHLSToWasabi(outputDir, videoId.toString());
+          const hlsUrl = await uploadHLSToStorage(outputDir, videoId.toString());
           await Video.findByIdAndUpdate(videoId, { videoUrl: hlsUrl, duration, status: "ready" });
           console.log(`✅ HLS ready: ${hlsUrl}`);
         } catch (bgErr) {
@@ -222,8 +222,8 @@ router.delete("/:id", adminAuth, async (req, res) => {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ success: false, message: "Video not found" });
     await Promise.allSettled([
-      deleteFromWasabi(`videos/${video._id}/`),
-      deleteFromWasabi(video.thumbnailPublicId),
+      deleteFromStorage(`videos/${video._id}/`),
+      deleteFromStorage(video.thumbnailPublicId),
     ]);
     await video.deleteOne();
     res.json({ success: true, message: "Video deleted successfully" });
@@ -256,9 +256,9 @@ router.patch("/:id", adminAuth, (req, res, next) => {
     if (req.file) {
       const existing = await Video.findById(req.params.id).select("thumbnailPublicId");
       if (existing?.thumbnailPublicId) {
-        try { await deleteFromWasabi(existing.thumbnailPublicId); } catch {}
+        try { await deleteFromStorage(existing.thumbnailPublicId); } catch {}
       }
-      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToWasabi(req.file.path, req.params.id, req.file.mimetype);
+      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToStorage(req.file.path, req.params.id, req.file.mimetype);
       fs.unlinkSync(req.file.path);
       update.thumbnailUrl = thumbnailUrl;
       update.thumbnailPublicId = thumbnailKey;

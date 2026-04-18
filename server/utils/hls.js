@@ -3,7 +3,10 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { pipeline } = require("stream/promises");
-const { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command } = require("@aws-sdk/client-s3");
+const {
+  PutObjectCommand, GetObjectCommand, DeleteObjectCommand,
+  DeleteObjectsCommand, ListObjectsV2Command,
+} = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { s3, BUCKET, CDN_URL } = require("../config/storage");
 
@@ -22,13 +25,9 @@ function convertToHLS(inputPath, videoId) {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-c:v libx264",
-        "-crf 22",
-        "-preset fast",
-        "-c:a aac",
-        "-b:a 128k",
-        "-hls_time 6",
-        "-hls_list_size 0",
+        "-c:v libx264", "-crf 22", "-preset fast",
+        "-c:a aac", "-b:a 128k",
+        "-hls_time 6", "-hls_list_size 0",
         `-hls_segment_filename ${path.join(outputDir, "seg%03d.ts")}`,
         "-f hls",
       ])
@@ -39,15 +38,14 @@ function convertToHLS(inputPath, videoId) {
   });
 }
 
-async function uploadHLSToWasabi(outputDir, videoId) {
+async function uploadHLSToStorage(outputDir, videoId) {
   const files = fs.readdirSync(outputDir);
   for (const file of files) {
     const filePath = path.join(outputDir, file);
     const key = `videos/${videoId}/${file}`;
     const contentType = file.endsWith(".m3u8") ? "application/x-mpegURL" : "video/MP2T";
     await s3.send(new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
+      Bucket: BUCKET, Key: key,
       Body: fs.readFileSync(filePath),
       ContentType: contentType,
     }));
@@ -56,12 +54,11 @@ async function uploadHLSToWasabi(outputDir, videoId) {
   return `${CDN_URL}/videos/${videoId}/index.m3u8`;
 }
 
-async function uploadThumbnailToWasabi(filePath, videoId, mimeType) {
+async function uploadThumbnailToStorage(filePath, videoId, mimeType) {
   const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
   const key = `thumbnails/${videoId}.${ext}`;
   await s3.send(new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
+    Bucket: BUCKET, Key: key,
     Body: fs.readFileSync(filePath),
     ContentType: mimeType,
   }));
@@ -81,16 +78,16 @@ async function createRawUploadUrl(videoId, contentType) {
   return { url, key };
 }
 
-async function downloadRawFromWasabi(key, destPath) {
+async function downloadRawFromStorage(key, destPath) {
   const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
   await pipeline(res.Body, fs.createWriteStream(destPath));
 }
 
-async function deleteRawFromWasabi(key) {
+async function deleteRawFromStorage(key) {
   try { await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key })); } catch {}
 }
 
-async function deleteFromWasabi(prefix) {
+async function deleteFromStorage(prefix) {
   const listed = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix }));
   if (!listed.Contents?.length) return;
   await s3.send(new DeleteObjectsCommand({
@@ -99,4 +96,9 @@ async function deleteFromWasabi(prefix) {
   }));
 }
 
-module.exports = { getVideoDuration, convertToHLS, uploadHLSToWasabi, uploadThumbnailToWasabi, deleteFromWasabi, createRawUploadUrl, downloadRawFromWasabi, deleteRawFromWasabi };
+module.exports = {
+  getVideoDuration, convertToHLS,
+  uploadHLSToStorage, uploadThumbnailToStorage,
+  createRawUploadUrl, downloadRawFromStorage,
+  deleteRawFromStorage, deleteFromStorage,
+};

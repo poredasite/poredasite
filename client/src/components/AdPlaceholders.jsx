@@ -68,10 +68,10 @@ export function InFeedAd() {
   const slot = getSlot("inFeed");
   if (!slot?.enabled) return null;
   return (
-    <div className="col-span-1 sm:col-span-2 flex justify-center">
+    <div className="col-span-full flex justify-center my-1">
       {slot.code
         ? <AdSlot html={slot.code} style={slotStyle(slot)} />
-        : <div className="ad-placeholder rounded-xl w-full" style={{ minHeight: "100px" }}>
+        : <div className="ad-placeholder rounded-xl w-full" style={{ minHeight: "90px" }}>
             <span className="text-surface-600 text-[10px] tracking-widest uppercase font-mono">Feed Reklam</span>
           </div>
       }

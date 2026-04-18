@@ -1,17 +1,18 @@
 const { S3Client } = require("@aws-sdk/client-s3");
 
+// Cloudflare R2 — S3-compatible
+// Endpoint format: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
 const s3 = new S3Client({
-  endpoint: process.env.WASABI_ENDPOINT,
-  region: process.env.WASABI_REGION || "eu-central-1",
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  region: "auto",
   credentials: {
-    accessKeyId: process.env.WASABI_ACCESS_KEY,
-    secretAccessKey: process.env.WASABI_SECRET_KEY,
+    accessKeyId: process.env.R2_ACCESS_KEY,
+    secretAccessKey: process.env.R2_SECRET_KEY,
   },
-  forcePathStyle: true,
 });
 
 module.exports = {
   s3,
-  BUCKET: process.env.WASABI_BUCKET,
+  BUCKET: process.env.R2_BUCKET,
   CDN_URL: (process.env.CDN_URL || "").replace(/\/$/, ""),
 };
