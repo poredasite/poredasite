@@ -5,7 +5,8 @@
       "Bash(xargs grep *)",
       "Bash(node -e \"const pkg = require\\('./node_modules/react-icons/package.json'\\); console.log\\(pkg.version\\)\")",
       "Bash(node *)",
-      "Bash(grep -E \"^\\(HiHome|HiTrendingUp|HiViewGrid|HiHeart|HiChatAlt|HiUser|HiChevronDown|HiMenu|HiX|HiCog|HiFire|HiClock\\)$\")"
+      "Bash(grep -E \"^\\(HiHome|HiTrendingUp|HiViewGrid|HiHeart|HiChatAlt|HiUser|HiChevronDown|HiMenu|HiX|HiCog|HiFire|HiClock\\)$\")",
+      "Bash(npm install *)"
     ]
   }
 }

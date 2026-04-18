@@ -62,43 +62,36 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Profile dropdown */}
-          <div className="relative" ref={profileRef}>
-            <button
-              onClick={() => setProfileOpen((v) => !v)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-surface-800 transition-all duration-200"
-            >
-              <HiUser className="w-4 h-4" />
-              <span>{isAdmin ? "Admin" : "Profil"}</span>
-              <HiChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
-            </button>
+          {/* Profile dropdown — only shown when logged in as admin */}
+          {isAdmin && (
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen((v) => !v)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-surface-800 transition-all duration-200"
+              >
+                <HiUser className="w-4 h-4" />
+                <span>Admin</span>
+                <HiChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
+              </button>
 
-            {profileOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-52 bg-surface-800 border border-white/10 rounded-xl shadow-2xl shadow-black/60 py-1.5 animate-fade-in">
-                {isAdmin ? (
-                  <>
-                    <div className="px-4 py-2 border-b border-white/5 mb-1">
-                      <p className="text-xs text-brand-400 font-semibold">Yönetici</p>
-                    </div>
-                    <Link to="/admin" onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-surface-700 transition-colors">
-                      <HiCog className="w-4 h-4 text-brand-400" /> Yönetim Paneli
-                    </Link>
-                    <div className="border-t border-white/5 my-1" />
-                    <button onClick={() => { logout(); navigate("/"); setProfileOpen(false); }}
-                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-surface-700 transition-colors">
-                      <HiX className="w-4 h-4" /> Çıkış Yap
-                    </button>
-                  </>
-                ) : (
-                  <Link to="/admin" onClick={() => setProfileOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-surface-700 transition-colors">
-                    <HiCog className="w-4 h-4" /> Giriş Yap
+              {profileOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-surface-800 border border-white/10 rounded-xl shadow-2xl shadow-black/60 py-1.5 animate-fade-in">
+                  <div className="px-4 py-2 border-b border-white/5 mb-1">
+                    <p className="text-xs text-brand-400 font-semibold">Yönetici</p>
+                  </div>
+                  <Link to="/admin-baba" onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-surface-700 transition-colors">
+                    <HiCog className="w-4 h-4 text-brand-400" /> Yönetim Paneli
                   </Link>
-                )}
-              </div>
-            )}
-          </div>
+                  <div className="border-t border-white/5 my-1" />
+                  <button onClick={() => { logout(); navigate("/"); setProfileOpen(false); }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-surface-700 transition-colors">
+                    <HiX className="w-4 h-4" /> Çıkış Yap
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* Mobile top bar */}
@@ -124,7 +117,7 @@ export default function Navbar() {
           <div className="md:hidden border-t border-white/5 bg-surface-900 px-3 py-3 space-y-0.5 animate-slide-up">
             {isAdmin && (
               <>
-                <Link to="/admin" className="flex items-center gap-3 text-brand-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 transition-colors">
+                <Link to="/admin-baba" className="flex items-center gap-3 text-brand-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 transition-colors">
                   <HiCog className="w-4 h-4" /> Yönetim Paneli
                 </Link>
                 <button onClick={() => { logout(); navigate("/"); }}
@@ -132,11 +125,6 @@ export default function Navbar() {
                   <HiX className="w-4 h-4" /> Çıkış Yap
                 </button>
               </>
-            )}
-            {!isAdmin && (
-              <Link to="/admin" className="flex items-center gap-3 text-gray-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 transition-colors">
-                <HiCog className="w-4 h-4" /> Giriş Yap
-              </Link>
             )}
           </div>
         )}
@@ -159,10 +147,9 @@ function MobileBottomNav({ isAdmin }) {
       <div className="flex items-center justify-around h-14 px-1 max-w-md mx-auto">
         <BottomNavItem to="/" icon={HiHome} label="Ana Sayfa" active={isHome} />
         <BottomNavItem to="/?sort=views" icon={HiFire} label="Popüler" active={isPopular} />
-        {isAdmin
-          ? <BottomNavItem to="/admin" icon={HiCog} label="Admin" active={location.pathname === "/admin"} />
-          : <BottomNavItem to="/admin" icon={HiUser} label="Giriş" active={false} />
-        }
+        {isAdmin && (
+          <BottomNavItem to="/admin-baba" icon={HiCog} label="Admin" active={location.pathname === "/admin-baba"} />
+        )}
       </div>
     </nav>
   );

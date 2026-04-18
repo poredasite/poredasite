@@ -1,4 +1,5 @@
 import { lazy, Suspense, Component } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AdminProvider } from "./context/AdminContext";
 import { AdsProvider } from "./context/AdsContext";
@@ -54,7 +55,7 @@ export default function App() {
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/video/:id" element={<VideoDetail />} />
-                    <Route path="/admin" element={<Admin />} />
+                    <Route path="/admin-baba" element={<Admin />} />
                     <Route path="/hakkimizda" element={<StaticPage />} />
                     <Route path="/gizlilik" element={<StaticPage />} />
                     <Route path="/hukuki" element={<StaticPage />} />
@@ -67,6 +68,7 @@ export default function App() {
               <StickyBannerAd />
               <PopunderAd />
               <InstantMessageAd />
+              <Analytics />
             </div>
           </ErrorBoundary>
         </BrowserRouter>

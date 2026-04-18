@@ -33,6 +33,7 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
   const clickTimer = useRef(null);
   const speedToastTimer = useRef(null);
   const longPressTimer = useRef(null);
+  const touchStartPos = useRef(null);
 
   // HLS.js setup for m3u8 streams
   useEffect(() => {
@@ -223,41 +224,64 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
     seek(seconds);
   }
 
-  // Touch: single = show controls / play/pause, double = ±20s
+  // Touch: single tap = show controls / play/pause, double tap = ±10s seek
   function handleTouchStart(e) {
     const container = containerRef.current;
     if (!container) return;
+    const touch = e.touches[0];
     const rect = container.getBoundingClientRect();
-    const x = e.touches[0].clientX - rect.left;
-    const side = x < rect.width / 2 ? "left" : "right";
+    const x = touch.clientX - rect.left;
 
-    touchTapCount.current += 1;
-    clearTimeout(touchTapTimer.current);
-
-    if (touchTapCount.current >= 2) {
-      touchTapCount.current = 0;
-      seek(side === "right" ? 10 : -10);
-    } else {
-      touchTapTimer.current = setTimeout(() => {
-        touchTapCount.current = 0;
-        if (showControls) togglePlay();
-        else { setShowControls(true); resetHideTimer(); }
-      }, 250);
-    }
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY, side: x < rect.width / 2 ? "left" : "right" };
 
     // Start long-press for 2x speed
     longPressTimer.current = setTimeout(() => {
       setVideoSpeed(2);
       setShowSpeedToast(true);
-      clearTimeout(speedToastTimer.current);
     }, 500);
   }
 
-  function handleTouchEnd() {
+  function handleTouchEnd(e) {
     clearTimeout(longPressTimer.current);
+
     if (speed === 2) {
       setVideoSpeed(1);
       setShowSpeedToast(false);
+      touchStartPos.current = null;
+      touchTapCount.current = 0;
+      clearTimeout(touchTapTimer.current);
+      return;
+    }
+
+    // Cancel if finger moved (scroll/drag — not a tap)
+    if (touchStartPos.current && e.changedTouches?.[0]) {
+      const dx = Math.abs(e.changedTouches[0].clientX - touchStartPos.current.x);
+      const dy = Math.abs(e.changedTouches[0].clientY - touchStartPos.current.y);
+      if (dx > 10 || dy > 10) {
+        touchStartPos.current = null;
+        touchTapCount.current = 0;
+        clearTimeout(touchTapTimer.current);
+        return;
+      }
+    }
+
+    const side = touchStartPos.current?.side || "right";
+    touchStartPos.current = null;
+    touchTapCount.current += 1;
+    clearTimeout(touchTapTimer.current);
+
+    if (touchTapCount.current >= 2) {
+      // Double tap: seek ±10s
+      touchTapCount.current = 0;
+      seek(side === "right" ? 10 : -10);
+    } else {
+      // Wait for possible second tap
+      touchTapTimer.current = setTimeout(() => {
+        touchTapCount.current = 0;
+        // Single tap: toggle play or show controls
+        if (showControls) togglePlay();
+        else { setShowControls(true); resetHideTimer(); }
+      }, 250);
     }
   }
 
@@ -280,7 +304,7 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
       onMouseLeave={() => playing && setShowControls(false)}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
+      onTouchCancel={() => { clearTimeout(longPressTimer.current); clearTimeout(touchTapTimer.current); touchTapCount.current = 0; touchStartPos.current = null; if (speed === 2) { setVideoSpeed(1); setShowSpeedToast(false); } }}
     >
       <video
         key={src}
@@ -321,7 +345,7 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
 
       {/* Big play button */}
       {!playing && !buffering && hlsReady && !hlsError && (
-        <button onClick={togglePlay}
+        <button onClick={togglePlay} onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}
           className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-16 h-16 bg-brand-500/90 hover:bg-brand-400 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-[0_0_40px_rgba(255,107,0,0.4)] pointer-events-auto">
             <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1"><path d="M8 5v14l11-7z" /></svg>
@@ -354,7 +378,11 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
       )}
 
       {/* Controls */}
-      <div className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+      <div
+        className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
+      >
         <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-black/90 to-transparent pointer-events-none" />
         <div className="relative px-3 sm:px-4 pb-3 pt-8">
           {/* Progress */}
