@@ -147,7 +147,7 @@ function applyR2Cors() {
     CORSConfiguration: {
       CORSRules: [{
         AllowedOrigins: ["*"],
-        AllowedMethods: ["GET", "HEAD"],
+        AllowedMethods: ["GET", "HEAD", "PUT"],
         AllowedHeaders: ["*"],
         MaxAgeSeconds: 86400,
       }],
