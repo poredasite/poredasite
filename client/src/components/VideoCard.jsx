@@ -7,10 +7,13 @@ import Hls from "hls.js";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
 
-// --- Global state for touch preview ---
+// --- Global state for active preview ---
 let activePreviewId = null;
-let setActivePreview = () => {};
-// ------------------------------------
+let setActivePreview = (id) => {
+  activePreviewId = id;
+  document.dispatchEvent(new CustomEvent('activepreviewchange', { detail: { id } }));
+};
+// -------------------------------------
 
 function getProxyUrl(url, videoId) {
   if (!url?.includes(".m3u8")) return url;
@@ -51,13 +54,14 @@ export default function VideoCard({ video, priority = false }) {
 
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
-  const hoverTimer = useRef(null);
   const cardRef = useRef(null);
-  const touchStartPos = useRef({ x: 0, y: 0 });
-  const isDragging = useRef(false);
 
-  const { ref, inView } = useInView({ triggerOnce: true, rootMargin: "300px" });
-  const shouldLoad = priority || inView;
+  // 70% visibility threshold for autoplay
+  const { ref, inView } = useInView({ threshold: 0.7 });
+  // We use a larger rootMargin to load images before they come into view
+  const { ref: imgRef, inView: imgInView } = useInView({ triggerOnce: true, rootMargin: "300px" });
+  
+  const shouldLoadImg = priority || imgInView;
   const cats = getCategories(video);
 
   const previewUrl = video.previewVideoUrl || video.videoUrl || null;
@@ -69,20 +73,27 @@ export default function VideoCard({ video, priority = false }) {
     const vid = videoRef.current;
     if (!vid || !previewUrl || previewError) return;
 
+    // Restart from 0 seconds
+    vid.currentTime = 0;
+
     const isHLS = previewUrl.includes(".m3u8");
 
     if (isHLS && Hls.isSupported()) {
-      const proxySrc = getProxyUrl(previewUrl, video._id);
-      const hls = new Hls({ enableWorker: false, startLevel: 0, maxBufferLength: 15 });
-      hlsRef.current = hls;
-      hls.loadSource(proxySrc);
-      hls.attachMedia(vid);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        vid.play().catch(() => setPreviewError(true));
-      });
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) setPreviewError(true);
-      });
+      if (!hlsRef.current) {
+          const proxySrc = getProxyUrl(previewUrl, video._id);
+          const hls = new Hls({ enableWorker: false, startLevel: 0, maxBufferLength: 10 });
+          hlsRef.current = hls;
+          hls.loadSource(proxySrc);
+          hls.attachMedia(vid);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            vid.play().catch(() => setPreviewError(true));
+          });
+          hls.on(Hls.Events.ERROR, (_, data) => {
+            if (data.fatal) setPreviewError(true);
+          });
+      } else {
+         vid.play().catch(() => setPreviewError(true));
+      }
     } else if (isHLS && vid.canPlayType("application/vnd.apple.mpegurl")) {
       vid.src = previewUrl;
       vid.play().catch(() => setPreviewError(true));
@@ -94,81 +105,37 @@ export default function VideoCard({ video, priority = false }) {
 
   const stopPreview = useCallback(() => {
     if (!previewPlaying) return;
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
     const vid = videoRef.current;
     if (vid) {
       vid.pause();
-      vid.currentTime = 0;
-      vid.removeAttribute("src");
-      vid.load();
     }
     setPreviewPlaying(false);
   }, [previewPlaying]);
 
-  // --- Desktop hover ---
-  const handleMouseEnter = useCallback(() => {
-    hoverTimer.current = setTimeout(() => startPreview(), 300);
-  }, [startPreview]);
-
-  const handleMouseLeave = useCallback(() => {
-    clearTimeout(hoverTimer.current);
-    stopPreview();
-  }, [stopPreview]);
-
-  // --- Mobile touch & drag ---
-  const handleTouchStart = useCallback((e) => {
-    isDragging.current = false;
-    const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    setActivePreview(video._id);
-  }, [video._id]);
-
-  const handleTouchMove = useCallback((e) => {
-    const touch = e.touches[0];
-    const dx = Math.abs(touch.clientX - touchStartPos.current.x);
-    const dy = Math.abs(touch.clientY - touchStartPos.current.y);
-    if (dx > 10 || dy > 10) {
-      isDragging.current = true;
-    }
-
-    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
-    const cardEl = targetEl?.closest('[data-videoid]');
-    const currentVideoId = cardEl?.dataset.videoid || null;
-    
-    if (currentVideoId && activePreviewId !== currentVideoId) {
-      setActivePreview(currentVideoId);
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    setActivePreview(null);
-  }, []);
-
-  const handleClick = useCallback(() => {
-    if (isDragging.current) {
-      isDragging.current = false;
-      return;
-    }
-    navigate(`/video/${video._id}`);
-  }, [navigate, video._id]);
-
-  // --- Effect for global state ---
+  // Handle intersection observer trigger
   useEffect(() => {
-    cardRef.current.dataset.videoid = video._id;
-    
-    const handler = (id) => setIsActivePreview(id === video._id);
-    setActivePreview = (id) => {
-      activePreviewId = id;
-      const event = new CustomEvent('activepreviewchange', { detail: { id } });
-      document.dispatchEvent(event);
-    };
-    document.addEventListener('activepreviewchange', (e) => handler(e.detail.id));
+    if (inView) {
+      setActivePreview(video._id);
+    } else if (activePreviewId === video._id) {
+      // If we scroll out of view and we were the active preview, clear it
+      setActivePreview(null);
+    }
+  }, [inView, video._id]);
 
-    return () => {
-      document.removeEventListener('activepreviewchange', (e) => handler(e.detail.id));
+  // Listen for global active preview changes
+  useEffect(() => {
+    const handler = (e) => {
+      setIsActivePreview(e.detail.id === video._id);
     };
+    
+    // Set initial state in case this mounts while already active
+    setIsActivePreview(activePreviewId === video._id);
+    
+    document.addEventListener('activepreviewchange', handler);
+    return () => document.removeEventListener('activepreviewchange', handler);
   }, [video._id]);
 
+  // Play/Pause based on active state
   useEffect(() => {
     if (isActivePreview) {
       startPreview();
@@ -177,44 +144,50 @@ export default function VideoCard({ video, priority = false }) {
     }
   }, [isActivePreview, startPreview, stopPreview]);
 
+  // Touch and Hover interactions to explicitly activate
+  const handleInteraction = useCallback(() => {
+    setActivePreview(video._id);
+  }, [video._id]);
+
+  const handleClick = useCallback(() => {
+    navigate(`/video/${video._id}`);
+  }, [navigate, video._id]);
+
   useEffect(() => () => {
-    clearTimeout(hoverTimer.current);
     if (hlsRef.current) { hlsRef.current.destroy(); }
   }, []);
 
   return (
     <div
       ref={cardRef}
-      className="group flex flex-col gap-2 focus-visible:ring-brand-500 rounded-xl touch-manipulation"
+      className="group flex flex-col gap-2 focus-visible:ring-brand-500 rounded-xl touch-manipulation cursor-pointer"
       aria-label={`İzle: ${video.title}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
       onClick={handleClick}
+      onMouseEnter={handleInteraction}
+      onTouchStart={handleInteraction}
     >
       {/* Thumbnail container */}
       <div ref={ref} className="relative rounded-xl overflow-hidden bg-surface-800" style={{ aspectRatio: "16/9" }}>
 
-        {/* Skeleton */}
-        {!imgLoaded && !imgError && <div className="absolute inset-0 skeleton" />}
+        <div ref={imgRef} className="absolute inset-0 w-full h-full pointer-events-none">
+          {/* Skeleton */}
+          {!imgLoaded && !imgError && <div className="absolute inset-0 skeleton" />}
 
-        {/* Thumbnail image */}
-        {shouldLoad && !imgError && (
-          <img
-            src={video.thumbnailUrl}
-            alt={video.title}
-            loading={priority ? "eager" : "lazy"}
-            decoding="async"
-            onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-              imgLoaded ? "opacity-100" : "opacity-0"
-            } ${previewPlaying ? "opacity-0" : ""}`}
-          />
-        )}
+          {/* Thumbnail image */}
+          {shouldLoadImg && !imgError && (
+            <img
+              src={video.thumbnailUrl}
+              alt={video.title}
+              loading={priority ? "eager" : "lazy"}
+              decoding="async"
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                imgLoaded ? "opacity-100" : "opacity-0"
+              } ${previewPlaying ? "opacity-0" : ""}`}
+            />
+          )}
+        </div>
 
         {/* Error fallback */}
         {imgError && (
@@ -231,7 +204,6 @@ export default function VideoCard({ video, priority = false }) {
           <video
             ref={videoRef}
             muted
-            loop
             playsInline
             onPlay={() => setPreviewPlaying(true)}
             onPause={() => setPreviewPlaying(false)}
