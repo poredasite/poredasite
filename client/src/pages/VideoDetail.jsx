@@ -107,7 +107,7 @@ export default function VideoDetail() {
               </div>
             ) : instreamSlot?.enabled && showInstream
               ? <InstreamVideoAd onSkip={() => setShowInstream(false)} />
-              : <VideoPlayer src={video.videoUrl} poster={video.thumbnailUrl} title={video.title} videoId={video._id} />
+              : <VideoPlayer src={video.videoUrl} poster={video.thumbnailUrl} title={video.title} videoId={video._id} mp4FallbackUrl={video.mp4FallbackUrl || null} />
             }
 
             {/* Video title */}

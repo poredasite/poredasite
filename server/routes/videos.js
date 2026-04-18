@@ -9,7 +9,14 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 const Video = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
-const { getVideoDuration, convertToHLS, uploadHLSToStorage, uploadThumbnailToStorage, deleteFromStorage, createRawUploadUrl, downloadRawFromStorage, deleteRawFromStorage, generatePreviewClip, uploadPreviewToStorage } = require("../utils/hls");
+const {
+  getVideoDuration, extractCodecInfo, convertToHLS,
+  uploadHLSToStorage, uploadThumbnailToStorage,
+  deleteFromStorage, createRawUploadUrl,
+  downloadRawFromStorage, deleteRawFromStorage,
+  generatePreviewClip, uploadPreviewToStorage,
+  generateMp4Fallback, uploadMp4FallbackToStorage,
+} = require("../utils/hls");
 const { CDN_URL } = require("../config/storage");
 
 const diskUpload = multer({
@@ -72,7 +79,13 @@ router.get("/:id", async (req, res) => {
     const related = await Video.find({ _id: { $ne: video._id }, status: "ready" })
       .sort({ views: -1 }).limit(8)
       .select("_id title thumbnailUrl views createdAt duration");
-    res.json({ success: true, data: video, related });
+    const videoData = video.toObject();
+    // Unified playback fields consumed by the frontend player
+    videoData.hlsUrl = video.videoUrl;
+    videoData.previewUrl = video.previewVideoUrl || null;
+    videoData.previewStartTime = video.duration ? Math.floor(video.duration * 0.15) : 0;
+    videoData.previewEndTime = video.duration ? Math.floor(video.duration * 0.85) : 0;
+    res.json({ success: true, data: videoData, related });
   } catch (err) {
     if (err.name === "CastError") return res.status(404).json({ success: false, message: "Video not found" });
     res.status(500).json({ success: false, message: "Server error" });
@@ -141,18 +154,22 @@ router.post("/:id/process", adminAuth, async (req, res) => {
       try {
         await downloadRawFromStorage(video.rawVideoKey, tmpPath);
         const duration = await getVideoDuration(tmpPath);
+        const id = video._id.toString();
 
-        // Preview clip ve HLS paralel üret
-        const [previewPath, outputDir] = await Promise.all([
-          generatePreviewClip(tmpPath, video._id.toString(), duration).catch(() => null),
-          convertToHLS(tmpPath, video._id.toString()),
+        // All encoding tasks in parallel
+        const [codecInfo, previewPath, outputDir, mp4FallbackPath] = await Promise.all([
+          extractCodecInfo(tmpPath),
+          generatePreviewClip(tmpPath, id, duration).catch(() => null),
+          convertToHLS(tmpPath, id),
+          generateMp4Fallback(tmpPath, id).catch(() => null),
         ]);
 
         fs.unlinkSync(tmpPath);
 
-        const [previewUrl, hlsUrl] = await Promise.all([
-          previewPath ? uploadPreviewToStorage(previewPath, video._id.toString()).catch(() => null) : null,
-          uploadHLSToStorage(outputDir, video._id.toString()),
+        const [previewUrl, hlsUrl, mp4FallbackUrl] = await Promise.all([
+          previewPath ? uploadPreviewToStorage(previewPath, id).catch(() => null) : null,
+          uploadHLSToStorage(outputDir, id),
+          mp4FallbackPath ? uploadMp4FallbackToStorage(mp4FallbackPath, id).catch(() => null) : null,
         ]);
 
         await deleteRawFromStorage(video.rawVideoKey);
@@ -161,9 +178,11 @@ router.post("/:id/process", adminAuth, async (req, res) => {
           duration,
           rawVideoKey: null,
           status: "ready",
+          codecInfo,
           ...(previewUrl ? { previewVideoUrl: previewUrl } : {}),
+          ...(mp4FallbackUrl ? { mp4FallbackUrl } : {}),
         });
-        console.log(`✅ HLS ready: ${hlsUrl}${previewUrl ? " | preview: " + previewUrl : ""}`);
+        console.log(`✅ HLS ready: ${hlsUrl}${previewUrl ? " | preview: " + previewUrl : ""}${mp4FallbackUrl ? " | fallback: " + mp4FallbackUrl : ""}`);
       } catch (bgErr) {
         console.error("HLS encode error:", bgErr);
         try { fs.unlinkSync(tmpPath); } catch {}
@@ -242,7 +261,9 @@ router.delete("/:id", adminAuth, async (req, res) => {
     if (!video) return res.status(404).json({ success: false, message: "Video not found" });
     await Promise.allSettled([
       deleteFromStorage(`videos/${video._id}/`),
-      deleteFromStorage(video.thumbnailPublicId),
+      video.thumbnailPublicId ? deleteFromStorage(video.thumbnailPublicId) : Promise.resolve(),
+      deleteFromStorage(`previews/${video._id}.mp4`),
+      deleteFromStorage(`fallback/${video._id}.mp4`),
     ]);
     await video.deleteOne();
     res.json({ success: true, message: "Video deleted successfully" });

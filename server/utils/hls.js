@@ -18,6 +18,44 @@ function getVideoDuration(inputPath) {
   });
 }
 
+function extractCodecInfo(inputPath) {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(inputPath, (err, meta) => {
+      if (err) return resolve({});
+      const vStream = meta.streams?.find((s) => s.codec_type === "video");
+      const aStream = meta.streams?.find((s) => s.codec_type === "audio");
+      resolve({
+        videoCodec: vStream?.codec_name || "",
+        audioCodec: aStream?.codec_name || "",
+        profile: vStream?.profile || "",
+        level: vStream?.level != null ? String(vStream.level) : "",
+      });
+    });
+  });
+}
+
+function generateMp4Fallback(inputPath, videoId) {
+  const outPath = path.join(os.tmpdir(), `fallback-${videoId}.mp4`);
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        "-c:v libx264",
+        "-profile:v baseline",
+        "-level 3.1",
+        "-crf 26",
+        "-preset veryfast",
+        "-pix_fmt yuv420p",
+        "-c:a aac",
+        "-b:a 128k",
+        "-movflags +faststart",
+      ])
+      .output(outPath)
+      .on("end", () => resolve(outPath))
+      .on("error", reject)
+      .run();
+  });
+}
+
 function convertToHLS(inputPath, videoId) {
   const outputDir = path.join(os.tmpdir(), `hls-${videoId}`);
   fs.mkdirSync(outputDir, { recursive: true });
@@ -107,12 +145,24 @@ async function uploadPreviewToStorage(filePath, videoId) {
   return `${CDN_URL}/${key}`;
 }
 
+async function uploadMp4FallbackToStorage(filePath, videoId) {
+  const key = `fallback/${videoId}.mp4`;
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    Body: fs.readFileSync(filePath),
+    ContentType: "video/mp4",
+  }));
+  fs.unlinkSync(filePath);
+  return `${CDN_URL}/${key}`;
+}
+
 async function uploadHLSToStorage(outputDir, videoId) {
   const files = fs.readdirSync(outputDir);
   for (const file of files) {
     const filePath = path.join(outputDir, file);
     const key = `videos/${videoId}/${file}`;
-    const contentType = file.endsWith(".m3u8") ? "application/x-mpegURL" : "video/MP2T";
+    const contentType = file.endsWith(".m3u8") ? "application/vnd.apple.mpegurl" : "video/mp2t";
     await s3.send(new PutObjectCommand({
       Bucket: BUCKET, Key: key,
       Body: fs.readFileSync(filePath),
@@ -166,9 +216,10 @@ async function deleteFromStorage(prefix) {
 }
 
 module.exports = {
-  getVideoDuration, convertToHLS,
+  getVideoDuration, extractCodecInfo, convertToHLS,
   uploadHLSToStorage, uploadThumbnailToStorage,
   generatePreviewClip, uploadPreviewToStorage,
+  generateMp4Fallback, uploadMp4FallbackToStorage,
   createRawUploadUrl, downloadRawFromStorage,
   deleteRawFromStorage, deleteFromStorage,
 };

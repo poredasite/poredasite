@@ -26,7 +26,7 @@ function buildProxyUrl(src, videoId) {
   return src;
 }
 
-export default function VideoPlayer({ src, poster, title, videoId }) {
+export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUrl }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -112,25 +112,34 @@ export default function VideoPlayer({ src, poster, title, videoId }) {
 
         hls.on(Hls.Events.ERROR, (_, data) => {
           if (!data.fatal) {
-              // Bazen segment indirmede ufak hatalar olur, recovery dener
-              if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                  hls.recoverMediaError();
-              }
-              return;
+            if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+            return;
           }
-          
+
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            // R2'den çekerken CORS veya 404/403 gibi bir ağ hatası aldıysak proxy fallback yap
             if (!useProxy) {
-              console.warn("Direct stream failed, falling back to proxy...", data);
-              initHls(true); // Proxy moduyla yeniden başlat
+              console.warn("Direct HLS failed, trying proxy...", data.details);
+              initHls(true);
+            } else if (mp4FallbackUrl) {
+              // HLS fully failed — fall back to progressive MP4
+              console.warn("HLS proxy failed, falling back to MP4...");
+              hls.destroy();
+              hlsInstanceRef.current = null;
+              const v = videoRef.current;
+              if (v) {
+                v.src = mp4FallbackUrl;
+                v.load();
+                setHlsReady(true);
+                setBuffering(false);
+              } else {
+                setHlsError(true);
+              }
             } else {
-              // Proxy de patladıysa tamamen hata ver
-              console.error("Proxy stream also failed", data);
-              hls.destroy(); 
-              setBuffering(false); 
-              setPlaying(false); 
-              setHlsError(true); 
+              console.error("HLS proxy also failed, no MP4 fallback available");
+              hls.destroy();
+              setBuffering(false);
+              setPlaying(false);
+              setHlsError(true);
             }
           } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError();

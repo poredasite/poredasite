@@ -66,6 +66,16 @@ const videoSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    mp4FallbackUrl: {
+      type: String,
+      default: "",
+    },
+    codecInfo: {
+      videoCodec: { type: String, default: "" },
+      audioCodec: { type: String, default: "" },
+      profile: { type: String, default: "" },
+      level: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );
