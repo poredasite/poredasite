@@ -80,10 +80,12 @@ function convertToHLS(inputPath, videoId) {
       .outputOptions([
         `-c:v ${videoCodec}`,
         ...qualityOpts,
-        "-pix_fmt yuv420p",            // 8-bit 4:2:0 — required for browser MSE
-        "-force_key_frames expr:gte(t,n_forced*6)",  // IDR at every segment start
-        "-sc_threshold 0",             // no scene-change keyframes (CPU path only, GPU ignores)
-        "-c:a aac", "-b:a 128k", "-ar 48000", "-ac 2",  // stereo 48kHz — 5.1/44.1 breaks web MSE
+        "-vf scale=-2:'min(ih,720)'",  // cap at 720p — halves frame buffer RAM
+        "-pix_fmt yuv420p",
+        "-threads 1",                  // single-threaded → ~50% less RAM, Railway-safe
+        "-force_key_frames expr:gte(t,n_forced*6)",
+        "-sc_threshold 0",
+        "-c:a aac", "-b:a 128k", "-ar 48000", "-ac 2",
         "-hls_time 6",
         "-hls_list_size 0",
         "-hls_flags independent_segments+delete_segments+temp_file",
@@ -131,35 +133,22 @@ async function uploadHLSToStorage(outputDir, videoId) {
 // ultrafast preset + CRF 30 + 640px → typically done in <60s
 
 function generatePreviewClip(inputPath, videoId, duration) {
-  const outPath = path.join(os.tmpdir(), `preview-${videoId}.mp4`);
-  const dur     = duration || 60;
-  const CLIPS   = 5;
-  const CLIP_DUR = 2;
-
-  const points = Array.from({ length: CLIPS }, (_, i) => {
-    const pct = 0.15 + (i / (CLIPS - 1)) * 0.70;
-    return Math.floor(dur * pct);
-  });
-
-  const filterParts   = points.map((t, i) =>
-    `[0:v]trim=start=${t}:duration=${CLIP_DUR},setpts=PTS-STARTPTS,scale=640:-2[c${i}]`
-  );
-  const concatInputs  = points.map((_, i) => `[c${i}]`).join("");
-  const filterComplex = [
-    ...filterParts,
-    `${concatInputs}concat=n=${CLIPS}:v=1:a=0[out]`,
-  ].join(";");
+  const outPath  = path.join(os.tmpdir(), `preview-${videoId}.mp4`);
+  const dur      = Math.max(duration || 60, 30);
+  const seekTo   = Math.floor(dur * 0.25); // start at 25% of video
 
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
+      .seekInput(seekTo)
+      .duration(10)
       .outputOptions([
-        "-filter_complex", filterComplex,
-        "-map", "[out]",
         "-c:v libx264",
         "-profile:v main", "-level 4.1",
         "-crf 30",
-        "-preset ultrafast",   // ← fastest possible; preview quality is acceptable
+        "-preset ultrafast",
+        "-vf scale=640:-2",
         "-pix_fmt yuv420p",
+        "-threads 1",
         "-an",
         "-movflags +faststart",
       ])
@@ -180,12 +169,14 @@ function generateMp4Fallback(inputPath, videoId) {
     ffmpeg(inputPath)
       .outputOptions([
         "-c:v libx264",
-        "-profile:v baseline", "-level 3.1",   // widest device compatibility
+        "-profile:v baseline", "-level 3.1",
         "-crf 26",
         "-preset veryfast",
+        "-vf scale=-2:'min(ih,720)'",
         "-pix_fmt yuv420p",
+        "-threads 1",
         "-c:a aac", "-b:a 128k",
-        "-movflags +faststart",                 // moov atom at front → instant play
+        "-movflags +faststart",
       ])
       .output(outPath)
       .on("end",   () => resolve(outPath))
