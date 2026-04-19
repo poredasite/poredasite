@@ -71,7 +71,7 @@ const SPECIAL_TAGS = [
 ];
 
 function emptyItem() {
-  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", specialTags: [], categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
+  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", specialTags: [], sectionCategories: {}, categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
 }
 
 function SectionDropdown({ value = [], onChange, disabled }) {
@@ -252,19 +252,34 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
               onChange={e => onUpdate({ videoFile: e.target.files[0] })} className="hidden" />
           </div>
 
-          {/* Special sections */}
-          <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Bölüm</p>
+          {/* Special sections + per-section categories */}
+          <div className="space-y-2">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider">Bölüm</p>
             <SectionDropdown
               value={item.specialTags || []}
               onChange={tags => onUpdate({ specialTags: tags })}
               disabled={isActive}
             />
+            {(item.specialTags || []).map(sectionTag => {
+              const sectionLabel = SPECIAL_TAGS.find(s => s.tag === sectionTag)?.label || sectionTag;
+              return (
+                <div key={sectionTag} className="pl-3 border-l-2 border-brand-500/30 space-y-1.5">
+                  <p className="text-[10px] text-brand-400/80 uppercase tracking-wider">
+                    {sectionLabel} — Kategoriler
+                  </p>
+                  <CategoryMultiSelect
+                    allCategories={allCategories}
+                    selected={(item.sectionCategories || {})[sectionTag] || []}
+                    onChange={cats => onUpdate({ sectionCategories: { ...(item.sectionCategories || {}), [sectionTag]: cats } })}
+                  />
+                </div>
+              );
+            })}
           </div>
 
-          {/* Categories */}
+          {/* General categories */}
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Kategoriler</p>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Genel Kategoriler</p>
             <CategoryMultiSelect allCategories={allCategories} selected={item.categories} onChange={cats => onUpdate({ categories: cats })} />
           </div>
 
@@ -368,11 +383,13 @@ function MultiUploadQueue({ onSuccess }) {
       const fd = new FormData();
       const manualTags = (item.tags || "").split(",").map(t => t.trim()).filter(Boolean);
       const allTags = [...new Set([...(item.specialTags || []), ...manualTags])].join(", ");
+      const sectionCatIds = Object.values(item.sectionCategories || {}).flat();
+      const allCatIds = [...new Set([...(item.categories || []), ...sectionCatIds])];
 
       fd.append("title", item.title.trim());
       fd.append("description", item.description?.trim() || "");
       fd.append("tags", allTags);
-      fd.append("categories", JSON.stringify(item.categories));
+      fd.append("categories", JSON.stringify(allCatIds));
       fd.append("thumbnail", item.thumbFile);
       fd.append("videoType", item.videoFile.type || "video/mp4");
 
@@ -756,12 +773,14 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
   const thumbRef = useRef(null);
   const existingTags = video.tags || [];
   const predefinedTagValues = SPECIAL_TAGS.map(s => s.tag);
+  const existingCatIds = video.categories?.map(c => c._id) || (video.category ? [video.category._id] : []);
   const [form, setForm] = useState({
     title: video.title || "",
     description: video.description || "",
     tags: existingTags.filter(t => !predefinedTagValues.includes(t)).join(", "),
     specialTags: existingTags.filter(t => predefinedTagValues.includes(t)),
-    categories: (video.categories?.map(c => c._id) || (video.category ? [video.category._id] : [])),
+    sectionCategories: {},
+    categories: existingCatIds,
     thumbFile: null,
     thumbPreview: video.thumbnailUrl,
   });
@@ -774,10 +793,12 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
       const fd = new FormData();
       const manualTags = (form.tags || "").split(",").map(t => t.trim()).filter(Boolean);
       const allTags = [...new Set([...(form.specialTags || []), ...manualTags])].join(", ");
+      const sectionCatIds = Object.values(form.sectionCategories || {}).flat();
+      const allCatIds = [...new Set([...(form.categories || []), ...sectionCatIds])];
       fd.append("title", form.title.trim());
       fd.append("description", form.description.trim());
       fd.append("tags", allTags);
-      fd.append("categories", JSON.stringify(form.categories));
+      fd.append("categories", JSON.stringify(allCatIds));
       if (form.thumbFile) fd.append("thumbnail", form.thumbFile);
       await videoApi.update(video._id, fd);
       toast.success("Video güncellendi");
@@ -821,17 +842,30 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
           <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
             placeholder="Açıklama" rows={4} maxLength={5000}
             className="w-full bg-surface-800 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2.5 rounded-xl text-sm outline-none resize-none" />
-          {/* Special sections */}
-          <div>
-            <p className="text-xs text-gray-500 mb-2">Bölüm</p>
+          {/* Special sections + per-section categories */}
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500">Bölüm</p>
             <SectionDropdown
               value={form.specialTags || []}
               onChange={tags => setForm(p => ({ ...p, specialTags: tags }))}
             />
+            {(form.specialTags || []).map(sectionTag => {
+              const sectionLabel = SPECIAL_TAGS.find(s => s.tag === sectionTag)?.label || sectionTag;
+              return (
+                <div key={sectionTag} className="pl-3 border-l-2 border-brand-500/30 space-y-1.5">
+                  <p className="text-xs text-brand-400/80">{sectionLabel} — Kategoriler</p>
+                  <CategoryMultiSelect
+                    allCategories={allCategories}
+                    selected={(form.sectionCategories || {})[sectionTag] || []}
+                    onChange={cats => setForm(p => ({ ...p, sectionCategories: { ...(p.sectionCategories || {}), [sectionTag]: cats } }))}
+                  />
+                </div>
+              );
+            })}
           </div>
-          {/* Categories */}
+          {/* General categories */}
           <div>
-            <p className="text-xs text-gray-500 mb-2">Kategoriler</p>
+            <p className="text-xs text-gray-500 mb-2">Genel Kategoriler</p>
             <CategoryMultiSelect allCategories={allCategories} selected={form.categories} onChange={cats => setForm(p => ({ ...p, categories: cats }))} />
           </div>
           {/* Tags */}
