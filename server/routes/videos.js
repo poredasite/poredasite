@@ -10,15 +10,13 @@ const mongoose = require("mongoose");
 const Video = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
 const {
-  getVideoDuration, extractCodecInfo, convertToHLS,
-  uploadHLSToStorage, uploadThumbnailToStorage,
-  deleteFromStorage, createRawUploadUrl,
-  downloadRawFromStorage, deleteRawFromStorage,
-  generatePreviewClip, uploadPreviewToStorage,
-  generateMp4Fallback, uploadMp4FallbackToStorage,
+  getVideoDuration, convertToHLS, uploadHLSToStorage,
+  uploadThumbnailToStorage, deleteFromStorage,
+  createRawUploadUrl,
 } = require("../utils/hls");
 const { CDN_URL }  = require("../config/storage");
 const sitemap      = require("../services/sitemapService");
+const { videoQueue } = require("../queue/index");
 
 const diskUpload = multer({
   storage: multer.diskStorage({
@@ -273,61 +271,45 @@ router.post("/upload-init", adminAuth, (req, res) => {
   });
 });
 
-// POST /videos/:id/process  — trigger FFmpeg HLS encode in background
+// POST /videos/:id/process  — enqueue BullMQ job; returns immediately
 router.post("/:id/process", adminAuth, async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
-    if (!video) return res.status(404).json({ success: false, message: "Video not found" });
+    if (!video)             return res.status(404).json({ success: false, message: "Video not found" });
     if (!video.rawVideoKey) return res.status(400).json({ success: false, message: "No raw video to process" });
 
-    res.json({ success: true, message: "Processing started" });
+    const job = await videoQueue.add(
+      "encode",
+      { videoId: video._id.toString(), rawKey: video.rawVideoKey },
+      { priority: req.body.priority === "high" ? 1 : 10 }
+    );
 
-    // ── Background HLS encode ─────────────────────────────────────────
-    (async () => {
-      const ext = path.extname(video.rawVideoKey) || ".mp4";
-      const tmpPath = path.join(os.tmpdir(), `raw-${video._id}${ext}`);
-      try {
-        await downloadRawFromStorage(video.rawVideoKey, tmpPath);
-        const duration = await getVideoDuration(tmpPath);
-        const id = video._id.toString();
+    res.json({ success: true, message: "Queued for processing", jobId: job.id });
+  } catch (err) {
+    console.error("Enqueue error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
-        // Sequential encoding to avoid OOM (SIGKILL) on Railway
-        const codecInfo = await extractCodecInfo(tmpPath);
-        const outputDir = await convertToHLS(tmpPath, id);
-        const hlsUrl = await uploadHLSToStorage(outputDir, id);
+// GET /videos/:id/job-status  — poll job progress from client
+router.get("/:id/job-status", adminAuth, async (req, res) => {
+  try {
+    const waiting  = await videoQueue.getWaiting();
+    const active   = await videoQueue.getActive();
+    const failed   = await videoQueue.getFailed();
 
-        const previewPath = await generatePreviewClip(tmpPath, id, duration)
-          .catch((e) => { console.error("❌ Preview generate failed:", e.message); return null; });
-        const previewUrl = previewPath
-          ? await uploadPreviewToStorage(previewPath, id).catch((e) => { console.error("❌ Preview upload failed:", e.message); return null; })
-          : null;
+    const id = req.params.id;
+    const find = (jobs) => jobs.find((j) => j.data.videoId === id);
+    const job  = find(active) || find(waiting) || find(failed);
 
-        const mp4FallbackPath = await generateMp4Fallback(tmpPath, id)
-          .catch((e) => { console.error("❌ MP4 fallback failed:", e.message); return null; });
-        const mp4FallbackUrl = mp4FallbackPath
-          ? await uploadMp4FallbackToStorage(mp4FallbackPath, id).catch(() => null)
-          : null;
+    if (!job) {
+      const video = await Video.findById(id).select("status").lean();
+      return res.json({ success: true, status: video?.status || "unknown", progress: video?.status === "ready" ? 100 : 0 });
+    }
 
-        fs.unlinkSync(tmpPath);
-
-        await deleteRawFromStorage(video.rawVideoKey);
-        sitemap.invalidateCache();
-        await Video.findByIdAndUpdate(video._id, {
-          videoUrl: hlsUrl,
-          duration,
-          rawVideoKey: null,
-          status: "ready",
-          codecInfo,
-          ...(previewUrl ? { previewVideoUrl: previewUrl } : {}),
-          ...(mp4FallbackUrl ? { mp4FallbackUrl } : {}),
-        });
-        console.log(`✅ HLS ready: ${hlsUrl}${previewUrl ? " | preview: " + previewUrl : ""}${mp4FallbackUrl ? " | fallback: " + mp4FallbackUrl : ""}`);
-      } catch (bgErr) {
-        console.error("HLS encode error:", bgErr);
-        try { fs.unlinkSync(tmpPath); } catch {}
-        await Video.findByIdAndUpdate(video._id, { status: "error" });
-      }
-    })();
+    const state    = await job.getState();
+    const progress = job.progress || 0;
+    res.json({ success: true, status: state, progress, jobId: job.id, attempts: job.attemptsMade });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }

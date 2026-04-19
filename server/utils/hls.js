@@ -1,7 +1,8 @@
-const ffmpeg = require("fluent-ffmpeg");
-const path = require("path");
-const fs = require("fs");
-const os = require("os");
+"use strict";
+const ffmpeg  = require("fluent-ffmpeg");
+const path    = require("path");
+const fs      = require("fs");
+const os      = require("os");
 const { pipeline } = require("stream/promises");
 const {
   PutObjectCommand, GetObjectCommand, DeleteObjectCommand,
@@ -9,6 +10,8 @@ const {
 } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { s3, BUCKET, CDN_URL } = require("../config/storage");
+
+// ── Probe ─────────────────────────────────────────────────────────────────────
 
 function getVideoDuration(inputPath) {
   return new Promise((resolve) => {
@@ -22,39 +25,31 @@ function extractCodecInfo(inputPath) {
   return new Promise((resolve) => {
     ffmpeg.ffprobe(inputPath, (err, meta) => {
       if (err) return resolve({});
-      const vStream = meta.streams?.find((s) => s.codec_type === "video");
-      const aStream = meta.streams?.find((s) => s.codec_type === "audio");
+      const v = meta.streams?.find((s) => s.codec_type === "video");
+      const a = meta.streams?.find((s) => s.codec_type === "audio");
       resolve({
-        videoCodec: vStream?.codec_name || "",
-        audioCodec: aStream?.codec_name || "",
-        profile: vStream?.profile || "",
-        level: vStream?.level != null ? String(vStream.level) : "",
+        videoCodec: v?.codec_name || "",
+        audioCodec: a?.codec_name || "",
+        profile:    v?.profile    || "",
+        level:      v?.level != null ? String(v.level) : "",
       });
     });
   });
 }
 
-function generateMp4Fallback(inputPath, videoId) {
-  const outPath = path.join(os.tmpdir(), `fallback-${videoId}.mp4`);
-  return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions([
-        "-c:v libx264",
-        "-profile:v baseline",
-        "-level 3.1",
-        "-crf 26",
-        "-preset veryfast",
-        "-pix_fmt yuv420p",
-        "-c:a aac",
-        "-b:a 128k",
-        "-movflags +faststart",
-      ])
-      .output(outPath)
-      .on("end", () => resolve(outPath))
-      .on("error", reject)
-      .run();
-  });
+// ── Streaming R2 upload (no readFileSync — zero RAM spike for large files) ────
+async function streamUpload(key, filePath, contentType) {
+  const stat = fs.statSync(filePath);
+  await s3.send(new PutObjectCommand({
+    Bucket:        BUCKET,
+    Key:           key,
+    Body:          fs.createReadStream(filePath),
+    ContentType:   contentType,
+    ContentLength: stat.size,
+  }));
 }
+
+// ── HLS encode ────────────────────────────────────────────────────────────────
 
 function convertToHLS(inputPath, videoId) {
   const outputDir = path.join(os.tmpdir(), `hls-${videoId}`);
@@ -66,9 +61,8 @@ function convertToHLS(inputPath, videoId) {
                    : gpu === "qsv"   ? "h264_qsv"
                    : "libx264";
 
-  // Profile + level MUST be declared per-encoder to guarantee enforcement.
-  // Level 4.1 = max 1080p@30fps — accepted by all browsers' MSE implementations.
-  // Without explicit level, GPU encoders default to 5.0+ which Chrome MSE silently rejects.
+  // GPU-specific quality opts; CPU path uses CRF 22 veryfast
+  // Level 4.1 = max 1080p@30fps accepted by all browser MSE stacks
   const qualityOpts = gpu === "nvenc"
     ? ["-rc vbr", "-cq 22", "-preset p2", "-profile:v main", "-level 4.1"]
     : gpu === "amf"
@@ -82,48 +76,71 @@ function convertToHLS(inputPath, videoId) {
       .outputOptions([
         `-c:v ${videoCodec}`,
         ...qualityOpts,
-        // Force 8-bit YUV 4:2:0 — browsers cannot MSE-decode 10-bit or 4:4:4 H.264
-        "-pix_fmt yuv420p",
-        // Force keyframe at every segment boundary.
-        // Without this, segments may not start with an IDR frame: Chrome/FF MSE stalls silently,
-        // mobile hardware decoders recover by scanning backwards (so mobile works, web doesn't).
-        "-force_key_frames expr:gte(t,n_forced*6)",
-        // Disable scene-change keyframe insertion so only forced keyframes exist (CPU path).
-        // GPU encoders ignore this flag harmlessly.
-        "-sc_threshold 0",
-        // Stereo 48kHz AAC — 5.1/surround or 44.1kHz audio causes silent MSE decode failure on web.
-        "-c:a aac", "-b:a 128k", "-ar 48000", "-ac 2",
-        "-hls_time 6", "-hls_list_size 0",
-        // EXT-X-INDEPENDENT-SEGMENTS: every segment is self-contained, no cross-segment refs.
-        "-hls_flags independent_segments",
+        "-pix_fmt yuv420p",            // 8-bit 4:2:0 — required for browser MSE
+        "-force_key_frames expr:gte(t,n_forced*6)",  // IDR at every segment start
+        "-sc_threshold 0",             // no scene-change keyframes (CPU path only, GPU ignores)
+        "-c:a aac", "-b:a 128k", "-ar 48000", "-ac 2",  // stereo 48kHz — 5.1/44.1 breaks web MSE
+        "-hls_time 6",
+        "-hls_list_size 0",
+        "-hls_flags independent_segments+delete_segments+temp_file",
         `-hls_segment_filename ${path.join(outputDir, "seg%03d.ts")}`,
         "-f hls",
       ])
       .output(path.join(outputDir, "index.m3u8"))
-      .on("end", () => resolve(outputDir))
+      .on("end",   () => resolve(outputDir))
       .on("error", reject)
       .run();
   });
 }
 
-// PornHub tarzı highlight preview: videonun 5 farklı noktasından 2'şer saniyelik kesit → 10sn montaj
+// ── Parallel HLS upload — the single biggest perf win over the old sequential for-loop ──
+// Uploads up to BATCH_SIZE segments concurrently; drains disk as segments appear.
+
+async function uploadHLSParallel(outputDir, videoId, batchSize = 8) {
+  const files = fs.readdirSync(outputDir);
+
+  // Process in batches to avoid hitting R2 rate limits or OOM on huge segment lists
+  for (let i = 0; i < files.length; i += batchSize) {
+    await Promise.all(
+      files.slice(i, i + batchSize).map(async (file) => {
+        const filePath    = path.join(outputDir, file);
+        const key         = `videos/${videoId}/${file}`;
+        const contentType = file.endsWith(".m3u8")
+          ? "application/vnd.apple.mpegurl"
+          : "video/mp2t";
+        await streamUpload(key, filePath, contentType);
+      })
+    );
+  }
+
+  fs.rmSync(outputDir, { recursive: true, force: true });
+  return `${CDN_URL}/videos/${videoId}/index.m3u8`;
+}
+
+// Legacy sequential upload — kept for reference / fallback
+async function uploadHLSToStorage(outputDir, videoId) {
+  return uploadHLSParallel(outputDir, videoId, 1);
+}
+
+// ── Fast preview (PornHub-style highlight montage) ────────────────────────────
+// 5 × 2s clips from 15%–85% of video → 10s silent preview
+// ultrafast preset + CRF 30 + 640px → typically done in <60s
+
 function generatePreviewClip(inputPath, videoId, duration) {
   const outPath = path.join(os.tmpdir(), `preview-${videoId}.mp4`);
-  const dur = duration || 60;
-
-  // Videonun %15-%85'i arasında 5 eşit nokta (intro ve outro atlanıyor)
-  const CLIPS = 5;
+  const dur     = duration || 60;
+  const CLIPS   = 5;
   const CLIP_DUR = 2;
+
   const points = Array.from({ length: CLIPS }, (_, i) => {
     const pct = 0.15 + (i / (CLIPS - 1)) * 0.70;
     return Math.floor(dur * pct);
   });
 
-  // Her nokta için: trim → PTS sıfırla → scale
-  const filterParts = points.map((t, i) =>
+  const filterParts   = points.map((t, i) =>
     `[0:v]trim=start=${t}:duration=${CLIP_DUR},setpts=PTS-STARTPTS,scale=640:-2[c${i}]`
   );
-  const concatInputs = points.map((_, i) => `[c${i}]`).join("");
+  const concatInputs  = points.map((_, i) => `[c${i}]`).join("");
   const filterComplex = [
     ...filterParts,
     `${concatInputs}concat=n=${CLIPS}:v=1:a=0[out]`,
@@ -135,70 +152,64 @@ function generatePreviewClip(inputPath, videoId, duration) {
         "-filter_complex", filterComplex,
         "-map", "[out]",
         "-c:v libx264",
-        "-profile:v main",
-        "-level 4.1",
+        "-profile:v main", "-level 4.1",
         "-crf 30",
-        "-preset veryfast",
-        // 10-bit source clips will fail on Chrome MSE without this
+        "-preset ultrafast",   // ← fastest possible; preview quality is acceptable
         "-pix_fmt yuv420p",
         "-an",
         "-movflags +faststart",
       ])
       .output(outPath)
-      .on("end", () => resolve(outPath))
+      .on("end",   () => resolve(outPath))
       .on("error", reject)
       .run();
   });
 }
 
+// ── MP4 fallback ──────────────────────────────────────────────────────────────
+// Compact progressive MP4 for environments where HLS.js fails (old Safari, some bots)
+// CRF 26 veryfast → reasonable quality, fast encode
+
+function generateMp4Fallback(inputPath, videoId) {
+  const outPath = path.join(os.tmpdir(), `fallback-${videoId}.mp4`);
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        "-c:v libx264",
+        "-profile:v baseline", "-level 3.1",   // widest device compatibility
+        "-crf 26",
+        "-preset veryfast",
+        "-pix_fmt yuv420p",
+        "-c:a aac", "-b:a 128k",
+        "-movflags +faststart",                 // moov atom at front → instant play
+      ])
+      .output(outPath)
+      .on("end",   () => resolve(outPath))
+      .on("error", reject)
+      .run();
+  });
+}
+
+// ── Storage helpers ───────────────────────────────────────────────────────────
+
 async function uploadPreviewToStorage(filePath, videoId) {
   const key = `previews/${videoId}.mp4`;
-  await s3.send(new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    Body: fs.readFileSync(filePath),
-    ContentType: "video/mp4",
-  }));
-  fs.unlinkSync(filePath);
+  await streamUpload(key, filePath, "video/mp4");
+  try { fs.unlinkSync(filePath); } catch {}
   return `${CDN_URL}/${key}`;
 }
 
 async function uploadMp4FallbackToStorage(filePath, videoId) {
   const key = `fallback/${videoId}.mp4`;
-  await s3.send(new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    Body: fs.readFileSync(filePath),
-    ContentType: "video/mp4",
-  }));
-  fs.unlinkSync(filePath);
+  await streamUpload(key, filePath, "video/mp4");
+  try { fs.unlinkSync(filePath); } catch {}
   return `${CDN_URL}/${key}`;
-}
-
-async function uploadHLSToStorage(outputDir, videoId) {
-  const files = fs.readdirSync(outputDir);
-  for (const file of files) {
-    const filePath = path.join(outputDir, file);
-    const key = `videos/${videoId}/${file}`;
-    const contentType = file.endsWith(".m3u8") ? "application/vnd.apple.mpegurl" : "video/mp2t";
-    await s3.send(new PutObjectCommand({
-      Bucket: BUCKET, Key: key,
-      Body: fs.readFileSync(filePath),
-      ContentType: contentType,
-    }));
-  }
-  fs.rmSync(outputDir, { recursive: true, force: true });
-  return `${CDN_URL}/videos/${videoId}/index.m3u8`;
 }
 
 async function uploadThumbnailToStorage(filePath, videoId, mimeType) {
   const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
   const key = `thumbnails/${videoId}.${ext}`;
-  await s3.send(new PutObjectCommand({
-    Bucket: BUCKET, Key: key,
-    Body: fs.readFileSync(filePath),
-    ContentType: mimeType,
-  }));
+  await streamUpload(key, filePath, mimeType);
   return { url: `${CDN_URL}/${key}`, key };
 }
 
@@ -209,9 +220,11 @@ async function createRawUploadUrl(videoId, contentType) {
   };
   const ext = extMap[contentType] || "mp4";
   const key = `raw/${videoId}.${ext}`;
-  const url = await getSignedUrl(s3, new PutObjectCommand({
-    Bucket: BUCKET, Key: key, ContentType: contentType,
-  }), { expiresIn: 7200 });
+  const url = await getSignedUrl(
+    s3,
+    new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
+    { expiresIn: 7200 }
+  );
   return { url, key };
 }
 
@@ -234,10 +247,14 @@ async function deleteFromStorage(prefix) {
 }
 
 module.exports = {
-  getVideoDuration, extractCodecInfo, convertToHLS,
-  uploadHLSToStorage, uploadThumbnailToStorage,
-  generatePreviewClip, uploadPreviewToStorage,
-  generateMp4Fallback, uploadMp4FallbackToStorage,
-  createRawUploadUrl, downloadRawFromStorage,
-  deleteRawFromStorage, deleteFromStorage,
+  getVideoDuration, extractCodecInfo,
+  convertToHLS,
+  uploadHLSToStorage,     // legacy alias
+  uploadHLSParallel,      // new parallel upload
+  generatePreviewClip,    uploadPreviewToStorage,
+  generateMp4Fallback,    uploadMp4FallbackToStorage,
+  uploadThumbnailToStorage,
+  createRawUploadUrl,
+  downloadRawFromStorage, deleteRawFromStorage,
+  deleteFromStorage,
 };

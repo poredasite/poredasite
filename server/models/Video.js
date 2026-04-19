@@ -32,7 +32,7 @@ const videoSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["processing", "ready", "error"],
+      enum: ["processing", "uploaded", "ready", "error"],
       default: "processing",
     },
     views: {

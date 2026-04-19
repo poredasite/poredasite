@@ -14,6 +14,7 @@ const settingsRouter   = require("./routes/settings");
 const streamRouter     = require("./routes/stream");
 const sitemap          = require("./services/sitemapService");
 const prerender        = require("./services/prerenderService");
+const { createWorker } = require("./workers/videoWorker");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -178,6 +179,12 @@ mongoose
         console.log(`🚀 Server running on http://localhost:${PORT}`);
         console.log(`📡 Environment: ${process.env.NODE_ENV || "development"}`);
         sitemap.startScheduler();
+        if (process.env.REDIS_URL) {
+          createWorker();
+          console.log(`⚡ Video worker started (concurrency: ${process.env.WORKER_CONCURRENCY || 1})`);
+        } else {
+          console.warn("⚠️  REDIS_URL not set — BullMQ worker disabled");
+        }
       });
       server.timeout = 20 * 60 * 1000; // 20 dakika
       server.keepAliveTimeout = 20 * 60 * 1000;

@@ -162,34 +162,39 @@ export default function VideoDetail() {
         <TopBannerAd />
 
         {/* ── Player ─────────────────────────────────────────────────── */}
-        {video.status !== "ready" || !video.videoUrl ? (
+        {video.status === "error" ? (
           <div className="w-full aspect-video bg-neutral-900 rounded-2xl flex flex-col items-center justify-center gap-3">
-            {video.status === "error" ? (
-              <>
-                <svg className="w-9 h-9 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                    d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                </svg>
-                <p className="text-neutral-400 text-sm">Video işlenirken hata oluştu.</p>
-              </>
-            ) : (
-              <>
-                <div className="w-9 h-9 border-[3px] border-brand-500/30 border-t-brand-400 rounded-full animate-spin" />
-                <p className="text-neutral-400 text-sm">Video işleniyor...</p>
-              </>
-            )}
+            <svg className="w-9 h-9 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <p className="text-neutral-400 text-sm">Video işlenirken hata oluştu.</p>
+          </div>
+        ) : video.status === "processing" || (!video.videoUrl && !video.previewVideoUrl) ? (
+          <div className="w-full aspect-video bg-neutral-900 rounded-2xl flex flex-col items-center justify-center gap-3">
+            <div className="w-9 h-9 border-[3px] border-brand-500/30 border-t-brand-400 rounded-full animate-spin" />
+            <p className="text-neutral-400 text-sm">Video işleniyor...</p>
           </div>
         ) : instreamSlot?.enabled && showInstream ? (
           <InstreamVideoAd onSkip={() => setShowInstream(false)} />
         ) : (
-          <VideoPlayer
-            src={video.videoUrl}
-            poster={video.thumbnailUrl}
-            title={video.title}
-            videoId={video._id}
-            mp4FallbackUrl={video.mp4FallbackUrl || null}
-            onWatchProgress={handleWatchProgress}
-          />
+          <>
+            <VideoPlayer
+              src={video.videoUrl || video.previewVideoUrl}
+              poster={video.thumbnailUrl}
+              title={video.title}
+              videoId={video._id}
+              mp4FallbackUrl={video.mp4FallbackUrl || null}
+              onWatchProgress={handleWatchProgress}
+            />
+            {/* Show banner while HLS is still encoding (preview is playing) */}
+            {video.status === "uploaded" && (
+              <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-brand-500/10 border border-brand-500/20 text-xs text-brand-400">
+                <div className="w-3 h-3 border-2 border-brand-500/40 border-t-brand-400 rounded-full animate-spin flex-shrink-0" />
+                HD sürüm hazırlanıyor — şu an önizleme oynatılıyor
+              </div>
+            )}
+          </>
         )}
 
         {/* ── Title ──────────────────────────────────────────────────── */}
