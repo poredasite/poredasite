@@ -141,9 +141,10 @@ function encodeClip(inputPath, outPath, seekTime) {
       .outputOptions([
         "-c:v libx264", "-profile:v main", "-level 4.1",
         "-crf 28", "-preset ultrafast",
-        "-vf scale=640:-2",
+        "-vf scale=640:-2,setpts=PTS-STARTPTS",  // reset pts so concat timestamps are continuous
         "-pix_fmt yuv420p",
         "-threads 1", "-an",
+        "-reset_timestamps 1",
       ])
       .output(outPath)
       .on("end",   () => resolve(outPath))
