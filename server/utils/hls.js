@@ -133,11 +133,11 @@ async function uploadHLSToStorage(outputDir, videoId) {
 // ultrafast preset + CRF 30 + 640px → typically done in <60s
 
 // Encodes one 2-second clip from inputPath at seekTime → tmp file
-function encodeClip(inputPath, outPath, seekTime) {
+function encodeClip(inputPath, outPath, seekTime, clipDur = 2) {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .seekInput(seekTime)
-      .duration(2)
+      .duration(clipDur)
       .outputOptions([
         "-c:v libx264", "-profile:v main", "-level 4.1",
         "-crf 28", "-preset ultrafast",
@@ -173,26 +173,37 @@ function concatClips(clipPaths, outPath) {
 }
 
 async function generatePreviewClip(inputPath, videoId, duration) {
-  const outPath = path.join(os.tmpdir(), `preview-${videoId}.mp4`);
-  const dur     = Math.max(duration || 60, 20);
-  const CLIPS   = 5;
-  const CLIP_DUR = 2;
+  const outPath  = path.join(os.tmpdir(), `preview-${videoId}.mp4`);
+  const dur      = duration || 0;
 
-  // Pick evenly spaced seek points between 15%–85%
-  const points = Array.from({ length: CLIPS }, (_, i) => {
+  // Too short to montage — take a single 10s clip from 20% in
+  if (dur < 30) {
+    const seekTo = dur > 10 ? Math.floor(dur * 0.2) : 0;
+    const clipDur = Math.min(10, Math.max(dur - seekTo - 0.5, 1));
+    await encodeClip(inputPath, outPath, seekTo, clipDur);
+    return outPath;
+  }
+
+  // Normal: 5 × 2s clips evenly spread between 15%–85%
+  const CLIPS    = 5;
+  const CLIP_DUR = Math.min(2, Math.floor(dur * 0.06)); // scale clip length for short-ish vids
+  const points   = Array.from({ length: CLIPS }, (_, i) => {
     const pct = 0.15 + (i / (CLIPS - 1)) * 0.70;
     return Math.floor(dur * pct);
-  });
+  }).filter(t => t + CLIP_DUR < dur); // drop points that would run past end
+
+  if (points.length === 0) {
+    await encodeClip(inputPath, outPath, 0, Math.min(10, dur - 0.5));
+    return outPath;
+  }
 
   const clipPaths = [];
   try {
-    // Encode each clip sequentially — one ffmpeg process at a time, low RAM
     for (let i = 0; i < points.length; i++) {
       const clipPath = path.join(os.tmpdir(), `clip-${videoId}-${i}.mp4`);
-      await encodeClip(inputPath, clipPath, points[i]);
+      await encodeClip(inputPath, clipPath, points[i], CLIP_DUR);
       clipPaths.push(clipPath);
     }
-    // Merge with concat demuxer (no re-encode, instant)
     await concatClips(clipPaths, outPath);
   } finally {
     for (const p of clipPaths) try { fs.unlinkSync(p); } catch {}
