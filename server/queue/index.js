@@ -16,7 +16,7 @@ function getRedis() {
   return _conn;
 }
 
-const videoQueue = new Queue("video:processing", {
+const videoQueue = new Queue("video-processing", {
   connection: getRedis(),
   defaultJobOptions: {
     attempts:  3,

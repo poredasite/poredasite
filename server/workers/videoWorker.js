@@ -142,7 +142,7 @@ async function processVideoJob(job) {
 
 // ── Create worker ─────────────────────────────────────────────────────────────
 function createWorker() {
-  const worker = new Worker("video:processing", processVideoJob, {
+  const worker = new Worker("video-processing", processVideoJob, {
     connection:  getRedis(),
     concurrency: CONCURRENCY,
   });
