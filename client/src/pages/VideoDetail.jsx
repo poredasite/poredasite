@@ -18,14 +18,6 @@ function formatViews(n) {
   return n?.toString() || "0";
 }
 
-function formatDuration(s) {
-  if (!s) return null;
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = Math.floor(s % 60);
-  if (h > 0) return `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
-  return `${m}:${String(sec).padStart(2,"0")}`;
-}
 
 // ── LinkedDescription ─────────────────────────────────────────────────────────
 function LinkedDescription({ text, tags, relatedVideos, categories }) {
@@ -192,34 +184,6 @@ function CommentSection({ videoId }) {
   );
 }
 
-function WatchNextCard({ video }) {
-  const d = formatDuration(video.duration);
-  return (
-    <Link to={`/video/${video._id}`}
-      className="flex gap-4 group p-3 rounded-xl hover:bg-white/5 transition-colors border border-white/5 hover:border-white/10">
-      <div className="relative flex-shrink-0 w-40 sm:w-48 rounded-lg overflow-hidden bg-neutral-900"
-        style={{ aspectRatio: "16/9" }}>
-        {video.thumbnailUrl && (
-          <img src={video.thumbnailUrl} alt={video.title} loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-        )}
-        {d && (
-          <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-mono px-1 py-0.5 rounded">
-            {d}
-          </span>
-        )}
-      </div>
-      <div className="flex-1 min-w-0 py-1">
-        <p className="text-[10px] text-brand-400 font-semibold uppercase tracking-wider mb-1.5">Sıradaki</p>
-        <p className="text-white text-sm font-medium leading-snug line-clamp-2 group-hover:text-brand-300 transition-colors">
-          {video.title}
-        </p>
-        <p className="text-neutral-500 text-xs mt-2">{formatViews(video.views)} izlenme</p>
-      </div>
-    </Link>
-  );
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function VideoDetail() {
   const { id }     = useParams();
@@ -291,8 +255,6 @@ export default function VideoDetail() {
   const hasLongDesc = video.description?.length > 200;
   const tags        = video.tags || [];
   const cats        = [...(video.categories || []), ...(video.category ? [video.category] : [])];
-  const watchNext   = related[0] || null;
-
   return (
     <>
       <SEOHead
@@ -415,21 +377,14 @@ export default function VideoDetail() {
         {/* ── Comments ───────────────────────────────────────────────── */}
         <CommentSection videoId={video._id} />
 
-        {/* ── Watch Next ─────────────────────────────────────────────── */}
-        {watchNext && (
-          <div className="mt-10">
-            <WatchNextCard video={watchNext} />
-          </div>
-        )}
-
         {/* ── Related videos ─────────────────────────────────────────── */}
-        {related.length > 1 && (
+        {related.length > 0 && (
           <div className="mt-8">
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
               Benzer Videolar
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {related.slice(1).map((v) => <VideoCard key={v._id} video={v} />)}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+              {related.map((v) => <VideoCard key={v._id} video={v} />)}
             </div>
           </div>
         )}
