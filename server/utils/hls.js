@@ -132,31 +132,72 @@ async function uploadHLSToStorage(outputDir, videoId) {
 // 5 × 2s clips from 15%–85% of video → 10s silent preview
 // ultrafast preset + CRF 30 + 640px → typically done in <60s
 
-function generatePreviewClip(inputPath, videoId, duration) {
-  const outPath  = path.join(os.tmpdir(), `preview-${videoId}.mp4`);
-  const dur      = Math.max(duration || 60, 30);
-  const seekTo   = Math.floor(dur * 0.25); // start at 25% of video
-
+// Encodes one 2-second clip from inputPath at seekTime → tmp file
+function encodeClip(inputPath, outPath, seekTime) {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
-      .seekInput(seekTo)
-      .duration(10)
+      .seekInput(seekTime)
+      .duration(2)
       .outputOptions([
-        "-c:v libx264",
-        "-profile:v main", "-level 4.1",
-        "-crf 30",
-        "-preset ultrafast",
+        "-c:v libx264", "-profile:v main", "-level 4.1",
+        "-crf 28", "-preset ultrafast",
         "-vf scale=640:-2",
         "-pix_fmt yuv420p",
-        "-threads 1",
-        "-an",
-        "-movflags +faststart",
+        "-threads 1", "-an",
       ])
       .output(outPath)
       .on("end",   () => resolve(outPath))
       .on("error", reject)
       .run();
   });
+}
+
+// Concatenates pre-encoded clip files using concat demuxer (sequential read, low RAM)
+function concatClips(clipPaths, outPath) {
+  const listFile = outPath + ".txt";
+  fs.writeFileSync(listFile, clipPaths.map(p => `file '${p}'`).join("\n"));
+  return new Promise((resolve, reject) => {
+    ffmpeg()
+      .inputOptions(["-f concat", "-safe 0"])
+      .input(listFile)
+      .outputOptions([
+        "-c copy",
+        "-movflags +faststart",
+      ])
+      .output(outPath)
+      .on("end", () => { try { fs.unlinkSync(listFile); } catch {} resolve(outPath); })
+      .on("error", (e) => { try { fs.unlinkSync(listFile); } catch {} reject(e); })
+      .run();
+  });
+}
+
+async function generatePreviewClip(inputPath, videoId, duration) {
+  const outPath = path.join(os.tmpdir(), `preview-${videoId}.mp4`);
+  const dur     = Math.max(duration || 60, 20);
+  const CLIPS   = 5;
+  const CLIP_DUR = 2;
+
+  // Pick evenly spaced seek points between 15%–85%
+  const points = Array.from({ length: CLIPS }, (_, i) => {
+    const pct = 0.15 + (i / (CLIPS - 1)) * 0.70;
+    return Math.floor(dur * pct);
+  });
+
+  const clipPaths = [];
+  try {
+    // Encode each clip sequentially — one ffmpeg process at a time, low RAM
+    for (let i = 0; i < points.length; i++) {
+      const clipPath = path.join(os.tmpdir(), `clip-${videoId}-${i}.mp4`);
+      await encodeClip(inputPath, clipPath, points[i]);
+      clipPaths.push(clipPath);
+    }
+    // Merge with concat demuxer (no re-encode, instant)
+    await concatClips(clipPaths, outPath);
+  } finally {
+    for (const p of clipPaths) try { fs.unlinkSync(p); } catch {}
+  }
+
+  return outPath;
 }
 
 // ── MP4 fallback ──────────────────────────────────────────────────────────────
