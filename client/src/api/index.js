@@ -59,6 +59,7 @@ export const videoApi = {
 
   update: (id, data) => api.patch(`/videos/${id}`, data),
 
+  search:      (q, params = {}) => api.get("/videos/search", { params: { q, ...params } }),
   getSitemap:  () => api.get("/videos/sitemap"),
   getSidebar:  () => api.get("/videos/sidebar"),
   getByTag:    (tag, params = {}) => api.get(`/videos/tag/${encodeURIComponent(tag)}`, { params }),

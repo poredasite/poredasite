@@ -2,20 +2,54 @@ import { Link, useNavigate, useLocation, useSearchParams } from "react-router-do
 import { useState, useEffect, useRef } from "react";
 import { useAdmin } from "../context/AdminContext";
 import {
-  HiHome, HiFire, HiViewGrid,
-  HiUser, HiChevronDown, HiMenu, HiX, HiCog
+  HiHome, HiFire, HiUser, HiChevronDown,
+  HiMenu, HiX, HiCog, HiSearch,
 } from "react-icons/hi";
+
+const SPECIAL_LINKS = [
+  { label: "Türk Videoları",    href: "/tag/türk" },
+  { label: "Türkçe Altyazılı", href: "/tag/türkçe-altyazılı" },
+  { label: "Türk İfşa",        href: "/tag/türk-ifşa" },
+];
+
+function SearchBar({ className = "" }) {
+  const navigate   = useNavigate();
+  const [q, setQ]  = useState("");
+  const inputRef   = useRef(null);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const trimmed = q.trim();
+    if (!trimmed) return;
+    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+    setQ("");
+    inputRef.current?.blur();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className={`relative ${className}`}>
+      <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+      <input
+        ref={inputRef}
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Video ara..."
+        className="w-full bg-surface-800 border border-white/8 hover:border-white/15 focus:border-brand-500 text-white placeholder-gray-600 pl-9 pr-3 py-2 rounded-lg text-sm outline-none transition-colors"
+      />
+    </form>
+  );
+}
 
 export default function Navbar() {
   const { isAdmin, logout } = useAdmin();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate   = useNavigate();
+  const location   = useLocation();
   const [searchParams] = useSearchParams();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen,    setMenuOpen]    = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
 
-  // Close menu on route change
   useEffect(() => { setMenuOpen(false); setProfileOpen(false); }, [location.pathname]);
 
   useEffect(() => {
@@ -27,15 +61,25 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handler);
   }, [profileOpen]);
 
+  const isActive = (path, sort) => {
+    if (sort) return location.pathname === path && searchParams.get("sort") === sort;
+    return location.pathname === path && !searchParams.get("sort");
+  };
+
+  const navLinkCls = (active) =>
+    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+      active ? "text-white bg-surface-700" : "text-gray-400 hover:text-white hover:bg-surface-800"
+    }`;
+
   return (
     <>
       {/* ── Top Header ──────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-white/5">
 
-        {/* Desktop nav */}
-        <nav className="max-w-[1600px] mx-auto px-6 h-[4.5rem] hidden md:flex items-center gap-6">
+        {/* Desktop */}
+        <nav className="max-w-[1600px] mx-auto px-4 h-[4.5rem] hidden md:flex items-center gap-3">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group mr-6" aria-label="Ana Sayfa">
+          <Link to="/" className="flex items-center gap-2 group mr-3 flex-shrink-0" aria-label="Ana Sayfa">
             <span className="text-3xl select-none transition-transform duration-200 group-hover:scale-110">😎</span>
             <span className="font-display font-bold text-xl text-white tracking-tight">
               xxxpor<span className="text-brand-500">eda</span>
@@ -43,31 +87,28 @@ export default function Navbar() {
           </Link>
 
           {/* Nav links */}
-          <div className="flex items-center gap-1 flex-1">
-            <Link to="/"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                location.pathname === "/" && !searchParams.get("sort")
-                  ? "text-white bg-surface-700"
-                  : "text-gray-400 hover:text-white hover:bg-surface-800"
-              }`}>
-              <HiHome className="w-4 h-4" /> Ana Sayfa
-            </Link>
-            <Link to="/?sort=views"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                searchParams.get("sort") === "views"
-                  ? "text-white bg-surface-700"
-                  : "text-gray-400 hover:text-white hover:bg-surface-800"
-              }`}>
-              <HiFire className="w-4 h-4" /> Popüler
-            </Link>
+          <div className="flex items-center gap-0.5">
+            <Link to="/"          className={navLinkCls(isActive("/"))}><HiHome  className="w-4 h-4" />Ana Sayfa</Link>
+            <Link to="/?sort=views" className={navLinkCls(isActive("/", "views"))}><HiFire className="w-4 h-4" />Popüler</Link>
+
+            <div className="w-px h-5 bg-white/10 mx-1" />
+
+            {SPECIAL_LINKS.map(({ label, href }) => (
+              <Link key={href} to={href} className={navLinkCls(location.pathname === href)}>
+                {label}
+              </Link>
+            ))}
           </div>
 
-          {/* Profile dropdown — only shown when logged in as admin */}
+          {/* Search */}
+          <SearchBar className="flex-1 max-w-xs ml-auto" />
+
+          {/* Admin dropdown */}
           {isAdmin && (
-            <div className="relative" ref={profileRef}>
+            <div className="relative flex-shrink-0" ref={profileRef}>
               <button
                 onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-surface-800 transition-all duration-200"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-surface-800 transition-all duration-200"
               >
                 <HiUser className="w-4 h-4" />
                 <span>Admin</span>
@@ -95,16 +136,19 @@ export default function Navbar() {
         </nav>
 
         {/* Mobile top bar */}
-        <nav className="md:hidden max-w-[1600px] mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2" aria-label="Ana Sayfa">
+        <nav className="md:hidden max-w-[1600px] mx-auto px-3 h-14 flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 flex-shrink-0" aria-label="Ana Sayfa">
             <span className="text-2xl select-none">😎</span>
             <span className="font-display font-bold text-lg text-white tracking-tight">
               xxxpor<span className="text-brand-500">eda</span>
             </span>
           </Link>
 
+          {/* Mobile search */}
+          <SearchBar className="flex-1" />
+
           <button
-            className="p-2 rounded-lg text-gray-500 hover:text-white hover:bg-surface-800 transition-colors"
+            className="flex-shrink-0 p-2 rounded-lg text-gray-500 hover:text-white hover:bg-surface-800 transition-colors"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label={menuOpen ? "Menüyü kapat" : "Menüyü aç"}
           >
@@ -115,8 +159,25 @@ export default function Navbar() {
         {/* Mobile dropdown menu */}
         {menuOpen && (
           <div className="md:hidden border-t border-white/5 bg-surface-900 px-3 py-3 space-y-0.5 animate-slide-up">
+            <Link to="/" className="flex items-center gap-3 text-gray-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 hover:text-white transition-colors">
+              <HiHome className="w-4 h-4" /> Ana Sayfa
+            </Link>
+            <Link to="/?sort=views" className="flex items-center gap-3 text-gray-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 hover:text-white transition-colors">
+              <HiFire className="w-4 h-4" /> Popüler
+            </Link>
+
+            <div className="border-t border-white/5 my-2" />
+
+            {SPECIAL_LINKS.map(({ label, href }) => (
+              <Link key={href} to={href}
+                className="flex items-center gap-3 text-brand-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 transition-colors font-medium">
+                <span className="text-base">🇹🇷</span> {label}
+              </Link>
+            ))}
+
             {isAdmin && (
               <>
+                <div className="border-t border-white/5 my-2" />
                 <Link to="/admin-baba" className="flex items-center gap-3 text-brand-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 transition-colors">
                   <HiCog className="w-4 h-4" /> Yönetim Paneli
                 </Link>
@@ -130,7 +191,6 @@ export default function Navbar() {
         )}
       </header>
 
-      {/* ── Mobile Bottom Nav ───────────────────────────────────── */}
       <MobileBottomNav isAdmin={isAdmin} />
     </>
   );
@@ -138,9 +198,7 @@ export default function Navbar() {
 
 function MobileBottomNav({ isAdmin }) {
   const location = useLocation();
-
   if (!isAdmin) return null;
-
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-[60] md:hidden bg-surface-900/95 backdrop-blur-md border-t border-white/8">
       <div className="flex items-center justify-around h-14 px-1 max-w-md mx-auto">
@@ -152,8 +210,7 @@ function MobileBottomNav({ isAdmin }) {
 
 function BottomNavItem({ to, icon: Icon, label, active }) {
   return (
-    <Link
-      to={to}
+    <Link to={to}
       className={`flex flex-col items-center justify-center gap-0.5 py-1 px-4 rounded-xl transition-all duration-200 min-w-[60px] touch-manipulation ${
         active ? "text-brand-400" : "text-gray-600 hover:text-gray-400"
       }`}

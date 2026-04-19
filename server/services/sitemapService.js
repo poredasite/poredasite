@@ -113,9 +113,10 @@ async function getTagSitemap() {
 
   const entries = rows.map(({ _id: tag, count, lastmod }) => {
     const priority = Math.min(0.9, 0.4 + Math.log10(count + 1) * 0.2).toFixed(1);
+    const slug     = encodeURIComponent(tag.toLowerCase().replace(/\s+/g, "-"));
     return [
       `  <url>`,
-      `    <loc>${BASE}/tag/${encodeURIComponent(tag.toLowerCase())}</loc>`,
+      `    <loc>${BASE}/tag/${slug}</loc>`,
       `    <lastmod>${isoDate(lastmod)}</lastmod>`,
       `    <changefreq>daily</changefreq>`,
       `    <priority>${priority}</priority>`,

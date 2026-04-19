@@ -255,7 +255,7 @@ export default function VideoDetail() {
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-4">
             {tags.map((tag) => (
-              <Link key={tag} to={`/tag/${encodeURIComponent(tag.toLowerCase())}`}
+              <Link key={tag} to={`/tag/${encodeURIComponent(tag.toLowerCase().replace(/\s+/g, "-"))}`}
                 className="text-[11px] text-neutral-500 hover:text-brand-400 px-2.5 py-1 rounded-full bg-white/[0.04] hover:bg-brand-500/10 border border-white/5 hover:border-brand-500/20 transition-all font-mono">
                 #{tag}
               </Link>

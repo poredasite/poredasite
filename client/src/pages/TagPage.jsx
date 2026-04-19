@@ -88,7 +88,7 @@ export default function TagPage() {
   }, [inView]);
 
   // Pagination SEO links
-  const tagBase  = `/tag/${encodeURIComponent(decoded)}`;
+  const tagBase  = `/tag/${encodeURIComponent(decoded.toLowerCase().replace(/\s+/g, "-"))}`;
   const prevPage = maxPage > 1 ? `${tagBase}?page=${maxPage - 1}` : null;
   const nextPage = hasMore   ? `${tagBase}?page=${maxPage + 1}` : null;
 
@@ -139,7 +139,7 @@ export default function TagPage() {
                 {meta.relatedTags.map((t) => (
                   <Link
                     key={t}
-                    to={`/tag/${encodeURIComponent(t.toLowerCase())}`}
+                    to={`/tag/${encodeURIComponent(t.toLowerCase().replace(/\s+/g, "-"))}`}
                     className="text-xs bg-surface-800 text-gray-400 hover:text-brand-300 px-2.5 py-1 rounded-full border border-white/8 hover:border-brand-500/30 transition-all font-mono"
                   >
                     #{t}

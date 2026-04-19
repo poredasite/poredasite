@@ -117,6 +117,35 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /videos/search?q=...
+router.get("/search", async (req, res) => {
+  try {
+    const q     = (req.query.q || "").trim();
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(48, parseInt(req.query.limit) || 24);
+    const skip  = (page - 1) * limit;
+
+    if (!q) return res.json({ success: true, data: [], pagination: { page, limit, total: 0, pages: 0 } });
+
+    const filter = { status: { $in: ["ready", "uploaded"] }, $text: { $search: q } };
+
+    const [videos, total] = await Promise.all([
+      Video.find(filter, { score: { $meta: "textScore" } })
+        .sort({ score: { $meta: "textScore" } })
+        .skip(skip).limit(limit)
+        .select("-videoPublicId -thumbnailPublicId")
+        .populate("category",   "name icon color slug")
+        .populate("categories", "name icon color slug")
+        .lean(),
+      Video.countDocuments(filter),
+    ]);
+
+    res.json({ success: true, data: videos, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 // GET /videos/sitemap
 router.get("/sitemap", async (req, res) => {
   try {

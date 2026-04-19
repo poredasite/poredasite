@@ -64,8 +64,14 @@ function AdminLogin({ onLogin }) {
 }
 
 // ─── Multi Upload Queue ───────────────────────────────────────────
+const SPECIAL_TAGS = [
+  { id: "turk",      label: "Türk Videoları",    tag: "türk" },
+  { id: "altyazili", label: "Türkçe Altyazılı",  tag: "türkçe altyazılı" },
+  { id: "ifsa",      label: "Türk İfşa",         tag: "türk ifşa" },
+];
+
 function emptyItem() {
-  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
+  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", specialTags: [], categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
 }
 
 function CategoryMultiSelect({ allCategories, selected, onChange }) {
@@ -164,6 +170,34 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
             </span>
             <input ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/avi,video/x-matroska,video/webm"
               onChange={e => onUpdate({ videoFile: e.target.files[0] })} className="hidden" />
+          </div>
+
+          {/* Special sections */}
+          <div>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Bölüm</p>
+            <div className="flex flex-wrap gap-1.5">
+              {SPECIAL_TAGS.map(({ id, label, tag }) => {
+                const active = item.specialTags?.includes(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={isActive}
+                    onClick={() => {
+                      const next = active
+                        ? item.specialTags.filter(t => t !== id)
+                        : [...(item.specialTags || []), id];
+                      onUpdate({ specialTags: next });
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                      active ? "bg-brand-500 text-white" : "bg-surface-700 text-gray-400 hover:bg-surface-600"
+                    } disabled:opacity-50`}
+                  >
+                    🇹🇷 {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Categories */}
@@ -270,9 +304,16 @@ function MultiUploadQueue({ onSuccess }) {
     let videoId;
     try {
       const fd = new FormData();
+      // Merge special section tags with manual tags
+      const specialTagValues = (item.specialTags || [])
+        .map(id => SPECIAL_TAGS.find(s => s.id === id)?.tag)
+        .filter(Boolean);
+      const manualTags = (item.tags || "").split(",").map(t => t.trim()).filter(Boolean);
+      const allTags = [...new Set([...specialTagValues, ...manualTags])].join(", ");
+
       fd.append("title", item.title.trim());
       fd.append("description", item.description?.trim() || "");
-      fd.append("tags", item.tags?.trim() || "");
+      fd.append("tags", allTags);
       fd.append("categories", JSON.stringify(item.categories));
       fd.append("thumbnail", item.thumbFile);
       fd.append("videoType", item.videoFile.type || "video/mp4");
@@ -655,10 +696,12 @@ function KategoriManager() {
 // ─── Video Edit Modal ─────────────────────────────────────────────
 function VideoEditModal({ video, allCategories, onSave, onClose }) {
   const thumbRef = useRef(null);
+  const existingTags = video.tags || [];
   const [form, setForm] = useState({
     title: video.title || "",
     description: video.description || "",
-    tags: video.tags?.join(", ") || "",
+    tags: existingTags.filter(t => !SPECIAL_TAGS.map(s => s.tag).includes(t)).join(", "),
+    specialTags: SPECIAL_TAGS.filter(s => existingTags.includes(s.tag)).map(s => s.id),
     categories: (video.categories?.map(c => c._id) || (video.category ? [video.category._id] : [])),
     thumbFile: null,
     thumbPreview: video.thumbnailUrl,
@@ -670,9 +713,13 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
     setSaving(true);
     try {
       const fd = new FormData();
+      const specialTagValues = (form.specialTags || [])
+        .map(id => SPECIAL_TAGS.find(s => s.id === id)?.tag).filter(Boolean);
+      const manualTags = (form.tags || "").split(",").map(t => t.trim()).filter(Boolean);
+      const allTags = [...new Set([...specialTagValues, ...manualTags])].join(", ");
       fd.append("title", form.title.trim());
       fd.append("description", form.description.trim());
-      fd.append("tags", form.tags.trim());
+      fd.append("tags", allTags);
       fd.append("categories", JSON.stringify(form.categories));
       if (form.thumbFile) fd.append("thumbnail", form.thumbFile);
       await videoApi.update(video._id, fd);
@@ -717,6 +764,22 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
           <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
             placeholder="Açıklama" rows={4} maxLength={5000}
             className="w-full bg-surface-800 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2.5 rounded-xl text-sm outline-none resize-none" />
+          {/* Special sections */}
+          <div>
+            <p className="text-xs text-gray-500 mb-2">Bölüm</p>
+            <div className="flex flex-wrap gap-1.5">
+              {SPECIAL_TAGS.map(({ id, label }) => {
+                const active = form.specialTags?.includes(id);
+                return (
+                  <button key={id} type="button"
+                    onClick={() => setForm(p => ({ ...p, specialTags: active ? p.specialTags.filter(t => t !== id) : [...(p.specialTags || []), id] }))}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${active ? "bg-brand-500 text-white" : "bg-surface-700 text-gray-400 hover:bg-surface-600"}`}>
+                    🇹🇷 {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {/* Categories */}
           <div>
             <p className="text-xs text-gray-500 mb-2">Kategoriler</p>
