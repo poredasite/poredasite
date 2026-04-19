@@ -10,7 +10,10 @@
       "Bash(xargs -0 ls -lh)",
       "Bash(grep -E \"\\\\.js$|\\\\.json$\")",
       "Bash(grep -E \"\\\\.jsx$\")",
-      "WebFetch(domain:xxxporeda.com)"
+      "WebFetch(domain:xxxporeda.com)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git add *)"
     ]
   }
 }
