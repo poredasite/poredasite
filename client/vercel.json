@@ -1,12 +1,11 @@
 {
   "rewrites": [
-    {
-      "source": "/sitemap.xml",
-      "destination": "https://poredasite-production.up.railway.app/sitemap.xml"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/robots.txt",               "destination": "https://poredasite-production.up.railway.app/robots.txt" },
+    { "source": "/sitemap.xml",              "destination": "https://poredasite-production.up.railway.app/sitemap.xml" },
+    { "source": "/sitemap-videos.xml",       "destination": "https://poredasite-production.up.railway.app/sitemap-videos.xml" },
+    { "source": "/sitemap-videos-:n.xml",    "destination": "https://poredasite-production.up.railway.app/sitemap-videos-:n.xml" },
+    { "source": "/sitemap-tags.xml",         "destination": "https://poredasite-production.up.railway.app/sitemap-tags.xml" },
+    { "source": "/sitemap-categories.xml",   "destination": "https://poredasite-production.up.railway.app/sitemap-categories.xml" },
+    { "source": "/(.*)",                     "destination": "/index.html" }
   ]
 }

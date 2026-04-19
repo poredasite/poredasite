@@ -13,6 +13,7 @@ const categoriesRouter = require("./routes/categories");
 const settingsRouter   = require("./routes/settings");
 const streamRouter     = require("./routes/stream");
 const sitemap          = require("./services/sitemapService");
+const prerender        = require("./services/prerenderService");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -98,6 +99,27 @@ app.get("/robots.txt", (req, res) => {
   res.type("text/plain");
   res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${baseUrl}/sitemap.xml`);
 });
+
+// ─── Prerender (dynamic rendering for bots) ───────────────────────
+// Serves full HTML with schema + internal links to crawlers;
+// non-bot traffic falls through to the SPA.
+
+const sendPrerender = (fn) => async (req, res, next) => {
+  try {
+    const html = await fn(req);
+    if (!html) return next();
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("X-Prerender", "1");
+    res.send(html);
+  } catch (e) {
+    console.error("[Prerender] error:", e.message);
+    next();
+  }
+};
+
+app.get("/prerender/",           sendPrerender(() => prerender.renderHome()));
+app.get("/prerender/video/:id",  sendPrerender((req) => prerender.renderVideo(req.params.id)));
+app.get("/prerender/tag/:tag",   sendPrerender((req) => prerender.renderTag(req.params.tag)));
 
 // ─── Static Files (Production) ────────────────────────────────────
 
