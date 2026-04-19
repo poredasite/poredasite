@@ -102,11 +102,15 @@ router.get("/", async (req, res) => {
     const skip  = (page - 1) * limit;
     const sortParam = req.query.sort; // "views" | "new" | "algo" | undefined
     const filter = { status: { $in: ["ready", "uploaded"] } };
-    if (req.query.category) filter.$or = [{ category: req.query.category }, { categories: req.query.category }];
+    if (req.query.category) {
+      const catId = mongoose.Types.ObjectId.isValid(req.query.category)
+        ? new mongoose.Types.ObjectId(req.query.category)
+        : req.query.category;
+      filter.$or = [{ category: catId }, { categories: catId }];
+    }
 
     // Algorithm sort: weighted score using views, likes, comments, recency, completion
     if (!sortParam || sortParam === "algo") {
-      const now    = Date.now();
       const dayMs  = 86400000;
       const [docs, total] = await Promise.all([
         Video.aggregate([
@@ -115,7 +119,7 @@ router.get("/", async (req, res) => {
             { $multiply: [{ $ln: { $add: [{ $ifNull: ["$views", 0] }, 1] } }, 1] },
             { $multiply: [{ $ifNull: ["$likes", 0] }, 3] },
             { $multiply: [{ $ifNull: ["$commentCount", 0] }, 2] },
-            { $max: [0, { $subtract: [7, { $divide: [{ $subtract: [now, "$createdAt"] }, dayMs] }] }] },
+            { $max: [0, { $subtract: [7, { $divide: [{ $subtract: ["$$NOW", "$createdAt"] }, dayMs] }] }] },
             { $multiply: [{ $ifNull: ["$completionRate", 0] }, 5] },
           ]}}},
           { $sort: { _score: -1 } },
