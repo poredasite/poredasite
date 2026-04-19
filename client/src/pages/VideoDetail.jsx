@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
-import { videoApi } from "../api";
+import toast from "react-hot-toast";
+import { videoApi, commentApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
@@ -46,6 +47,151 @@ function LinkedDescription({ text, tags, relatedVideos, categories }) {
 }
 
 // ── WatchNextCard ─────────────────────────────────────────────────────────────
+// ── LikeButton ────────────────────────────────────────────────────────────────
+function LikeButton({ videoId, initialLikes }) {
+  const [likes, setLikes]   = useState(initialLikes || 0);
+  const [liked, setLiked]   = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("likedVideos") || "[]").includes(videoId);
+    } catch { return false; }
+  });
+  const [busy, setBusy] = useState(false);
+
+  async function handle() {
+    if (busy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikes(n => next ? n + 1 : Math.max(0, n - 1));
+    try {
+      const stored = JSON.parse(localStorage.getItem("likedVideos") || "[]");
+      localStorage.setItem("likedVideos", JSON.stringify(
+        next ? [...stored, videoId] : stored.filter(id => id !== videoId)
+      ));
+      setBusy(true);
+      await videoApi.like(videoId, next);
+    } catch {
+      setLiked(!next);
+      setLikes(n => next ? Math.max(0, n - 1) : n + 1);
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <button onClick={handle}
+      className={`flex items-center gap-1.5 text-xs font-medium transition-all px-3 py-1.5 rounded-lg ${
+        liked ? "text-brand-400 bg-brand-500/10 hover:bg-brand-500/15" : "text-neutral-500 hover:text-white hover:bg-white/5"
+      }`}>
+      <svg className="w-4 h-4" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 1.81L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+      </svg>
+      {likes > 0 ? `Beğen (${likes.toLocaleString("tr-TR")})` : "Beğen"}
+    </button>
+  );
+}
+
+// ── CommentSection ────────────────────────────────────────────────────────────
+function CommentSection({ videoId }) {
+  const [comments,  setComments]  = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [hasMore,   setHasMore]   = useState(false);
+  const [username,  setUsername]  = useState(() => localStorage.getItem("commenterUsername") || "");
+  const [nameMode,  setNameMode]  = useState(!localStorage.getItem("commenterUsername"));
+  const [nameInput, setNameInput] = useState("");
+  const [text,      setText]      = useState("");
+  const [submitting,setSubmitting]= useState(false);
+  const pageRef = useRef(1);
+
+  useEffect(() => { load(1, false); }, [videoId]);
+
+  async function load(page, append) {
+    try {
+      const res = await commentApi.getByVideo(videoId, { page, limit: 10 });
+      setComments(prev => append ? [...prev, ...res.data] : res.data);
+      setHasMore(page < (res.pagination?.pages ?? 1));
+      pageRef.current = page;
+    } catch {}
+    finally { setLoading(false); }
+  }
+
+  function saveName() {
+    const n = nameInput.trim();
+    if (!n) return;
+    localStorage.setItem("commenterUsername", n);
+    setUsername(n);
+    setNameMode(false);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!text.trim() || !username) return;
+    setSubmitting(true);
+    try {
+      const res = await commentApi.add(videoId, { username, text: text.trim() });
+      setComments(prev => [res.data, ...prev]);
+      setText("");
+    } catch (err) { toast.error(err.message); }
+    finally { setSubmitting(false); }
+  }
+
+  return (
+    <div className="mt-10">
+      <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-5">
+        Yorumlar {comments.length > 0 && `(${comments.length})`}
+      </h2>
+
+      {nameMode ? (
+        <div className="flex flex-col sm:flex-row gap-2 mb-5">
+          <input value={nameInput} onChange={e => setNameInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && saveName()}
+            placeholder="Kullanıcı adın (yorum yapmak için)..."
+            maxLength={30}
+            className="flex-1 bg-white/[0.04] border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-4 py-2.5 rounded-xl text-sm outline-none" />
+          <button onClick={saveName} className="btn-primary text-sm px-5 py-2.5 sm:py-0">Kaydet</button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="mb-6 space-y-2">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-brand-400 font-medium">{username}</span>
+            <button type="button" onClick={() => setNameMode(true)} className="text-gray-600 hover:text-gray-400 transition-colors underline underline-offset-2">Değiştir</button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input value={text} onChange={e => setText(e.target.value)}
+              placeholder="Yorum yaz..."
+              maxLength={500}
+              className="flex-1 bg-white/[0.04] border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-4 py-2.5 rounded-xl text-sm outline-none" />
+            <button type="submit" disabled={submitting || !text.trim()} className="btn-primary text-sm px-5 py-2.5 sm:py-0 disabled:opacity-50">
+              {submitting ? "..." : "Gönder"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="skeleton h-16 rounded-xl" />)}</div>
+      ) : comments.length === 0 ? (
+        <p className="text-gray-600 text-sm text-center py-8">Henüz yorum yok — ilk yorumu sen yap!</p>
+      ) : (
+        <div className="space-y-3">
+          {comments.map(c => (
+            <div key={c._id} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-brand-400 text-xs font-semibold">{c.username}</span>
+                <span className="text-gray-700 text-xs">{formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: tr })}</span>
+              </div>
+              <p className="text-neutral-300 text-sm leading-relaxed">{c.text}</p>
+            </div>
+          ))}
+          {hasMore && (
+            <button onClick={() => load(pageRef.current + 1, true)}
+              className="w-full text-xs text-gray-600 hover:text-gray-400 py-3 transition-colors border border-white/5 rounded-xl hover:border-white/10">
+              Daha fazla yorum yükle
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WatchNextCard({ video }) {
   const d = formatDuration(video.duration);
   return (
@@ -209,6 +355,7 @@ export default function VideoDetail() {
             <span>{format(new Date(video.createdAt), "d MMM yyyy", { locale: tr })}</span>
           </div>
           <div className="flex gap-1">
+            <LikeButton videoId={video._id} initialLikes={video.likes} />
             <button
               onClick={() => navigator.clipboard?.writeText(window.location.href)}
               className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
@@ -265,9 +412,12 @@ export default function VideoDetail() {
 
         <BelowDescriptionAd />
 
+        {/* ── Comments ───────────────────────────────────────────────── */}
+        <CommentSection videoId={video._id} />
+
         {/* ── Watch Next ─────────────────────────────────────────────── */}
         {watchNext && (
-          <div className="mt-8">
+          <div className="mt-10">
             <WatchNextCard video={watchNext} />
           </div>
         )}

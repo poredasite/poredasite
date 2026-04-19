@@ -44,6 +44,8 @@ const videoSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    likes:          { type: Number, default: 0, min: 0 },
+    commentCount:   { type: Number, default: 0, min: 0 },
     watchSessions:  { type: Number, default: 0, min: 0 },
     avgWatchTime:   { type: Number, default: 0, min: 0 },
     completionRate: { type: Number, default: 0, min: 0, max: 1 },

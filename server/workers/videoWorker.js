@@ -9,9 +9,11 @@ const sitemap = require("../services/sitemapService");
 const { getRedis } = require("../queue/index");
 const {
   getVideoDuration, extractCodecInfo,
+  extractThumbnailFrame,
   convertToHLS,    uploadHLSParallel,
   generatePreviewClip, uploadPreviewToStorage,
   generateMp4Fallback, uploadMp4FallbackToStorage,
+  uploadThumbnailToStorage,
   downloadRawFromStorage, deleteRawFromStorage,
 } = require("../utils/hls");
 
@@ -48,6 +50,21 @@ async function processVideoJob(job) {
     console.log(`[Worker:${job.id}] Probed: ${duration}s | codec: ${codecInfo.videoCodec}`);
 
     await job.updateProgress(15);
+
+    // Auto-generate thumbnail if none was uploaded
+    const videoDoc = await Video.findById(videoId).select("thumbnailUrl").lean();
+    if (!videoDoc?.thumbnailUrl) {
+      try {
+        const thumbTime = Math.max(1, Math.floor(duration / 2));
+        const thumbPath = await extractThumbnailFrame(tmpPath, videoId, thumbTime);
+        const { url: thumbUrl, key: thumbKey } = await uploadThumbnailToStorage(thumbPath, videoId, "image/jpeg");
+        try { fs.unlinkSync(thumbPath); } catch {}
+        await Video.findByIdAndUpdate(videoId, { thumbnailUrl: thumbUrl, thumbnailPublicId: thumbKey });
+        console.log(`[Worker:${job.id}] Auto-thumbnail @ ${thumbTime}s → ${thumbUrl}`);
+      } catch (e) {
+        console.error(`[Worker:${job.id}] Auto-thumbnail failed (non-fatal):`, e.message);
+      }
+    }
 
     // Fast preview: ultrafast preset, 640px, no audio → done in ~30s for most files
     let previewUrl = null;

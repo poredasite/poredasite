@@ -65,6 +65,14 @@ export const videoApi = {
   getByTag:    (tag, params = {}) => api.get(`/videos/tag/${encodeURIComponent(tag)}`, { params }),
   getTagMeta:  (tag) => api.get(`/videos/tag/${encodeURIComponent(tag)}/meta`),
   recordWatch: (id, data) => api.post(`/videos/${id}/watch`, data),
+  like: (id, liked) => api.post(`/videos/${id}/like`, { liked }),
+};
+
+// ─── Comment API ──────────────────────────────────────────────────
+
+export const commentApi = {
+  getByVideo: (videoId, params = {}) => api.get(`/comments/${videoId}`, { params }),
+  add: (videoId, data) => api.post(`/comments/${videoId}`, data),
 };
 
 // ─── Category API ─────────────────────────────────────────────────

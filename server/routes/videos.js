@@ -97,13 +97,40 @@ async function getRelatedVideos(video, limit = 12) {
 // GET /videos
 router.get("/", async (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 12));
-    const skip = (page - 1) * limit;
-    const sort = req.query.sort === "views" ? { views: -1 } : { createdAt: -1 };
+    const skip  = (page - 1) * limit;
+    const sortParam = req.query.sort; // "views" | "new" | "algo" | undefined
     const filter = { status: { $in: ["ready", "uploaded"] } };
     if (req.query.category) filter.$or = [{ category: req.query.category }, { categories: req.query.category }];
 
+    // Algorithm sort: weighted score using views, likes, comments, recency, completion
+    if (!sortParam || sortParam === "algo") {
+      const now    = Date.now();
+      const dayMs  = 86400000;
+      const [docs, total] = await Promise.all([
+        Video.aggregate([
+          { $match: filter },
+          { $addFields: { _score: { $add: [
+            { $multiply: [{ $ln: { $add: [{ $ifNull: ["$views", 0] }, 1] } }, 1] },
+            { $multiply: [{ $ifNull: ["$likes", 0] }, 3] },
+            { $multiply: [{ $ifNull: ["$commentCount", 0] }, 2] },
+            { $max: [0, { $subtract: [7, { $divide: [{ $subtract: [now, "$createdAt"] }, dayMs] }] }] },
+            { $multiply: [{ $ifNull: ["$completionRate", 0] }, 5] },
+          ]}}},
+          { $sort: { _score: -1 } },
+          { $skip: skip }, { $limit: limit },
+          { $lookup: { from: "categories", localField: "category",   foreignField: "_id", as: "_c" } },
+          { $lookup: { from: "categories", localField: "categories", foreignField: "_id", as: "categories" } },
+          { $addFields: { category: { $first: "$_c" } } },
+          { $project: { _c: 0, _score: 0, videoPublicId: 0, thumbnailPublicId: 0 } },
+        ]),
+        Video.countDocuments(filter),
+      ]);
+      return res.json({ success: true, data: docs, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    }
+
+    const sort = sortParam === "views" ? { views: -1 } : { createdAt: -1 };
     const [videos, total] = await Promise.all([
       Video.find(filter).sort(sort).skip(skip).limit(limit)
         .select("-videoPublicId -thumbnailPublicId")
@@ -263,16 +290,19 @@ router.post("/upload-init", adminAuth, (req, res) => {
     try {
       const { title, description, tags, category, categories: categoriesRaw, videoType } = req.body;
       if (!title?.trim()) return res.status(400).json({ success: false, message: "Title is required" });
-      if (!req.file) return res.status(400).json({ success: false, message: "Thumbnail is required" });
 
       const thumbFile = req.file;
       const videoId = new mongoose.Types.ObjectId();
       const categoriesArr = categoriesRaw ? JSON.parse(categoriesRaw) : (category ? [category] : []);
 
-      const { url: thumbnailUrl, key: thumbnailKey } = await uploadThumbnailToStorage(
-        thumbFile.path, videoId.toString(), thumbFile.mimetype
-      );
-      fs.unlinkSync(thumbFile.path);
+      let thumbnailUrl = "";
+      let thumbnailKey = "";
+      if (thumbFile) {
+        const result = await uploadThumbnailToStorage(thumbFile.path, videoId.toString(), thumbFile.mimetype);
+        thumbnailUrl = result.url;
+        thumbnailKey = result.key;
+        fs.unlinkSync(thumbFile.path);
+      }
 
       const { url: uploadUrl, key: rawKey } = await createRawUploadUrl(
         videoId.toString(), videoType || "video/mp4"
@@ -404,6 +434,25 @@ router.post("/upload", adminAuth, (req, res) => {
       res.status(500).json({ success: false, message: "Upload failed: " + err.message });
     }
   });
+});
+
+// POST /videos/:id/like  — toggle like (client tracks state via localStorage)
+router.post("/:id/like", async (req, res) => {
+  try {
+    const { liked } = req.body; // true = add like, false = remove like
+    const inc = liked === true ? 1 : -1;
+    const video = await Video.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { likes: inc } },
+      { new: true }
+    ).select("likes");
+    if (!video) return res.status(404).json({ success: false, message: "Video not found" });
+    // Prevent negative likes
+    if (video.likes < 0) await Video.findByIdAndUpdate(req.params.id, { likes: 0 });
+    res.json({ success: true, likes: Math.max(0, video.likes) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 });
 
 // POST /videos/:id/watch  — record watch session, update running averages

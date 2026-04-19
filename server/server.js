@@ -12,6 +12,7 @@ const videosRouter    = require("./routes/videos");
 const categoriesRouter = require("./routes/categories");
 const settingsRouter   = require("./routes/settings");
 const streamRouter     = require("./routes/stream");
+const commentsRouter   = require("./routes/comments");
 const sitemap          = require("./services/sitemapService");
 const prerender        = require("./services/prerenderService");
 const { createWorker } = require("./workers/videoWorker");
@@ -73,6 +74,7 @@ app.use("/api/videos", videosRouter);
 app.use("/api/categories", categoriesRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/stream", streamRouter);
+app.use("/api/comments", commentsRouter);
 
 // Health check
 app.get("/api/health", (req, res) => {

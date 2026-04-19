@@ -122,12 +122,7 @@ export default function TagPage() {
       />
 
       <div className="max-w-[1600px] mx-auto px-2 sm:px-5 py-4">
-
-        {/* ── Two-column layout ─────────────────────────────────────── */}
-        <div className="flex gap-5 items-start">
-
-          {/* ── Left: main content ──────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
+        <div>
 
             {/* H1 + count */}
             <div className="flex items-center gap-3 mb-4">
@@ -234,12 +229,11 @@ export default function TagPage() {
             )}
 
             <div ref={sentinelRef} className="h-1" />
-          </div>
 
-          {/* ── Right: sidebar (desktop only) ────────────────────────── */}
-          <aside className="hidden lg:block w-[300px] xl:w-[340px] flex-shrink-0 sticky top-20">
+          {/* Sidebar below video grid */}
+          <div className="mt-10">
             <SidebarLinks />
-          </aside>
+          </div>
         </div>
       </div>
     </>

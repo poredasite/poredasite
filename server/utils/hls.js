@@ -210,6 +210,20 @@ async function uploadMp4FallbackToStorage(filePath, videoId) {
   return `${CDN_URL}/${key}`;
 }
 
+function extractThumbnailFrame(inputPath, videoId, timeSeconds) {
+  return new Promise((resolve, reject) => {
+    const outputPath = path.join(os.tmpdir(), `thumb-auto-${videoId}-${Date.now()}.jpg`);
+    ffmpeg(inputPath)
+      .seekInput(Math.max(0, timeSeconds))
+      .frames(1)
+      .outputOptions(["-vf", "scale=1280:-2", "-q:v", "3"])
+      .output(outputPath)
+      .on("end", () => resolve(outputPath))
+      .on("error", reject)
+      .run();
+  });
+}
+
 async function uploadThumbnailToStorage(filePath, videoId, mimeType) {
   const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
   const key = `thumbnails/${videoId}.${ext}`;
@@ -252,6 +266,7 @@ async function deleteFromStorage(prefix) {
 
 module.exports = {
   getVideoDuration, extractCodecInfo,
+  extractThumbnailFrame,
   convertToHLS,
   uploadHLSToStorage,     // legacy alias
   uploadHLSParallel,      // new parallel upload

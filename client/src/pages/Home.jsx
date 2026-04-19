@@ -6,7 +6,7 @@ import VideoCard from "../components/VideoCard";
 import { VideoGridSkeleton } from "../components/Skeletons";
 import { TopBannerAd, InFeedAd } from "../components/AdPlaceholders";
 import SEOHead from "../components/SEOHead";
-import { HiFire, HiClock } from "react-icons/hi";
+import { HiFire, HiClock, HiSparkles } from "react-icons/hi";
 
 const PAGE_LIMIT = 24;
 const AD_EVERY = 12;
@@ -61,7 +61,7 @@ function CategoryBar({ activeCategory, onSelect }) {
 // ── Main page ──────────────────────────────────────────────────────
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const sort = searchParams.get("sort") || "createdAt";
+  const sort = searchParams.get("sort") || "algo";
   const activeCategory = searchParams.get("category") || null;
 
   const [videos, setVideos] = useState([]);
@@ -125,7 +125,7 @@ export default function Home() {
 
   function handleSortChange(value) {
     const next = new URLSearchParams(searchParams);
-    if (value && value !== "createdAt") next.set("sort", value);
+    if (value && value !== "algo") next.set("sort", value);
     else next.delete("sort");
     setSearchParams(next, { replace: true });
   }
@@ -157,13 +157,13 @@ export default function Home() {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${
-              sort === "views" ? "bg-brand-500/20 text-brand-400" : "bg-surface-700 text-gray-400"
+              sort === "views" ? "bg-brand-500/20 text-brand-400" : sort === "algo" ? "bg-brand-500/20 text-brand-400" : "bg-surface-700 text-gray-400"
             }`}>
-              {sort === "views" ? <HiFire className="w-4 h-4" /> : <HiClock className="w-4 h-4" />}
+              {sort === "views" ? <HiFire className="w-4 h-4" /> : sort === "algo" ? <HiSparkles className="w-4 h-4" /> : <HiClock className="w-4 h-4" />}
             </div>
             <div>
               <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
-                {sort === "views" ? "En Popüler Videolar" : "Son Yüklenen Videolar"}
+                {sort === "views" ? "En Popüler Videolar" : sort === "algo" ? "Keşfet" : "Son Yüklenen Videolar"}
               </h1>
               {total != null && (
                 <p className="text-gray-600 text-xs mt-0.5">
@@ -175,6 +175,7 @@ export default function Home() {
 
           <div className="flex gap-0.5 bg-surface-900 border border-white/5 rounded-lg p-0.5">
             {[
+              { value: "algo",      label: "Keşfet",  Icon: HiSparkles },
               { value: "createdAt", label: "Yeni",    Icon: HiClock },
               { value: "views",     label: "Popüler", Icon: HiFire  },
             ].map(({ value, label, Icon }) => (

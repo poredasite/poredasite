@@ -44,7 +44,7 @@ router.get("/", async (req, res) => {
 // POST /categories — create (admin)
 router.post("/", adminAuth, async (req, res) => {
   try {
-    const { name, icon, description, color } = req.body;
+    const { name, icon, description, color, section } = req.body;
     if (!name?.trim()) {
       return res.status(400).json({ success: false, message: "Name is required" });
     }
@@ -54,6 +54,7 @@ router.post("/", adminAuth, async (req, res) => {
       icon: icon || "🎬",
       description: description?.trim() || "",
       color: color || "#ff6b00",
+      section: section || null,
     });
 
     res.status(201).json({ success: true, data: category });
@@ -68,12 +69,13 @@ router.post("/", adminAuth, async (req, res) => {
 // PATCH /categories/:id — update (admin)
 router.patch("/:id", adminAuth, async (req, res) => {
   try {
-    const { name, icon, description, color } = req.body;
+    const { name, icon, description, color, section } = req.body;
     const update = {};
     if (name) update.name = name.trim();
     if (icon) update.icon = icon;
     if (description !== undefined) update.description = description.trim();
     if (color) update.color = color;
+    if ("section" in req.body) update.section = section || null;
 
     const category = await Category.findByIdAndUpdate(req.params.id, update, {
       new: true,

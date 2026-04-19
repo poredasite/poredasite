@@ -70,8 +70,15 @@ const SPECIAL_TAGS = [
   { id: "ifsa",      label: "Türk İfşa",         tag: "türk ifşa" },
 ];
 
+const CATEGORY_SECTIONS = [
+  { key: null,               label: "Genel" },
+  { key: "türk",             label: "Türk Videoları" },
+  { key: "türkçe altyazılı", label: "Türkçe Altyazılı" },
+  { key: "türk ifşa",        label: "Türk İfşa" },
+];
+
 function emptyItem() {
-  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", specialTags: [], sectionCategories: {}, categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
+  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", specialTags: [], categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
 }
 
 function SectionDropdown({ value = [], onChange, disabled }) {
@@ -199,20 +206,22 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
     }`}>
       <div className="flex gap-4">
         {/* Thumbnail picker */}
-        <div
-          className="w-32 sm:w-40 aspect-video rounded-lg border-2 border-dashed border-white/10 hover:border-brand-500/40 bg-surface-800 flex-shrink-0 overflow-hidden cursor-pointer relative"
-          onClick={() => !isActive && thumbRef.current?.click()}
-        >
-          {item.thumbPreview
-            ? <img src={item.thumbPreview} alt="" className="w-full h-full object-cover" />
-            : <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                <svg className="w-6 h-6 text-surface-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 21h18M21 3v18" />
-                </svg>
-                <span className="text-[10px] text-gray-600">Thumbnail</span>
-              </div>
-          }
-          <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleThumb} className="hidden" />
+        <div className="flex-shrink-0">
+          <div
+            className="w-32 sm:w-40 aspect-video rounded-lg border-2 border-dashed border-white/10 hover:border-brand-500/40 bg-surface-800 overflow-hidden cursor-pointer relative"
+            onClick={() => !isActive && thumbRef.current?.click()}
+          >
+            {item.thumbPreview
+              ? <img src={item.thumbPreview} alt="" className="w-full h-full object-cover" />
+              : <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-center">
+                  <svg className="w-6 h-6 text-surface-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 21h18M21 3v18" />
+                  </svg>
+                  <span className="text-[10px] text-gray-600 leading-tight">Thumbnail<br/><span className="text-[9px] text-gray-700">opsiyonel</span></span>
+                </div>
+            }
+            <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleThumb} className="hidden" />
+          </div>
         </div>
 
         {/* Form fields */}
@@ -252,35 +261,26 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
               onChange={e => onUpdate({ videoFile: e.target.files[0] })} className="hidden" />
           </div>
 
-          {/* Special sections + per-section categories */}
-          <div className="space-y-2">
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider">Bölüm</p>
+          {/* Special sections */}
+          <div>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Bölüm</p>
             <SectionDropdown
               value={item.specialTags || []}
               onChange={tags => onUpdate({ specialTags: tags })}
               disabled={isActive}
             />
-            {(item.specialTags || []).map(sectionTag => {
-              const sectionLabel = SPECIAL_TAGS.find(s => s.tag === sectionTag)?.label || sectionTag;
-              return (
-                <div key={sectionTag} className="pl-3 border-l-2 border-brand-500/30 space-y-1.5">
-                  <p className="text-[10px] text-brand-400/80 uppercase tracking-wider">
-                    {sectionLabel} — Kategoriler
-                  </p>
-                  <CategoryMultiSelect
-                    allCategories={allCategories}
-                    selected={(item.sectionCategories || {})[sectionTag] || []}
-                    onChange={cats => onUpdate({ sectionCategories: { ...(item.sectionCategories || {}), [sectionTag]: cats } })}
-                  />
-                </div>
-              );
-            })}
           </div>
 
-          {/* General categories */}
+          {/* Categories — filtered by selected sections */}
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Genel Kategoriler</p>
-            <CategoryMultiSelect allCategories={allCategories} selected={item.categories} onChange={cats => onUpdate({ categories: cats })} />
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Kategoriler</p>
+            <CategoryMultiSelect
+              allCategories={allCategories.filter(cat =>
+                !cat.section || (item.specialTags || []).includes(cat.section)
+              )}
+              selected={item.categories}
+              onChange={cats => onUpdate({ categories: cats })}
+            />
           </div>
 
           {/* Description */}
@@ -383,14 +383,12 @@ function MultiUploadQueue({ onSuccess }) {
       const fd = new FormData();
       const manualTags = (item.tags || "").split(",").map(t => t.trim()).filter(Boolean);
       const allTags = [...new Set([...(item.specialTags || []), ...manualTags])].join(", ");
-      const sectionCatIds = Object.values(item.sectionCategories || {}).flat();
-      const allCatIds = [...new Set([...(item.categories || []), ...sectionCatIds])];
 
       fd.append("title", item.title.trim());
       fd.append("description", item.description?.trim() || "");
       fd.append("tags", allTags);
-      fd.append("categories", JSON.stringify(allCatIds));
-      fd.append("thumbnail", item.thumbFile);
+      fd.append("categories", JSON.stringify(item.categories || []));
+      if (item.thumbFile) fd.append("thumbnail", item.thumbFile);
       fd.append("videoType", item.videoFile.type || "video/mp4");
 
       const initRes = await videoApi.initUpload(fd);
@@ -428,9 +426,9 @@ function MultiUploadQueue({ onSuccess }) {
   }
 
   async function uploadAll() {
-    const pending = items.filter(i => i.status === "idle" && i.title?.trim() && i.videoFile && i.thumbFile);
+    const pending = items.filter(i => i.status === "idle" && i.title?.trim() && i.videoFile);
     if (pending.length === 0) {
-      toast.error("Başlık, video ve thumbnail dolu olan video yok");
+      toast.error("Başlık ve video dosyası dolu olan video yok");
       return;
     }
     setUploading(true);
@@ -448,7 +446,7 @@ function MultiUploadQueue({ onSuccess }) {
     setUploading(false);
   }
 
-  const pendingCount = items.filter(i => i.status === "idle" && i.title?.trim() && i.videoFile && i.thumbFile).length;
+  const pendingCount = items.filter(i => i.status === "idle" && i.title?.trim() && i.videoFile).length;
   const doneCount = items.filter(i => i.status === "done").length;
 
   return (
@@ -650,6 +648,7 @@ function AdsManager() {
 function KategoriManager() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState(null); // null = Genel
   const [form, setForm] = useState({ name: "", icon: "🎬", description: "", color: "#ff6b00" });
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -665,8 +664,19 @@ function KategoriManager() {
     finally { setLoading(false); }
   }
 
-  function startEdit(cat) { setEditingId(cat._id); setForm({ name: cat.name, icon: cat.icon, description: cat.description || "", color: cat.color || "#ff6b00" }); }
-  function cancelEdit() { setEditingId(null); setForm({ name: "", icon: "🎬", description: "", color: "#ff6b00" }); }
+  function startEdit(cat) {
+    setEditingId(cat._id);
+    setForm({ name: cat.name, icon: cat.icon, description: cat.description || "", color: cat.color || "#ff6b00" });
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setForm({ name: "", icon: "🎬", description: "", color: "#ff6b00" });
+  }
+
+  function switchSection(key) {
+    setActiveSection(key);
+    cancelEdit();
+  }
 
   async function handleSave(e) {
     e.preventDefault();
@@ -674,11 +684,11 @@ function KategoriManager() {
     setSaving(true);
     try {
       if (editingId) {
-        const res = await categoryApi.update(editingId, form);
+        const res = await categoryApi.update(editingId, { ...form, section: activeSection });
         setCategories(cats => cats.map(c => c._id === editingId ? res.data : c));
         toast.success("Kategori güncellendi");
       } else {
-        const res = await categoryApi.create(form);
+        const res = await categoryApi.create({ ...form, section: activeSection });
         setCategories(cats => [...cats, res.data]);
         toast.success("Kategori oluşturuldu");
       }
@@ -698,10 +708,34 @@ function KategoriManager() {
     finally { setDeleting(null); }
   }
 
+  const visibleCategories = categories.filter(cat =>
+    activeSection === null ? !cat.section : cat.section === activeSection
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Section tabs */}
+      <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-0.5">
+        {CATEGORY_SECTIONS.map(sec => (
+          <button
+            key={String(sec.key)}
+            onClick={() => switchSection(sec.key)}
+            className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeSection === sec.key
+                ? "bg-brand-500 text-white"
+                : "bg-surface-800 text-gray-400 hover:text-white hover:bg-surface-700"
+            }`}
+          >
+            {sec.key ? "🇹🇷 " : ""}{sec.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Create / Edit form */}
       <div className="bg-surface-800/40 rounded-xl p-5 border border-white/5">
-        <h3 className="font-display font-semibold text-white mb-4">{editingId ? "Düzenle" : "Yeni Kategori"}</h3>
+        <h3 className="font-display font-semibold text-white mb-4 text-sm">
+          {editingId ? "Düzenle" : `Yeni Kategori — ${CATEGORY_SECTIONS.find(s => s.key === activeSection)?.label}`}
+        </h3>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
@@ -736,15 +770,19 @@ function KategoriManager() {
         </form>
       </div>
 
+      {/* Category list for active section */}
       <div>
-        <h3 className="font-display font-semibold text-white mb-3 text-sm">Tüm Kategoriler</h3>
+        <h3 className="font-display font-semibold text-white mb-3 text-sm">
+          {CATEGORY_SECTIONS.find(s => s.key === activeSection)?.label} Kategorileri
+          <span className="ml-2 text-gray-600 font-normal">({visibleCategories.length})</span>
+        </h3>
         {loading
           ? <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
-          : categories.length === 0
-            ? <p className="text-gray-600 text-sm py-4">Henüz kategori yok.</p>
+          : visibleCategories.length === 0
+            ? <p className="text-gray-600 text-sm py-4">Bu bölümde henüz kategori yok.</p>
             : (
               <div className="space-y-1.5">
-                {categories.map(cat => (
+                {visibleCategories.map(cat => (
                   <div key={cat._id}
                     className={`flex items-center gap-3 p-3 rounded-xl border transition-all
                       ${editingId === cat._id ? "border-brand-500/30 bg-brand-500/5" : "border-white/5 bg-surface-800/40 hover:bg-surface-800"}`}>
@@ -773,14 +811,12 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
   const thumbRef = useRef(null);
   const existingTags = video.tags || [];
   const predefinedTagValues = SPECIAL_TAGS.map(s => s.tag);
-  const existingCatIds = video.categories?.map(c => c._id) || (video.category ? [video.category._id] : []);
   const [form, setForm] = useState({
     title: video.title || "",
     description: video.description || "",
     tags: existingTags.filter(t => !predefinedTagValues.includes(t)).join(", "),
     specialTags: existingTags.filter(t => predefinedTagValues.includes(t)),
-    sectionCategories: {},
-    categories: existingCatIds,
+    categories: video.categories?.map(c => c._id) || (video.category ? [video.category._id] : []),
     thumbFile: null,
     thumbPreview: video.thumbnailUrl,
   });
@@ -793,12 +829,10 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
       const fd = new FormData();
       const manualTags = (form.tags || "").split(",").map(t => t.trim()).filter(Boolean);
       const allTags = [...new Set([...(form.specialTags || []), ...manualTags])].join(", ");
-      const sectionCatIds = Object.values(form.sectionCategories || {}).flat();
-      const allCatIds = [...new Set([...(form.categories || []), ...sectionCatIds])];
       fd.append("title", form.title.trim());
       fd.append("description", form.description.trim());
       fd.append("tags", allTags);
-      fd.append("categories", JSON.stringify(allCatIds));
+      fd.append("categories", JSON.stringify(form.categories || []));
       if (form.thumbFile) fd.append("thumbnail", form.thumbFile);
       await videoApi.update(video._id, fd);
       toast.success("Video güncellendi");
@@ -842,31 +876,24 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
           <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
             placeholder="Açıklama" rows={4} maxLength={5000}
             className="w-full bg-surface-800 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2.5 rounded-xl text-sm outline-none resize-none" />
-          {/* Special sections + per-section categories */}
-          <div className="space-y-2">
-            <p className="text-xs text-gray-500">Bölüm</p>
+          {/* Special sections */}
+          <div>
+            <p className="text-xs text-gray-500 mb-2">Bölüm</p>
             <SectionDropdown
               value={form.specialTags || []}
               onChange={tags => setForm(p => ({ ...p, specialTags: tags }))}
             />
-            {(form.specialTags || []).map(sectionTag => {
-              const sectionLabel = SPECIAL_TAGS.find(s => s.tag === sectionTag)?.label || sectionTag;
-              return (
-                <div key={sectionTag} className="pl-3 border-l-2 border-brand-500/30 space-y-1.5">
-                  <p className="text-xs text-brand-400/80">{sectionLabel} — Kategoriler</p>
-                  <CategoryMultiSelect
-                    allCategories={allCategories}
-                    selected={(form.sectionCategories || {})[sectionTag] || []}
-                    onChange={cats => setForm(p => ({ ...p, sectionCategories: { ...(p.sectionCategories || {}), [sectionTag]: cats } }))}
-                  />
-                </div>
-              );
-            })}
           </div>
-          {/* General categories */}
+          {/* Categories — filtered by selected sections */}
           <div>
-            <p className="text-xs text-gray-500 mb-2">Genel Kategoriler</p>
-            <CategoryMultiSelect allCategories={allCategories} selected={form.categories} onChange={cats => setForm(p => ({ ...p, categories: cats }))} />
+            <p className="text-xs text-gray-500 mb-2">Kategoriler</p>
+            <CategoryMultiSelect
+              allCategories={allCategories.filter(cat =>
+                !cat.section || (form.specialTags || []).includes(cat.section)
+              )}
+              selected={form.categories}
+              onChange={cats => setForm(p => ({ ...p, categories: cats }))}
+            />
           </div>
           {/* Tags */}
           <input type="text" value={form.tags} onChange={e => setForm(p => ({ ...p, tags: e.target.value }))}
