@@ -1,6 +1,10 @@
 "use strict";
-const ffmpeg  = require("fluent-ffmpeg");
-const path    = require("path");
+const ffmpeg      = require("fluent-ffmpeg");
+const ffmpegPath  = require("ffmpeg-static");
+const path        = require("path");
+
+// Use bundled binary when system FFmpeg is not on PATH (Railway, Docker, etc.)
+if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 const fs      = require("fs");
 const os      = require("os");
 const { pipeline } = require("stream/promises");
