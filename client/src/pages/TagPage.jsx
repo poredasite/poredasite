@@ -32,17 +32,21 @@ export default function TagPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error,       setError]       = useState(null);
   const [meta,        setMeta]        = useState(null);   // { relatedTags, categories }
+  const [activeCategory, setActiveCategory] = useState(null);
   const pageRef    = useRef(initialPage);
   const fetchIdRef = useRef(0);
+  const categoryMountRef = useRef(false);
 
   const { ref: sentinelRef, inView } = useInView({ rootMargin: "400px", threshold: 0 });
 
-  const fetchVideos = useCallback(async (page, append) => {
+  const fetchVideos = useCallback(async (page, append, categoryId) => {
     const id = ++fetchIdRef.current;
     if (!append) { setLoading(true); setError(null); }
     else setLoadingMore(true);
     try {
-      const res = await videoApi.getByTag(decoded, { page, limit: PAGE_LIMIT });
+      const params = { page, limit: PAGE_LIMIT };
+      if (categoryId) params.category = categoryId;
+      const res = await videoApi.getByTag(decoded, params);
       if (id !== fetchIdRef.current) return;
       setVideos((prev) => append ? [...prev, ...res.data] : res.data);
       setTotal(res.pagination?.total ?? null);
@@ -69,21 +73,34 @@ export default function TagPage() {
 
   // Reset on tag change
   useEffect(() => {
+    categoryMountRef.current = false;
     pageRef.current = 1;
     setMaxPage(1);
     setVideos([]);
     setHasMore(true);
     setMeta(null);
-    fetchVideos(1, false);
+    setActiveCategory(null);
+    fetchVideos(1, false, null);
     window.scrollTo({ top: 0, behavior: "instant" });
     // Fetch tag meta (related tags + categories)
     videoApi.getTagMeta(decoded).then((res) => setMeta(res.data)).catch(() => {});
   }, [decoded]);
 
+  // Reset on category filter change (skip initial mount)
+  useEffect(() => {
+    if (!categoryMountRef.current) { categoryMountRef.current = true; return; }
+    pageRef.current = 1;
+    setMaxPage(1);
+    setVideos([]);
+    setHasMore(true);
+    fetchVideos(1, false, activeCategory);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [activeCategory]);
+
   // Infinite scroll
   useEffect(() => {
     if (inView && hasMore && !loading && !loadingMore) {
-      fetchVideos(pageRef.current + 1, true);
+      fetchVideos(pageRef.current + 1, true, activeCategory);
     }
   }, [inView]);
 
@@ -148,18 +165,31 @@ export default function TagPage() {
               </div>
             )}
 
-            {/* Category links */}
+            {/* Category filter pills */}
             {meta?.categories?.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                <span className="text-gray-600 text-xs self-center mr-1">Kategoriler:</span>
+                <button
+                  onClick={() => setActiveCategory(null)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${
+                    !activeCategory
+                      ? "bg-brand-500 text-white border-brand-500"
+                      : "bg-surface-800 text-gray-400 border-white/8 hover:text-white hover:border-white/20"
+                  }`}
+                >
+                  Tümü
+                </button>
                 {meta.categories.map((c) => (
-                  <Link
+                  <button
                     key={c._id}
-                    to={`/?category=${c._id}`}
-                    className="text-xs bg-surface-800 text-brand-400 hover:text-brand-300 px-3 py-1 rounded-full border border-brand-500/20 hover:border-brand-500/50 transition-all"
+                    onClick={() => setActiveCategory(activeCategory === c._id ? null : c._id)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${
+                      activeCategory === c._id
+                        ? "bg-brand-500 text-white border-brand-500"
+                        : "bg-surface-800 text-gray-400 border-white/8 hover:text-white hover:border-white/20"
+                    }`}
                   >
                     {c.icon && <span className="mr-1">{c.icon}</span>}{c.name}
-                  </Link>
+                  </button>
                 ))}
               </div>
             )}

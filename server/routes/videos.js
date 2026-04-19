@@ -219,6 +219,7 @@ router.get("/tag/:tag", async (req, res) => {
     const limit = Math.min(48, parseInt(req.query.limit) || 24);
     const skip  = (page - 1) * limit;
     const filter = { status: "ready", tags: { $regex: new RegExp(`^${tag}$`, "i") } };
+    if (req.query.category) filter.categories = req.query.category;
     const [videos, total] = await Promise.all([
       Video.find(filter).sort({ views: -1 }).skip(skip).limit(limit)
         .select("-videoPublicId -thumbnailPublicId")
