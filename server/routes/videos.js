@@ -101,7 +101,7 @@ router.get("/", async (req, res) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 12));
     const skip = (page - 1) * limit;
     const sort = req.query.sort === "views" ? { views: -1 } : { createdAt: -1 };
-    const filter = { status: "ready" };
+    const filter = { status: { $in: ["ready", "uploaded"] } };
     if (req.query.category) filter.$or = [{ category: req.query.category }, { categories: req.query.category }];
 
     const [videos, total] = await Promise.all([
@@ -120,7 +120,7 @@ router.get("/", async (req, res) => {
 // GET /videos/sitemap
 router.get("/sitemap", async (req, res) => {
   try {
-    const videos = await Video.find({ status: "ready" }).select("_id slug title createdAt updatedAt").sort({ createdAt: -1 });
+    const videos = await Video.find({ status: { $in: ["ready", "uploaded"] } }).select("_id slug title createdAt updatedAt").sort({ createdAt: -1 });
     res.json({ success: true, data: videos });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
@@ -131,9 +131,9 @@ router.get("/sitemap", async (req, res) => {
 router.get("/sidebar", async (req, res) => {
   try {
     const [trending, recent] = await Promise.all([
-      Video.find({ status: "ready" }).sort({ views: -1 }).limit(8)
+      Video.find({ status: { $in: ["ready", "uploaded"] } }).sort({ views: -1 }).limit(8)
         .select("_id title thumbnailUrl views duration createdAt").lean(),
-      Video.find({ status: "ready" }).sort({ createdAt: -1 }).limit(8)
+      Video.find({ status: { $in: ["ready", "uploaded"] } }).sort({ createdAt: -1 }).limit(8)
         .select("_id title thumbnailUrl views duration createdAt").lean(),
     ]);
     res.json({ success: true, data: { trending, recent } });
@@ -145,8 +145,8 @@ router.get("/sidebar", async (req, res) => {
 // GET /videos/tag/:tag/meta  — related tags + categories for a tag (SEO landing page)
 router.get("/tag/:tag/meta", async (req, res) => {
   try {
-    const tag = decodeURIComponent(req.params.tag);
-    const sample = await Video.find({ status: "ready", tags: tag })
+    const tag = decodeURIComponent(req.params.tag).replace(/-/g, " ");
+    const sample = await Video.find({ status: "ready", tags: { $regex: new RegExp(`^${tag}$`, "i") } })
       .limit(120).select("tags category categories").lean();
 
     // Count co-occurring tags
@@ -184,11 +184,12 @@ router.get("/tag/:tag/meta", async (req, res) => {
 // GET /videos/tag/:tag  — all videos with a specific tag, paginated
 router.get("/tag/:tag", async (req, res) => {
   try {
-    const tag   = decodeURIComponent(req.params.tag);
+    // Accept both hyphen-slug and space-encoded URLs → normalise to stored tag value
+    const tag   = decodeURIComponent(req.params.tag).replace(/-/g, " ");
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
     const limit = Math.min(48, parseInt(req.query.limit) || 24);
     const skip  = (page - 1) * limit;
-    const filter = { status: "ready", tags: tag };
+    const filter = { status: "ready", tags: { $regex: new RegExp(`^${tag}$`, "i") } };
     const [videos, total] = await Promise.all([
       Video.find(filter).sort({ views: -1 }).skip(skip).limit(limit)
         .select("-videoPublicId -thumbnailPublicId")
