@@ -74,6 +74,86 @@ function emptyItem() {
   return { id: Date.now() + Math.random(), title: "", description: "", tags: "", specialTags: [], categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
 }
 
+function SectionDropdown({ value = [], onChange, disabled }) {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  function toggle(tag) {
+    onChange(value.includes(tag) ? value.filter(t => t !== tag) : [...value, tag]);
+  }
+
+  function addCustom() {
+    const trimmed = input.trim().toLowerCase();
+    if (!trimmed || value.includes(trimmed)) { setInput(""); return; }
+    onChange([...value, trimmed]);
+    setInput("");
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 px-3 py-2 bg-surface-700 border border-white/8 hover:border-brand-500/40 rounded-lg text-left transition-colors disabled:opacity-50 min-h-[38px]"
+      >
+        <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+          {value.length === 0
+            ? <span className="text-gray-600 text-xs">Bölüm seç veya ekle...</span>
+            : value.map(tag => (
+                <span key={tag} className="flex items-center gap-1 bg-brand-500/20 text-brand-300 text-xs px-2 py-0.5 rounded-full">
+                  🇹🇷 {tag}
+                  {!disabled && (
+                    <button type="button" onClick={e => { e.stopPropagation(); toggle(tag); }} className="hover:text-white leading-none">×</button>
+                  )}
+                </span>
+              ))
+          }
+        </div>
+        <svg className={`w-3.5 h-3.5 text-gray-500 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-surface-800 border border-white/10 rounded-xl shadow-2xl shadow-black/60 z-50">
+          <div className="p-2 space-y-0.5">
+            {SPECIAL_TAGS.map(({ tag, label }) => (
+              <label key={tag} className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-surface-700 cursor-pointer transition-colors">
+                <input type="checkbox" checked={value.includes(tag)} onChange={() => toggle(tag)} className="w-4 h-4 accent-brand-500 flex-shrink-0" />
+                <span className="text-sm text-gray-300">🇹🇷 {label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="border-t border-white/8 p-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }}
+                placeholder="Özel bölüm ekle..."
+                className="flex-1 bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-1.5 rounded-lg text-xs outline-none"
+              />
+              <button type="button" onClick={addCustom} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs rounded-lg transition-colors font-medium">
+                Ekle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CategoryMultiSelect({ allCategories, selected, onChange }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -175,29 +255,11 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
           {/* Special sections */}
           <div>
             <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Bölüm</p>
-            <div className="flex flex-wrap gap-1.5">
-              {SPECIAL_TAGS.map(({ id, label, tag }) => {
-                const active = item.specialTags?.includes(id);
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    disabled={isActive}
-                    onClick={() => {
-                      const next = active
-                        ? item.specialTags.filter(t => t !== id)
-                        : [...(item.specialTags || []), id];
-                      onUpdate({ specialTags: next });
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
-                      active ? "bg-brand-500 text-white" : "bg-surface-700 text-gray-400 hover:bg-surface-600"
-                    } disabled:opacity-50`}
-                  >
-                    🇹🇷 {label}
-                  </button>
-                );
-              })}
-            </div>
+            <SectionDropdown
+              value={item.specialTags || []}
+              onChange={tags => onUpdate({ specialTags: tags })}
+              disabled={isActive}
+            />
           </div>
 
           {/* Categories */}
@@ -304,12 +366,8 @@ function MultiUploadQueue({ onSuccess }) {
     let videoId;
     try {
       const fd = new FormData();
-      // Merge special section tags with manual tags
-      const specialTagValues = (item.specialTags || [])
-        .map(id => SPECIAL_TAGS.find(s => s.id === id)?.tag)
-        .filter(Boolean);
       const manualTags = (item.tags || "").split(",").map(t => t.trim()).filter(Boolean);
-      const allTags = [...new Set([...specialTagValues, ...manualTags])].join(", ");
+      const allTags = [...new Set([...(item.specialTags || []), ...manualTags])].join(", ");
 
       fd.append("title", item.title.trim());
       fd.append("description", item.description?.trim() || "");
@@ -697,11 +755,12 @@ function KategoriManager() {
 function VideoEditModal({ video, allCategories, onSave, onClose }) {
   const thumbRef = useRef(null);
   const existingTags = video.tags || [];
+  const predefinedTagValues = SPECIAL_TAGS.map(s => s.tag);
   const [form, setForm] = useState({
     title: video.title || "",
     description: video.description || "",
-    tags: existingTags.filter(t => !SPECIAL_TAGS.map(s => s.tag).includes(t)).join(", "),
-    specialTags: SPECIAL_TAGS.filter(s => existingTags.includes(s.tag)).map(s => s.id),
+    tags: existingTags.filter(t => !predefinedTagValues.includes(t)).join(", "),
+    specialTags: existingTags.filter(t => predefinedTagValues.includes(t)),
     categories: (video.categories?.map(c => c._id) || (video.category ? [video.category._id] : [])),
     thumbFile: null,
     thumbPreview: video.thumbnailUrl,
@@ -713,10 +772,8 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
     setSaving(true);
     try {
       const fd = new FormData();
-      const specialTagValues = (form.specialTags || [])
-        .map(id => SPECIAL_TAGS.find(s => s.id === id)?.tag).filter(Boolean);
       const manualTags = (form.tags || "").split(",").map(t => t.trim()).filter(Boolean);
-      const allTags = [...new Set([...specialTagValues, ...manualTags])].join(", ");
+      const allTags = [...new Set([...(form.specialTags || []), ...manualTags])].join(", ");
       fd.append("title", form.title.trim());
       fd.append("description", form.description.trim());
       fd.append("tags", allTags);
@@ -767,18 +824,10 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
           {/* Special sections */}
           <div>
             <p className="text-xs text-gray-500 mb-2">Bölüm</p>
-            <div className="flex flex-wrap gap-1.5">
-              {SPECIAL_TAGS.map(({ id, label }) => {
-                const active = form.specialTags?.includes(id);
-                return (
-                  <button key={id} type="button"
-                    onClick={() => setForm(p => ({ ...p, specialTags: active ? p.specialTags.filter(t => t !== id) : [...(p.specialTags || []), id] }))}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${active ? "bg-brand-500 text-white" : "bg-surface-700 text-gray-400 hover:bg-surface-600"}`}>
-                    🇹🇷 {label}
-                  </button>
-                );
-              })}
-            </div>
+            <SectionDropdown
+              value={form.specialTags || []}
+              onChange={tags => setForm(p => ({ ...p, specialTags: tags }))}
+            />
           </div>
           {/* Categories */}
           <div>

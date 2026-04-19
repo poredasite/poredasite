@@ -167,7 +167,7 @@ export default function TagPage() {
 
             {/* Category filter pills */}
             {meta?.categories?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-6">
+              <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
                 <button
                   onClick={() => setActiveCategory(null)}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${
@@ -212,13 +212,13 @@ export default function TagPage() {
             )}
 
             {!loading && videos.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-5 animate-fade-in">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
                 {videos.map((v, i) => <VideoCard key={v._id} video={v} priority={i < 6} />)}
               </div>
             )}
 
             {loadingMore && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-5 mt-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 mt-5">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="flex flex-col gap-2.5">
                     <div className="skeleton rounded-xl" style={{ aspectRatio: "16/9" }} />

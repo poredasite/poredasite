@@ -108,13 +108,13 @@ export default function Search() {
         )}
 
         {!loading && videos.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
             {videos.map((v, i) => <VideoCard key={v._id} video={v} priority={i < 6} />)}
           </div>
         )}
 
         {loadingMore && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 mt-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 mt-5">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex flex-col gap-2.5">
                 <div className="skeleton rounded-xl" style={{ aspectRatio: "16/9" }} />
