@@ -158,13 +158,9 @@ function concatClips(clipPaths, outPath) {
   const listFile = outPath + ".txt";
   fs.writeFileSync(listFile, clipPaths.map(p => `file '${p}'`).join("\n"));
   return new Promise((resolve, reject) => {
-    ffmpeg()
+    ffmpeg(listFile)
       .inputOptions(["-f concat", "-safe 0"])
-      .input(listFile)
-      .outputOptions([
-        "-c copy",
-        "-movflags +faststart",
-      ])
+      .outputOptions(["-c copy", "-movflags +faststart"])
       .output(outPath)
       .on("end", () => { try { fs.unlinkSync(listFile); } catch {} resolve(outPath); })
       .on("error", (e) => { try { fs.unlinkSync(listFile); } catch {} reject(e); })
