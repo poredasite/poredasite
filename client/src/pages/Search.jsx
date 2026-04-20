@@ -5,8 +5,10 @@ import { videoApi } from "../api";
 import VideoCard from "../components/VideoCard";
 import { VideoGridSkeleton } from "../components/Skeletons";
 import SEOHead from "../components/SEOHead";
+import { TopBannerAd, InFeedAd } from "../components/AdPlaceholders";
 
 const PAGE_LIMIT = 24;
+const AD_EVERY = 12;
 
 export default function Search() {
   const [searchParams] = useSearchParams();
@@ -71,6 +73,8 @@ export default function Search() {
 
       <div className="max-w-[1600px] mx-auto px-2 sm:px-5 py-4">
 
+        <TopBannerAd />
+
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 bg-surface-700 rounded-xl flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +113,11 @@ export default function Search() {
 
         {!loading && videos.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
-            {videos.map((v, i) => <VideoCard key={v._id} video={v} priority={i < 6} />)}
+            {videos.reduce((acc, v, i) => {
+              acc.push(<VideoCard key={v._id} video={v} priority={i < 6} />);
+              if ((i + 1) % AD_EVERY === 0 && i < videos.length - 1) acc.push(<InFeedAd key={`ad-${i}`} />);
+              return acc;
+            }, [])}
           </div>
         )}
 

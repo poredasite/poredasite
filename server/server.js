@@ -124,6 +124,17 @@ app.get("/prerender/",           sendPrerender(() => prerender.renderHome()));
 app.get("/prerender/video/:id",  sendPrerender((req) => prerender.renderVideo(req.params.id)));
 app.get("/prerender/tag/:tag",   sendPrerender((req) => prerender.renderTag(req.params.tag)));
 
+// ─── 301 redirect: /video/[ObjectId] → /video/[slug] ─────────────
+app.get("/video/:id", async (req, res, next) => {
+  if (!/^[a-f\d]{24}$/i.test(req.params.id)) return next();
+  try {
+    const Video = require("./models/Video");
+    const video = await Video.findById(req.params.id).select("slug").lean();
+    if (!video?.slug) return next();
+    return res.redirect(301, `/video/${video.slug}`);
+  } catch { return next(); }
+});
+
 // ─── Static Files (Production) ────────────────────────────────────
 
 const clientDist = path.join(__dirname, "../client/dist");

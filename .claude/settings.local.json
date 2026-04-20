@@ -13,7 +13,8 @@
       "WebFetch(domain:xxxporeda.com)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(xargs wc *)"
     ]
   }
 }

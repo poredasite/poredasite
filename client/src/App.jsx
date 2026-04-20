@@ -57,7 +57,7 @@ export default function App() {
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
                     <Route path="/" element={<Home />} />
-                    <Route path="/video/:id" element={<VideoDetail />} />
+                    <Route path="/video/:slug" element={<VideoDetail />} />
                     <Route path="/tag/:tag"  element={<TagPage />} />
                     <Route path="/search"   element={<Search />} />
                     <Route path="/embed/:id" element={<EmbedPage />} />

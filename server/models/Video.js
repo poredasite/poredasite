@@ -87,15 +87,15 @@ const videoSchema = new mongoose.Schema(
 
 videoSchema.pre("save", function (next) {
   if (this.isModified("title") || this.isNew) {
-    this.slug =
-      this.title
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .trim() +
-      "-" +
-      Date.now();
+    const base = this.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+    // Use last 8 chars of ObjectId as unique suffix (shorter than timestamp)
+    const suffix = this._id.toString().slice(-8);
+    this.slug = `${base}-${suffix}`;
   }
   next();
 });

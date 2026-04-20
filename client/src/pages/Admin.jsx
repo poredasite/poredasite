@@ -951,20 +951,21 @@ function AdminVideoList({ refresh }) {
         const cats = v.categories?.length ? v.categories : (v.category ? [v.category] : []);
         return (
           <div key={v._id} className="flex gap-3 p-3 rounded-xl bg-surface-800/40 hover:bg-surface-800 border border-white/5 transition-colors">
-            <div className="w-28 sm:w-36 aspect-video rounded-lg overflow-hidden flex-shrink-0 bg-surface-700 cursor-pointer" onClick={() => navigate(`/video/${v._id}`)}>
+            <div className="w-28 sm:w-36 aspect-video rounded-lg overflow-hidden flex-shrink-0 bg-surface-700 cursor-pointer" onClick={() => navigate(`/video/${v.slug || v._id}`)}>
               <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover hover:scale-105 transition-transform" />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-white text-sm font-semibold line-clamp-1">{v.title}</h3>
               <div className="flex items-center gap-2 mt-1 text-xs text-gray-600 flex-wrap">
                 <span>{format(new Date(v.createdAt), "d MMM yyyy", { locale: tr })}</span>
+                <span className="text-yellow-500/70">{(v.views || 0).toLocaleString("tr-TR")} gerçek görüntülenme</span>
                 {cats.map(cat => cat && (
                   <span key={cat._id} className="text-brand-500/60">{cat.icon} {cat.name}</span>
                 ))}
               </div>
             </div>
             <div className="flex flex-col gap-1.5 flex-shrink-0">
-              <button onClick={() => navigate(`/video/${v._id}`)} className="text-xs text-gray-500 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-surface-600 transition-colors">Görüntüle</button>
+              <button onClick={() => navigate(`/video/${v.slug || v._id}`)} className="text-xs text-gray-500 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-surface-600 transition-colors">Görüntüle</button>
               <button onClick={() => setEditingVideo(v)} className="text-xs text-brand-400 hover:text-brand-300 px-2.5 py-1.5 rounded-lg hover:bg-brand-500/10 transition-colors">Düzenle</button>
               <button onClick={() => handleSil(v._id, v.title)} disabled={deleting === v._id}
                 className="text-xs text-red-500 hover:text-red-400 px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50">

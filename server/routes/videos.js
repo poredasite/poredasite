@@ -34,6 +34,21 @@ const thumbOnlyUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
 }).single("thumbnail");
 
+// Deterministic fake view count based on video ObjectId (consistent per video)
+function getDisplayViews(videoId) {
+  const hex = videoId.toString().slice(-6);
+  const seed = parseInt(hex, 16) / 16777215; // 0.0–1.0
+  if (seed < 0.05)  return Math.floor((seed / 0.05) * 99000) + 1000;
+  if (seed < 0.85)  return Math.floor(((seed - 0.05) / 0.80) * 899000) + 100000;
+  return Math.floor(((seed - 0.85) / 0.15) * 1000000) + 1000000;
+}
+
+function addDisplayViews(v) {
+  const obj = v.toObject ? v.toObject() : { ...v };
+  obj.displayViews = getDisplayViews(obj._id);
+  return obj;
+}
+
 // ── Related-video scoring (tag overlap + category + popularity) ───────────────
 // Fetches up to 80 candidates sharing tags/category, scores in-memory, fills
 // remainder with trending. Safe for 10k+ collections because MongoDB filters
@@ -49,7 +64,7 @@ async function getRelatedVideos(video, limit = 12) {
   if (tags.length)   orClauses.push({ tags: { $in: tags } });
   if (catIds.length) orClauses.push({ category: { $in: catIds } }, { categories: { $in: catIds } });
 
-  const baseSelect = "_id title thumbnailUrl views createdAt duration tags category categories";
+  const baseSelect = "_id title thumbnailUrl views createdAt duration tags category categories slug previewVideoUrl";
 
   const [candidates, trending] = await Promise.all([
     orClauses.length
@@ -131,7 +146,7 @@ router.get("/", async (req, res) => {
         ]),
         Video.countDocuments(filter),
       ]);
-      return res.json({ success: true, data: docs, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+      return res.json({ success: true, data: docs.map(addDisplayViews), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
     }
 
     const sort = sortParam === "views" ? { views: -1 } : { createdAt: -1 };
@@ -142,7 +157,7 @@ router.get("/", async (req, res) => {
         .populate("categories", "name icon color slug"),
       Video.countDocuments(filter),
     ]);
-    res.json({ success: true, data: videos, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    res.json({ success: true, data: videos.map(addDisplayViews), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -171,7 +186,7 @@ router.get("/search", async (req, res) => {
       Video.countDocuments(filter),
     ]);
 
-    res.json({ success: true, data: videos, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    res.json({ success: true, data: videos.map(addDisplayViews), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -192,11 +207,11 @@ router.get("/sidebar", async (req, res) => {
   try {
     const [trending, recent] = await Promise.all([
       Video.find({ status: { $in: ["ready", "uploaded"] } }).sort({ views: -1 }).limit(8)
-        .select("_id title thumbnailUrl views duration createdAt").lean(),
+        .select("_id title thumbnailUrl views duration createdAt slug").lean(),
       Video.find({ status: { $in: ["ready", "uploaded"] } }).sort({ createdAt: -1 }).limit(8)
-        .select("_id title thumbnailUrl views duration createdAt").lean(),
+        .select("_id title thumbnailUrl views duration createdAt slug").lean(),
     ]);
-    res.json({ success: true, data: { trending, recent } });
+    res.json({ success: true, data: { trending: trending.map(addDisplayViews), recent: recent.map(addDisplayViews) } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -259,16 +274,20 @@ router.get("/tag/:tag", async (req, res) => {
         .lean(),
       Video.countDocuments(filter),
     ]);
-    res.json({ success: true, data: videos, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    res.json({ success: true, data: videos.map(addDisplayViews), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
-// GET /videos/:id
+// GET /videos/:id  — accepts both MongoDB ObjectId and URL slug
 router.get("/:id", async (req, res) => {
   try {
-    const video = await Video.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }, { new: true })
+    const identifier = req.params.id;
+    const isObjectId = /^[a-f\d]{24}$/i.test(identifier);
+    const query = isObjectId ? Video.findByIdAndUpdate(identifier, { $inc: { views: 1 } }, { new: true })
+      : Video.findOneAndUpdate({ slug: identifier }, { $inc: { views: 1 } }, { new: true });
+    const video = await query
       .select("-videoPublicId -thumbnailPublicId")
       .populate("category", "name icon color slug")
       .populate("categories", "name icon color slug");
@@ -280,7 +299,8 @@ router.get("/:id", async (req, res) => {
     videoData.previewUrl = video.previewVideoUrl || null;
     videoData.previewStartTime = video.duration ? Math.floor(video.duration * 0.15) : 0;
     videoData.previewEndTime = video.duration ? Math.floor(video.duration * 0.85) : 0;
-    res.json({ success: true, data: videoData, related });
+    videoData.displayViews = getDisplayViews(videoData._id);
+    res.json({ success: true, data: videoData, related: related.map(addDisplayViews) });
   } catch (err) {
     if (err.name === "CastError") return res.status(404).json({ success: false, message: "Video not found" });
     res.status(500).json({ success: false, message: "Server error" });

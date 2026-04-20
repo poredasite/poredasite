@@ -22,7 +22,7 @@ function MiniCard({ video }) {
   const d = dur(video.duration);
   return (
     <Link
-      to={`/video/${video._id}`}
+      to={`/video/${video.slug || video._id}`}
       className="flex gap-3 group hover:bg-surface-700/50 rounded-xl p-1.5 -mx-1.5 transition-colors"
     >
       <div
@@ -47,7 +47,7 @@ function MiniCard({ video }) {
         <p className="text-white text-xs font-medium leading-snug line-clamp-2 group-hover:text-brand-300 transition-colors">
           {video.title}
         </p>
-        <p className="text-gray-600 text-[11px] mt-1">{fmt(video.views)} izlenme</p>
+        <p className="text-gray-600 text-[11px] mt-1">{fmt(video.displayViews ?? video.views)} izlenme</p>
       </div>
     </Link>
   );

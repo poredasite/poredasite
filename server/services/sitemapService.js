@@ -59,11 +59,11 @@ async function getVideoSitemap(chunk = 1) {
     .sort({ createdAt: -1 })
     .skip((chunk - 1) * CHUNK)
     .limit(CHUNK)
-    .select("_id title description thumbnailUrl videoUrl mp4FallbackUrl duration createdAt updatedAt")
+    .select("_id slug title description thumbnailUrl videoUrl mp4FallbackUrl duration createdAt updatedAt")
     .lean();
 
   const entries = videos.map((v) => {
-    const loc     = `${BASE}/video/${v._id}`;
+    const loc     = `${BASE}/video/${v.slug || v._id}`;
     const content = esc(v.mp4FallbackUrl || v.videoUrl || loc);
     const embed   = esc(`${BASE}/embed/${v._id}`);
     const thumb   = esc(v.thumbnailUrl || "");

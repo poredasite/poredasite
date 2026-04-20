@@ -6,8 +6,10 @@ import VideoCard from "../components/VideoCard";
 import SidebarLinks from "../components/SidebarLinks";
 import { VideoGridSkeleton } from "../components/Skeletons";
 import SEOHead from "../components/SEOHead";
+import { TopBannerAd, InFeedAd } from "../components/AdPlaceholders";
 
 const PAGE_LIMIT = 24;
+const AD_EVERY = 12;
 const SITE_URL = import.meta.env.VITE_SITE_URL || "https://xxxporeda.com";
 
 // Generate a 150-250 word SEO description for the tag page
@@ -124,6 +126,8 @@ export default function TagPage() {
       <div className="max-w-[1600px] mx-auto px-2 sm:px-5 py-4">
         <div>
 
+            <TopBannerAd />
+
             {/* H1 + count */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-brand-500/15 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -208,7 +212,11 @@ export default function TagPage() {
 
             {!loading && videos.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
-                {videos.map((v, i) => <VideoCard key={v._id} video={v} priority={i < 6} />)}
+                {videos.reduce((acc, v, i) => {
+                  acc.push(<VideoCard key={v._id} video={v} priority={i < 6} />);
+                  if ((i + 1) % AD_EVERY === 0 && i < videos.length - 1) acc.push(<InFeedAd key={`ad-${i}`} />);
+                  return acc;
+                }, [])}
               </div>
             )}
 

@@ -41,7 +41,7 @@ export default function VideoCard({ video, priority = false }) {
     <div {...containerProps} className="group flex flex-col gap-2">
 
       {/* ── Thumbnail ──────────────────────────────────────────────── */}
-      <Link to={`/video/${video._id}`} className="block relative rounded-xl overflow-hidden bg-neutral-900"
+      <Link to={`/video/${video.slug || video._id}`} className="block relative rounded-xl overflow-hidden bg-neutral-900"
         style={{ aspectRatio: "16/9" }}>
 
         <div ref={imgRef} className="absolute inset-0">
@@ -102,13 +102,13 @@ export default function VideoCard({ video, priority = false }) {
 
       {/* ── Info ───────────────────────────────────────────────────── */}
       <div className="px-0.5">
-        <Link to={`/video/${video._id}`}>
+        <Link to={`/video/${video.slug || video._id}`}>
           <h3 className="text-white text-sm font-medium leading-snug line-clamp-2 hover:text-neutral-300 transition-colors">
             {video.title}
           </h3>
         </Link>
         <div className="flex items-center gap-2 flex-wrap text-neutral-600 text-xs mt-1">
-          <span>{formatViews(video.views)} izlenme</span>
+          <span>{formatViews(video.displayViews ?? video.views)} izlenme</span>
           {video.likes > 0 && (
             <span className="flex items-center gap-0.5 text-neutral-700">
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">

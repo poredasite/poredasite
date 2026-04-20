@@ -186,7 +186,7 @@ function CommentSection({ videoId }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function VideoDetail() {
-  const { id }     = useParams();
+  const { slug }   = useParams();
   const navigate   = useNavigate();
   const [video,        setVideo]        = useState(null);
   const [related,      setRelated]      = useState([]);
@@ -197,6 +197,7 @@ export default function VideoDetail() {
   const { getSlot }  = useAds();
   const instreamSlot = getSlot("instreamVideo");
   const lastWatchRef = useRef(null);
+  const skipFetchRef = useRef(false);
 
   // Watch time: flush via sendBeacon on tab hide
   useEffect(() => {
@@ -221,16 +222,25 @@ export default function VideoDetail() {
   }, [video?._id]);
 
   useEffect(() => {
+    if (skipFetchRef.current) { skipFetchRef.current = false; return; }
     setLoading(true);
     setError(null);
     setDescExpanded(false);
     setShowInstream(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    videoApi.getById(id)
-      .then((res) => { setVideo(res.data); setRelated(res.related || []); })
+    videoApi.getById(slug)
+      .then((res) => {
+        setVideo(res.data);
+        setRelated(res.related || []);
+        // Silently replace legacy ObjectId URL with SEO-friendly slug URL
+        if (/^[a-f\d]{24}$/i.test(slug) && res.data.slug) {
+          skipFetchRef.current = true;
+          navigate(`/video/${res.data.slug}`, { replace: true });
+        }
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [slug]);
 
   if (loading) return <VideoDetailSkeleton />;
 
@@ -261,7 +271,7 @@ export default function VideoDetail() {
         title={video.title}
         description={video.description?.slice(0, 160) || `"${video.title}" izle`}
         image={video.thumbnailUrl}
-        url={`/video/${video._id}`}
+        url={`/video/${video.slug || video._id}`}
         type="video.other"
         videoObject={video}
       />
@@ -313,7 +323,7 @@ export default function VideoDetail() {
         {/* ── Meta row ───────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-white/5">
           <div className="flex items-center gap-4 text-sm text-neutral-500">
-            <span><strong className="text-neutral-300">{formatViews(video.views)}</strong> izlenme</span>
+            <span><strong className="text-neutral-300">{formatViews(video.displayViews ?? video.views)}</strong> izlenme</span>
             <span>{format(new Date(video.createdAt), "d MMM yyyy", { locale: tr })}</span>
           </div>
           <div className="flex gap-1">
