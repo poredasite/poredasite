@@ -50,6 +50,9 @@ async function streamUpload(key, filePath, contentType) {
     Body:          fs.createReadStream(filePath),
     ContentType:   contentType,
     ContentLength: stat.size,
+    // All uploaded assets are immutable (new videoId = new key, never overwritten).
+    // This tells Cloudflare CDN to cache forever at the edge.
+    CacheControl:  "public, max-age=31536000, immutable",
   }));
 }
 

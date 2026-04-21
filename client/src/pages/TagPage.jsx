@@ -12,7 +12,6 @@ const PAGE_LIMIT = 24;
 const AD_EVERY = 12;
 const SITE_URL = import.meta.env.VITE_SITE_URL || "https://xxxporeda.com";
 
-// Generate a 150-250 word SEO description for the tag page
 function buildTagDescription(tag, total) {
   const count = total ? total.toLocaleString("tr-TR") : "yüzlerce";
   return `${tag} videolarını ücretsiz HD kalitede izle. Sitemizde ${count} adet ${tag} videosu seni bekliyor — amatörden profesyonele, kısa klipler ve uzun filmler. En kaliteli ${tag} içerikleri, yüksek çözünürlüklü görüntü ve net ses kalitesiyle sunulmaktadır. ${tag} kategorisine yeni videolar düzenli olarak eklenmektedir. Tüm ${tag} videolarını kayıt olmadan, tamamen ücretsiz seyredebilirsin. En çok izlenen ${tag} videolarını keşfet, beğendiklerini arkadaşlarınla paylaş.`;
@@ -23,7 +22,6 @@ export default function TagPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const decoded               = decodeURIComponent(tag);
 
-  // Page starts from URL param so Google can crawl /tag/x?page=2
   const initialPage           = Math.max(1, parseInt(searchParams.get("page") || "1"));
 
   const [videos,      setVideos]      = useState([]);
@@ -33,7 +31,7 @@ export default function TagPage() {
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error,       setError]       = useState(null);
-  const [meta,        setMeta]        = useState(null);   // { relatedTags, categories }
+  const [meta,        setMeta]        = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
   const pageRef    = useRef(initialPage);
   const fetchIdRef = useRef(0);
@@ -57,7 +55,6 @@ export default function TagPage() {
       pageRef.current = page;
       setMaxPage((prev) => Math.max(prev, page));
 
-      // Update URL to reflect deepest loaded page (so back-button works)
       if (page > 1) {
         const next = new URLSearchParams(searchParams);
         next.set("page", page);
@@ -73,7 +70,6 @@ export default function TagPage() {
     }
   }, [decoded]);
 
-  // Reset on tag change
   useEffect(() => {
     categoryMountRef.current = false;
     pageRef.current = 1;
@@ -84,11 +80,9 @@ export default function TagPage() {
     setActiveCategory(null);
     fetchVideos(1, false, null);
     window.scrollTo({ top: 0, behavior: "instant" });
-    // Fetch tag meta (related tags + categories)
     videoApi.getTagMeta(decoded).then((res) => setMeta(res.data)).catch(() => {});
   }, [decoded]);
 
-  // Reset on category filter change (skip initial mount)
   useEffect(() => {
     if (!categoryMountRef.current) { categoryMountRef.current = true; return; }
     pageRef.current = 1;
@@ -99,14 +93,12 @@ export default function TagPage() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [activeCategory]);
 
-  // Infinite scroll
   useEffect(() => {
     if (inView && hasMore && !loading && !loadingMore) {
       fetchVideos(pageRef.current + 1, true, activeCategory);
     }
   }, [inView]);
 
-  // Pagination SEO links
   const tagBase  = `/tag/${encodeURIComponent(decoded.toLowerCase().replace(/\s+/g, "-"))}`;
   const prevPage = maxPage > 1 ? `${tagBase}?page=${maxPage - 1}` : null;
   const nextPage = hasMore   ? `${tagBase}?page=${maxPage + 1}` : null;
@@ -124,124 +116,127 @@ export default function TagPage() {
       />
 
       <div className="max-w-[1600px] mx-auto px-2 sm:px-5 py-4">
-        <div>
 
-            <TopBannerAd />
+        <TopBannerAd />
 
-            {/* H1 + count */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-brand-500/15 rounded-xl flex items-center justify-center flex-shrink-0">
-                <span className="text-brand-400 font-bold text-xl leading-none">#</span>
-              </div>
-              <div>
-                <h1 className="font-display font-bold text-xl sm:text-2xl text-white">{decoded} videoları</h1>
-                {total != null && (
-                  <p className="text-gray-600 text-xs mt-0.5">{total.toLocaleString("tr-TR")} video</p>
-                )}
-              </div>
-            </div>
-
-            {/* SEO description paragraph */}
+        {/* Page header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 bg-brand-500/12 rounded-xl flex items-center justify-center flex-shrink-0">
+            <span className="text-brand-500 font-bold text-lg leading-none">#</span>
+          </div>
+          <div>
+            <h1 className="font-display font-bold text-lg sm:text-2xl text-white leading-tight">
+              {decoded} videoları
+            </h1>
             {total != null && (
-              <p className="text-gray-500 text-sm leading-relaxed mb-5 max-w-3xl">
-                {buildTagDescription(decoded, total)}
+              <p className="text-neutral-700 text-xs mt-0.5">
+                {total.toLocaleString("tr-TR")} video
               </p>
             )}
-
-            {/* Related tags */}
-            {meta?.relatedTags?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-6">
-                <span className="text-gray-600 text-xs self-center mr-1">İlgili:</span>
-                {meta.relatedTags.map((t) => (
-                  <Link
-                    key={t}
-                    to={`/tag/${encodeURIComponent(t.toLowerCase().replace(/\s+/g, "-"))}`}
-                    className="text-xs bg-surface-800 text-gray-400 hover:text-brand-300 px-2.5 py-1 rounded-full border border-white/8 hover:border-brand-500/30 transition-all font-mono"
-                  >
-                    #{t}
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* Category filter pills */}
-            {meta?.categories?.length > 0 && (
-              <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
-                <button
-                  onClick={() => setActiveCategory(null)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${
-                    !activeCategory
-                      ? "bg-brand-500 text-white border-brand-500"
-                      : "bg-surface-800 text-gray-400 border-white/8 hover:text-white hover:border-white/20"
-                  }`}
-                >
-                  Tümü
-                </button>
-                {meta.categories.map((c) => (
-                  <button
-                    key={c._id}
-                    onClick={() => setActiveCategory(activeCategory === c._id ? null : c._id)}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${
-                      activeCategory === c._id
-                        ? "bg-brand-500 text-white border-brand-500"
-                        : "bg-surface-800 text-gray-400 border-white/8 hover:text-white hover:border-white/20"
-                    }`}
-                  >
-                    {c.icon && <span className="mr-1">{c.icon}</span>}{c.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Video grid */}
-            {loading && <VideoGridSkeleton count={PAGE_LIMIT} />}
-
-            {!loading && error && (
-              <div className="text-center py-20">
-                <p className="text-gray-500 text-sm mb-3">Yüklenemedi</p>
-                <button onClick={() => fetchVideos(1, false)} className="btn-primary text-sm">Tekrar Dene</button>
-              </div>
-            )}
-
-            {!loading && !error && videos.length === 0 && (
-              <div className="text-center py-20 space-y-2">
-                <p className="text-white font-display font-semibold">Video bulunamadı</p>
-                <p className="text-gray-600 text-sm">"{decoded}" etiketi için henüz video yok.</p>
-              </div>
-            )}
-
-            {!loading && videos.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
-                {videos.reduce((acc, v, i) => {
-                  acc.push(<VideoCard key={v._id} video={v} priority={i < 6} />);
-                  if ((i + 1) % AD_EVERY === 0 && i < videos.length - 1) acc.push(<InFeedAd key={`ad-${i}`} />);
-                  return acc;
-                }, [])}
-              </div>
-            )}
-
-            {loadingMore && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 mt-5">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="flex flex-col gap-2.5">
-                    <div className="skeleton rounded-xl" style={{ aspectRatio: "16/9" }} />
-                    <div className="skeleton h-4 rounded w-3/4" />
-                    <div className="skeleton h-3 rounded w-1/2" />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!loading && !loadingMore && !hasMore && videos.length > 0 && (
-              <div className="text-center py-10 text-gray-700 text-sm">Tüm videolar yüklendi</div>
-            )}
-
-            <div ref={sentinelRef} className="h-1" />
-
-          {/* Sidebar below video grid */}
-          <div className="mt-10">
-            <SidebarLinks />
           </div>
+        </div>
+
+        {/* SEO description */}
+        {total != null && (
+          <p className="text-neutral-700 text-xs leading-relaxed mb-5 max-w-3xl">
+            {buildTagDescription(decoded, total)}
+          </p>
+        )}
+
+        {/* Related tags */}
+        {meta?.relatedTags?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-5">
+            <span className="text-neutral-700 text-xs self-center mr-1">İlgili:</span>
+            {meta.relatedTags.map((t) => (
+              <Link
+                key={t}
+                to={`/tag/${encodeURIComponent(t.toLowerCase().replace(/\s+/g, "-"))}`}
+                className="text-[11px] bg-white/[0.04] text-neutral-500 hover:text-brand-400 px-2.5 py-1 rounded-md border border-white/[0.05] hover:border-brand-500/20 transition-all font-mono"
+              >
+                #{t}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Category filter pills */}
+        {meta?.categories?.length > 0 && (
+          <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1 scrollbar-hide">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className={`flex-shrink-0 text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all ${
+                !activeCategory
+                  ? "bg-brand-500 text-white"
+                  : "bg-white/5 text-neutral-500 hover:text-white hover:bg-white/8"
+              }`}
+            >
+              Tümü
+            </button>
+            {meta.categories.map((c) => (
+              <button
+                key={c._id}
+                onClick={() => setActiveCategory(activeCategory === c._id ? null : c._id)}
+                className={`flex-shrink-0 text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all ${
+                  activeCategory === c._id
+                    ? "bg-brand-500 text-white"
+                    : "bg-white/5 text-neutral-500 hover:text-white hover:bg-white/8"
+                }`}
+              >
+                {c.icon && <span className="mr-1">{c.icon}</span>}{c.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Video grid */}
+        {loading && <VideoGridSkeleton count={PAGE_LIMIT} />}
+
+        {!loading && error && (
+          <div className="text-center py-20">
+            <p className="text-neutral-500 text-sm mb-3">Yüklenemedi</p>
+            <button onClick={() => fetchVideos(1, false)} className="btn-primary text-sm">Tekrar Dene</button>
+          </div>
+        )}
+
+        {!loading && !error && videos.length === 0 && (
+          <div className="text-center py-20 space-y-2">
+            <p className="text-white font-semibold">Video bulunamadı</p>
+            <p className="text-neutral-600 text-sm">"{decoded}" etiketi için henüz video yok.</p>
+          </div>
+        )}
+
+        {!loading && videos.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
+            {videos.reduce((acc, v, i) => {
+              acc.push(<VideoCard key={v._id} video={v} priority={i < 6} />);
+              if ((i + 1) % AD_EVERY === 0 && i < videos.length - 1) acc.push(<InFeedAd key={`ad-${i}`} />);
+              return acc;
+            }, [])}
+          </div>
+        )}
+
+        {loadingMore && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 mt-5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-2">
+                <div className="skeleton rounded-xl" style={{ aspectRatio: "16/9" }} />
+                <div className="skeleton h-3.5 rounded w-3/4" />
+                <div className="skeleton h-3 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!loading && !loadingMore && !hasMore && videos.length > 0 && (
+          <div className="text-center py-10 text-neutral-700 text-xs">
+            — Tüm videolar yüklendi —
+          </div>
+        )}
+
+        <div ref={sentinelRef} className="h-1" />
+
+        <div className="mt-10">
+          <SidebarLinks />
         </div>
       </div>
     </>

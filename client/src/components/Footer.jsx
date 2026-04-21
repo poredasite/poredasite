@@ -19,52 +19,53 @@ const FOOTER_SECTIONS = [
   {
     title: "Bilgi İşlem",
     to: "/bilgi-islem",
-    content: "VR porno izle yada kendine bir iyilik yap bu İnternet sitesinde arkadaşların ile beraber Gangbang tadında 4K sexli filmler seyret. Dünyaca ünlü +18 yasaklı video sitelerine giriş yapmak istiyorsanız yolunuz bir şekilde DoEda tarafından geçer sonrası pratik giriş sayesinde yüz binlerce videolara kolaylıkla ulaşabilirsiniz, bu sayede VPN yada Proxy gibi uzun soluklu uygulamalara APK gibi telefon uygulamasına ihtiyacınız olmadan giriş yapabilirsiniz.",
+    content: "VR porno izle yada kendine bir iyilik yap bu İnternet sitesinde arkadaşların ile beraber Gangbang tadında 4K sexli filmler seyret. Dünyaca ünlü +18 yasaklı video sitelerine giriş yapmak istiyorsanız yolunuz bir şekilde DoEda tarafından geçer sonrası pratik giriş sayesinde yüz binlerce videolara kolaylıkla ulaşabilirsiniz.",
   },
 ];
 
 export default function Footer() {
   return (
-    <footer className="mt-16 border-t border-surface-700/40 bg-gradient-to-b from-surface-900 to-black">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
+    <footer className="mt-12 border-t border-white/[0.05] bg-surface-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
 
-        {/* ── Üst: 4 menü sütunu ──────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
+        {/* ── Brand + tagline ─────────────────────────────────── */}
+        <div className="flex items-center gap-3 mb-8">
+          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-2xl select-none">😎</span>
+            <span className="font-display font-bold text-lg text-white tracking-tight">
+              xxxpor<span className="text-brand-500">eda</span>
+            </span>
+          </Link>
+          <div className="w-px h-5 bg-white/8" />
+          <p className="text-neutral-600 text-xs">
+            Türkiye'nin porno platformu
+          </p>
+        </div>
+
+        {/* ── Link columns ────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-8">
           {FOOTER_SECTIONS.map(({ title, to, content }) => (
-            <div key={title} className="flex flex-col gap-3">
+            <div key={title} className="flex flex-col gap-2">
               <Link
                 to={to}
-                className="text-white font-display font-semibold text-sm hover:text-brand-400 transition-colors w-fit"
+                className="text-neutral-300 font-medium text-xs hover:text-brand-400 transition-colors w-fit"
               >
                 {title}
               </Link>
-              <p className="text-gray-600 text-xs leading-relaxed">
+              <p className="text-neutral-700 text-[11px] leading-relaxed line-clamp-3">
                 {content}
               </p>
             </div>
           ))}
         </div>
 
-        {/* ── Orta: brand + açıklama ──────────────────────────── */}
-        <div className="border-t border-surface-700/30 pt-8 pb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-2xl select-none" role="img" aria-label="cool">😎</span>
-            <span className="font-display font-bold text-xl text-white tracking-tight">
-              xxxpore<span className="text-brand-500">da</span>
-            </span>
-          </Link>
-          <p className="text-gray-500 text-sm leading-relaxed sm:ml-4">
-            Türkiye'nin Porno platformu izle doyma doy izle sex sikis durmadan izle purna.
-          </p>
-        </div>
-
-        {/* ── Alt: telif + stack ──────────────────────────────── */}
-        <div className="border-t border-surface-700/20 pt-5 flex flex-col sm:flex-row sm:justify-between gap-2">
-          <p className="text-gray-600 text-xs">
+        {/* ── Bottom bar ──────────────────────────────────────── */}
+        <div className="border-t border-white/[0.04] pt-5 flex flex-col sm:flex-row sm:justify-between gap-2">
+          <p className="text-neutral-700 text-xs">
             © {new Date().getFullYear()} xxxporeda. Tüm hakları saklıdır.
           </p>
-          <p className="text-gray-700 text-xs font-mono">
-            React + Node.js + Cloudinary
+          <p className="text-neutral-800 text-xs font-mono">
+            React + Node.js + Cloudflare R2
           </p>
         </div>
       </div>

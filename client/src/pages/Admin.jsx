@@ -912,6 +912,30 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
   );
 }
 
+// ─── Slug Regen Button ────────────────────────────────────────────
+function RegenSlugsButton() {
+  const [loading, setLoading] = useState(false);
+  async function run() {
+    if (!window.confirm("Tüm video slug'ları Türkçe → ASCII olarak yeniden üretilecek. Devam?")) return;
+    setLoading(true);
+    try {
+      const res = await videoApi.regenSlugs();
+      toast.success(`${res.updated} / ${res.total} slug güncellendi`);
+    } catch (err) {
+      toast.error("Hata: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  return (
+    <button onClick={run} disabled={loading}
+      className="text-xs text-brand-400 hover:text-brand-300 px-3 py-1.5 rounded-lg border border-brand-500/30 hover:border-brand-500/60 transition-all disabled:opacity-50 flex items-center gap-1.5">
+      {loading && <div className="w-3 h-3 border border-brand-400/40 border-t-brand-400 rounded-full animate-spin" />}
+      Slug'ları Yenile (TR→ASCII)
+    </button>
+  );
+}
+
 // ─── Video List ───────────────────────────────────────────────────
 function AdminVideoList({ refresh }) {
   const [videos, setVideos] = useState([]);
@@ -1045,7 +1069,10 @@ export default function Admin() {
           )}
           {tab === "video" && (
             <>
-              <h2 className="font-display font-bold text-base text-white mb-5">Tüm Videolar</h2>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-display font-bold text-base text-white">Tüm Videolar</h2>
+                <RegenSlugsButton />
+              </div>
               <AdminVideoList refresh={refreshKey} />
             </>
           )}

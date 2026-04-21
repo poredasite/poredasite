@@ -1,5 +1,18 @@
 const mongoose = require("mongoose");
 
+const TR_MAP = { ç:"c", Ç:"c", ğ:"g", Ğ:"g", ı:"i", İ:"i", ö:"o", Ö:"o", ş:"s", Ş:"s", ü:"u", Ü:"u" };
+
+function buildSlug(title, id) {
+  const base = title
+    .replace(/[çÇğĞıİöÖşŞüÜ]/g, (c) => TR_MAP[c] || c)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+  return `${base}-${id.toString().slice(-8)}`;
+}
+
 const videoSchema = new mongoose.Schema(
   {
     title: {
@@ -87,15 +100,7 @@ const videoSchema = new mongoose.Schema(
 
 videoSchema.pre("save", function (next) {
   if (this.isModified("title") || this.isNew) {
-    const base = this.title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .trim();
-    // Use last 8 chars of ObjectId as unique suffix (shorter than timestamp)
-    const suffix = this._id.toString().slice(-8);
-    this.slug = `${base}-${suffix}`;
+    this.slug = buildSlug(this.title, this._id);
   }
   next();
 });
@@ -106,4 +111,6 @@ videoSchema.index({ views: -1 });
 videoSchema.index({ status: 1 });
 videoSchema.index({ tags: 1 });
 
-module.exports = mongoose.model("Video", videoSchema);
+const VideoModel = mongoose.model("Video", videoSchema);
+VideoModel.buildSlug = buildSlug;
+module.exports = VideoModel;

@@ -75,39 +75,42 @@ export default function Search() {
 
         <TopBannerAd />
 
+        {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 bg-surface-700 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
           <div>
-            <h1 className="font-display font-bold text-lg text-white">
+            <h1 className="font-display font-bold text-lg text-white leading-tight">
               {q ? `"${q}"` : "Arama"}
             </h1>
             {total != null && (
-              <p className="text-gray-600 text-xs mt-0.5">{total.toLocaleString("tr-TR")} sonuç</p>
+              <p className="text-neutral-700 text-xs mt-0.5">{total.toLocaleString("tr-TR")} sonuç</p>
             )}
           </div>
         </div>
 
         {!q && (
-          <p className="text-gray-500 text-center py-20">Arama yapmak için yukarıdaki arama kutusunu kullan.</p>
+          <p className="text-neutral-600 text-sm text-center py-20">
+            Arama yapmak için yukarıdaki arama kutusunu kullan.
+          </p>
         )}
 
         {loading && <VideoGridSkeleton count={PAGE_LIMIT} />}
 
         {!loading && error && (
           <div className="text-center py-20">
-            <p className="text-gray-500 text-sm mb-3">Arama başarısız</p>
+            <p className="text-neutral-500 text-sm mb-3">Arama başarısız</p>
             <button onClick={() => fetchVideos(1, false)} className="btn-primary text-sm">Tekrar Dene</button>
           </div>
         )}
 
         {!loading && !error && q && videos.length === 0 && (
           <div className="text-center py-20 space-y-2">
-            <p className="text-white font-display font-semibold">Sonuç bulunamadı</p>
-            <p className="text-gray-600 text-sm">"{q}" için video yok.</p>
+            <p className="text-white font-semibold">Sonuç bulunamadı</p>
+            <p className="text-neutral-600 text-sm">"{q}" için video yok.</p>
           </div>
         )}
 
@@ -122,18 +125,21 @@ export default function Search() {
         )}
 
         {loadingMore && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 mt-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 mt-5">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex flex-col gap-2.5">
+              <div key={i} className="flex flex-col gap-2">
                 <div className="skeleton rounded-xl" style={{ aspectRatio: "16/9" }} />
-                <div className="skeleton h-4 rounded w-3/4" />
+                <div className="skeleton h-3.5 rounded w-3/4" />
+                <div className="skeleton h-3 rounded w-1/2" />
               </div>
             ))}
           </div>
         )}
 
         {!loading && !loadingMore && !hasMore && videos.length > 0 && (
-          <div className="text-center py-10 text-gray-700 text-sm">Tüm sonuçlar yüklendi</div>
+          <div className="text-center py-10 text-neutral-700 text-xs">
+            — Tüm sonuçlar yüklendi —
+          </div>
         )}
 
         <div ref={sentinelRef} className="h-1" />

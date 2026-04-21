@@ -19,7 +19,7 @@ const EmbedPage   = lazy(() => import("./pages/EmbedPage"));
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="w-10 h-10 border-3 border-white/10 border-t-brand-500 rounded-full animate-spin" />
+      <div className="w-9 h-9 border-[3px] border-white/10 border-t-brand-500 rounded-full animate-spin" />
     </div>
   );
 }
@@ -51,7 +51,7 @@ export default function App() {
       <AdsProvider>
         <BrowserRouter>
           <ErrorBoundary>
-            <div className="min-h-screen flex flex-col bg-black">
+            <div className="min-h-screen flex flex-col bg-surface-950">
               <Navbar />
               <main className="flex-1">
                 <Suspense fallback={<PageLoader />}>

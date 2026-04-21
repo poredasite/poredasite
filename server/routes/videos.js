@@ -8,6 +8,7 @@ const os = require("os");
 const fs = require("fs");
 const mongoose = require("mongoose");
 const Video = require("../models/Video");
+const { buildSlug } = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
 const {
   getVideoDuration, convertToHLS, uploadHLSToStorage,
@@ -547,7 +548,7 @@ router.patch("/:id", adminAuth, (req, res, next) => {
   try {
     const { title, description, tags, category, categories: categoriesRaw } = req.body;
     const update = {};
-    if (title) update.title = title.trim();
+    if (title) { update.title = title.trim(); update.slug = buildSlug(title.trim(), req.params.id); }
     if (description !== undefined) update.description = description.trim();
     if (tags !== undefined) update.tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
     if (categoriesRaw !== undefined) {
@@ -575,6 +576,23 @@ router.patch("/:id", adminAuth, (req, res, next) => {
     res.json({ success: true, data: video });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// POST /videos/admin/regen-slugs  — rebuild all slugs with Turkish normalization
+router.post("/admin/regen-slugs", adminAuth, async (req, res) => {
+  try {
+    const videos = await Video.find({}).select("_id title slug").lean();
+    const ops = videos.map((v) => ({
+      updateOne: {
+        filter: { _id: v._id },
+        update: { $set: { slug: buildSlug(v.title, v._id) } },
+      },
+    }));
+    const result = await Video.bulkWrite(ops, { ordered: false });
+    res.json({ success: true, updated: result.modifiedCount, total: videos.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

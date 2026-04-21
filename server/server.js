@@ -138,7 +138,17 @@ app.get("/video/:id", async (req, res, next) => {
 // ─── Static Files (Production) ────────────────────────────────────
 
 const clientDist = path.join(__dirname, "../client/dist");
-app.use(express.static(clientDist));
+app.use(express.static(clientDist, {
+  setHeaders(res, filePath) {
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      // Vite outputs content-hashed filenames — safe to cache forever
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    } else if (filePath.endsWith("index.html")) {
+      // Always revalidate HTML so users get new deploys
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+  },
+}));
 
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api/")) return next();

@@ -28,14 +28,14 @@ function SearchBar({ className = "" }) {
 
   return (
     <form onSubmit={handleSubmit} className={`relative ${className}`}>
-      <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+      <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600 pointer-events-none" />
       <input
         ref={inputRef}
         type="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Video ara..."
-        className="w-full bg-surface-800 border border-white/8 hover:border-white/15 focus:border-brand-500 text-white placeholder-gray-600 pl-9 pr-3 py-2 rounded-lg text-sm outline-none transition-colors"
+        className="w-full bg-surface-800 border border-white/6 hover:border-white/12 focus:border-brand-500/60 text-white placeholder-neutral-600 pl-9 pr-3 py-2 rounded-lg text-sm outline-none transition-colors"
       />
     </form>
   );
@@ -67,157 +67,143 @@ export default function Navbar() {
   };
 
   const navLinkCls = (active) =>
-    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-      active ? "text-white bg-surface-700" : "text-gray-400 hover:text-white hover:bg-surface-800"
+    `flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 whitespace-nowrap ${
+      active
+        ? "text-white bg-white/8"
+        : "text-neutral-500 hover:text-white hover:bg-white/5"
     }`;
 
   return (
-    <>
-      {/* ── Top Header ──────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-white/5">
+    <header className="sticky top-0 z-50 bg-surface-950/98 backdrop-blur-xl border-b border-white/[0.06]">
 
-        {/* Desktop */}
-        <nav className="max-w-[1600px] mx-auto px-4 h-[4.5rem] hidden md:flex items-center gap-3">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group mr-3 flex-shrink-0" aria-label="Ana Sayfa">
-            <span className="text-3xl select-none transition-transform duration-200 group-hover:scale-110">😎</span>
-            <span className="font-display font-bold text-xl text-white tracking-tight">
-              xxxpor<span className="text-brand-500">eda</span>
-            </span>
+      {/* ── Desktop nav ─────────────────────────────────────────── */}
+      <nav className="max-w-[1600px] mx-auto px-4 h-[4.25rem] hidden md:flex items-center gap-2">
+
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2 group mr-4 flex-shrink-0" aria-label="Ana Sayfa">
+          <span className="text-2xl select-none transition-transform duration-200 group-hover:scale-110">😎</span>
+          <span className="font-display font-bold text-[1.15rem] text-white tracking-tight leading-none">
+            xxxpor<span className="text-brand-500">eda</span>
+          </span>
+        </Link>
+
+        {/* Primary links */}
+        <div className="flex items-center gap-0.5">
+          <Link to="/" className={navLinkCls(isActive("/"))}>
+            <HiHome className="w-4 h-4" />Ana Sayfa
+          </Link>
+          <Link to="/?sort=views" className={navLinkCls(isActive("/", "views"))}>
+            <HiFire className="w-4 h-4" />Popüler
           </Link>
 
-          {/* Nav links */}
-          <div className="flex items-center gap-0.5">
-            <Link to="/"          className={navLinkCls(isActive("/"))}><HiHome  className="w-4 h-4" />Ana Sayfa</Link>
-            <Link to="/?sort=views" className={navLinkCls(isActive("/", "views"))}><HiFire className="w-4 h-4" />Popüler</Link>
+          <div className="w-px h-4 bg-white/8 mx-1.5" />
 
-            <div className="w-px h-5 bg-white/10 mx-1" />
+          {SPECIAL_LINKS.map(({ label, href }) => (
+            <Link
+              key={href}
+              to={href}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 whitespace-nowrap ${
+                location.pathname === href
+                  ? "text-brand-400 bg-brand-500/10"
+                  : "text-neutral-500 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
 
-            {SPECIAL_LINKS.map(({ label, href }) => (
-              <Link key={href} to={href} className={navLinkCls(location.pathname === href)}>
-                {label}
-              </Link>
-            ))}
-          </div>
+        {/* Search */}
+        <SearchBar className="flex-1 max-w-xs ml-auto" />
 
-          {/* Search */}
-          <SearchBar className="flex-1 max-w-xs ml-auto" />
+        {/* Admin dropdown */}
+        {isAdmin && (
+          <div className="relative flex-shrink-0 ml-1" ref={profileRef}>
+            <button
+              onClick={() => setProfileOpen((v) => !v)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-500 hover:text-white hover:bg-white/5 transition-all duration-150"
+            >
+              <HiUser className="w-4 h-4" />
+              <span>Admin</span>
+              <HiChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
+            </button>
 
-          {/* Admin dropdown */}
-          {isAdmin && (
-            <div className="relative flex-shrink-0" ref={profileRef}>
-              <button
-                onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-surface-800 transition-all duration-200"
-              >
-                <HiUser className="w-4 h-4" />
-                <span>Admin</span>
-                <HiChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              {profileOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-52 bg-surface-800 border border-white/10 rounded-xl shadow-2xl shadow-black/60 py-1.5 animate-fade-in">
-                  <div className="px-4 py-2 border-b border-white/5 mb-1">
-                    <p className="text-xs text-brand-400 font-semibold">Yönetici</p>
-                  </div>
-                  <Link to="/admin-baba" onClick={() => setProfileOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-surface-700 transition-colors">
-                    <HiCog className="w-4 h-4 text-brand-400" /> Yönetim Paneli
-                  </Link>
-                  <div className="border-t border-white/5 my-1" />
-                  <button onClick={() => { logout(); navigate("/"); setProfileOpen(false); }}
-                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-surface-700 transition-colors">
-                    <HiX className="w-4 h-4" /> Çıkış Yap
-                  </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-52 bg-surface-800 border border-white/8 rounded-xl shadow-2xl shadow-black/70 py-1.5 animate-fade-in">
+                <div className="px-4 py-2.5 border-b border-white/5 mb-1">
+                  <p className="text-[11px] text-brand-500 font-semibold uppercase tracking-wider">Yönetici</p>
                 </div>
-              )}
-            </div>
-          )}
-        </nav>
-
-        {/* Mobile top bar */}
-        <nav className="md:hidden max-w-[1600px] mx-auto px-3 h-14 flex items-center gap-2">
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0" aria-label="Ana Sayfa">
-            <span className="text-2xl select-none">😎</span>
-            <span className="font-display font-bold text-lg text-white tracking-tight">
-              xxxpor<span className="text-brand-500">eda</span>
-            </span>
-          </Link>
-
-          {/* Mobile search */}
-          <SearchBar className="flex-1" />
-
-          <button
-            className="flex-shrink-0 p-2 rounded-lg text-gray-500 hover:text-white hover:bg-surface-800 transition-colors"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label={menuOpen ? "Menüyü kapat" : "Menüyü aç"}
-          >
-            {menuOpen ? <HiX className="w-5 h-5" /> : <HiMenu className="w-5 h-5" />}
-          </button>
-        </nav>
-
-        {/* Mobile dropdown menu */}
-        {menuOpen && (
-          <div className="md:hidden border-t border-white/5 bg-surface-900 px-3 py-3 space-y-0.5 animate-slide-up">
-            <Link to="/" className="flex items-center gap-3 text-gray-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 hover:text-white transition-colors">
-              <HiHome className="w-4 h-4" /> Ana Sayfa
-            </Link>
-            <Link to="/?sort=views" className="flex items-center gap-3 text-gray-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 hover:text-white transition-colors">
-              <HiFire className="w-4 h-4" /> Popüler
-            </Link>
-
-            <div className="border-t border-white/5 my-2" />
-
-            {SPECIAL_LINKS.map(({ label, href }) => (
-              <Link key={href} to={href}
-                className="flex items-center gap-3 text-brand-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 transition-colors font-medium">
-                <span className="text-base">🇹🇷</span> {label}
-              </Link>
-            ))}
-
-            {isAdmin && (
-              <>
-                <div className="border-t border-white/5 my-2" />
-                <Link to="/admin-baba" className="flex items-center gap-3 text-brand-400 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 transition-colors">
-                  <HiCog className="w-4 h-4" /> Yönetim Paneli
+                <Link to="/admin-baba" onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-neutral-300 hover:text-white hover:bg-white/5 transition-colors">
+                  <HiCog className="w-4 h-4 text-brand-400" /> Yönetim Paneli
                 </Link>
-                <button onClick={() => { logout(); navigate("/"); }}
-                  className="flex w-full items-center gap-3 text-gray-500 py-2.5 px-3 rounded-xl text-sm hover:bg-surface-800 transition-colors">
+                <div className="border-t border-white/5 my-1" />
+                <button onClick={() => { logout(); navigate("/"); setProfileOpen(false); }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-neutral-500 hover:text-white hover:bg-white/5 transition-colors">
                   <HiX className="w-4 h-4" /> Çıkış Yap
                 </button>
-              </>
+              </div>
             )}
           </div>
         )}
-      </header>
+      </nav>
 
-      <MobileBottomNav isAdmin={isAdmin} />
-    </>
-  );
-}
+      {/* ── Mobile top bar ──────────────────────────────────────── */}
+      <nav className="md:hidden max-w-[1600px] mx-auto px-3 h-14 flex items-center gap-2.5">
+        <Link to="/" className="flex items-center gap-1.5 flex-shrink-0" aria-label="Ana Sayfa">
+          <span className="text-xl select-none">😎</span>
+          <span className="font-display font-bold text-base text-white tracking-tight leading-none">
+            xxxpor<span className="text-brand-500">eda</span>
+          </span>
+        </Link>
 
-function MobileBottomNav({ isAdmin }) {
-  const location = useLocation();
-  if (!isAdmin) return null;
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[60] md:hidden bg-surface-900/95 backdrop-blur-md border-t border-white/8">
-      <div className="flex items-center justify-around h-14 px-1 max-w-md mx-auto">
-        <BottomNavItem to="/admin-baba" icon={HiCog} label="Admin" active={location.pathname === "/admin-baba"} />
-      </div>
-    </nav>
-  );
-}
+        <SearchBar className="flex-1" />
 
-function BottomNavItem({ to, icon: Icon, label, active }) {
-  return (
-    <Link to={to}
-      className={`flex flex-col items-center justify-center gap-0.5 py-1 px-4 rounded-xl transition-all duration-200 min-w-[60px] touch-manipulation ${
-        active ? "text-brand-400" : "text-gray-600 hover:text-gray-400"
-      }`}
-    >
-      <Icon className={`w-5 h-5 transition-transform duration-200 ${active ? "scale-110" : ""}`} />
-      <span className="text-[10px] font-medium">{label}</span>
-      {active && <span className="w-1 h-1 rounded-full bg-brand-500 mt-0.5" />}
-    </Link>
+        <button
+          className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? "Menüyü kapat" : "Menüyü aç"}
+        >
+          {menuOpen ? <HiX className="w-5 h-5" /> : <HiMenu className="w-5 h-5" />}
+        </button>
+      </nav>
+
+      {/* ── Mobile dropdown ─────────────────────────────────────── */}
+      {menuOpen && (
+        <div className="md:hidden border-t border-white/[0.06] bg-surface-900 px-3 py-2 space-y-0.5 animate-slide-up">
+          <Link to="/"
+            className="flex items-center gap-3 text-neutral-400 py-2.5 px-3 rounded-xl text-sm hover:bg-white/5 hover:text-white transition-colors">
+            <HiHome className="w-4 h-4" /> Ana Sayfa
+          </Link>
+          <Link to="/?sort=views"
+            className="flex items-center gap-3 text-neutral-400 py-2.5 px-3 rounded-xl text-sm hover:bg-white/5 hover:text-white transition-colors">
+            <HiFire className="w-4 h-4" /> Popüler
+          </Link>
+
+          <div className="border-t border-white/[0.06] my-1.5" />
+
+          {SPECIAL_LINKS.map(({ label, href }) => (
+            <Link key={href} to={href}
+              className="flex items-center gap-3 text-brand-400/80 py-2.5 px-3 rounded-xl text-sm hover:bg-white/5 hover:text-white transition-colors font-medium">
+              <span className="text-base">🇹🇷</span> {label}
+            </Link>
+          ))}
+
+          {isAdmin && (
+            <>
+              <div className="border-t border-white/[0.06] my-1.5" />
+              <Link to="/admin-baba"
+                className="flex items-center gap-3 text-brand-400 py-2.5 px-3 rounded-xl text-sm hover:bg-white/5 transition-colors">
+                <HiCog className="w-4 h-4" /> Yönetim Paneli
+              </Link>
+              <button onClick={() => { logout(); navigate("/"); }}
+                className="flex w-full items-center gap-3 text-neutral-600 py-2.5 px-3 rounded-xl text-sm hover:bg-white/5 transition-colors">
+                <HiX className="w-4 h-4" /> Çıkış Yap
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </header>
   );
 }

@@ -382,7 +382,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden select-none"
+      className="relative w-full aspect-video bg-black overflow-hidden select-none sm:rounded-2xl"
       onMouseMove={resetHideTimer}
       onMouseLeave={() => playing && setShowControls(false)}
       onTouchStart={handleTouchStart}

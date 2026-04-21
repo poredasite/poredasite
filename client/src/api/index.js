@@ -66,6 +66,7 @@ export const videoApi = {
   getTagMeta:  (tag) => api.get(`/videos/tag/${encodeURIComponent(tag)}/meta`),
   recordWatch: (id, data) => api.post(`/videos/${id}/watch`, data),
   like: (id, liked) => api.post(`/videos/${id}/like`, { liked }),
+  regenSlugs: () => api.post("/videos/admin/regen-slugs"),
 };
 
 // ─── Comment API ──────────────────────────────────────────────────
