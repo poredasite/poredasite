@@ -5,7 +5,7 @@ import { AdminProvider } from "./context/AdminContext";
 import { AdsProvider } from "./context/AdsContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import { StickyBannerAd, PopunderAd, InstantMessageAd } from "./components/AdPlaceholders";
+import { StickyBannerAd, PopunderAd, InstantMessageAd, SidebarAd } from "./components/AdPlaceholders";
 import StaticPage from "./pages/StaticPage";
 import NotFound from "./pages/NotFound";
 
@@ -53,22 +53,27 @@ export default function App() {
           <ErrorBoundary>
             <div className="min-h-screen flex flex-col bg-surface-950">
               <Navbar />
-              <main className="flex-1">
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/video/:slug" element={<VideoDetail />} />
-                    <Route path="/tag/:tag"  element={<TagPage />} />
-                    <Route path="/search"   element={<Search />} />
-                    <Route path="/embed/:id" element={<EmbedPage />} />
-                    <Route path="/admin-baba" element={<Admin />} />
-                    <Route path="/hakkimizda" element={<StaticPage />} />
-                    <Route path="/gizlilik" element={<StaticPage />} />
-                    <Route path="/hukuki" element={<StaticPage />} />
-                    <Route path="/bilgi-islem" element={<StaticPage />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
+              <main className="flex-1 lg:flex lg:items-start">
+                <div className="flex-1 min-w-0">
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/video/:slug" element={<VideoDetail />} />
+                      <Route path="/tag/:tag"  element={<TagPage />} />
+                      <Route path="/search"   element={<Search />} />
+                      <Route path="/embed/:id" element={<EmbedPage />} />
+                      <Route path="/admin-baba" element={<Admin />} />
+                      <Route path="/hakkimizda" element={<StaticPage />} />
+                      <Route path="/gizlilik" element={<StaticPage />} />
+                      <Route path="/hukuki" element={<StaticPage />} />
+                      <Route path="/bilgi-islem" element={<StaticPage />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </div>
+                <aside className="hidden lg:block w-72 flex-shrink-0 px-3 pt-4 sticky top-16">
+                  <SidebarAd />
+                </aside>
               </main>
               <Footer />
               <StickyBannerAd />

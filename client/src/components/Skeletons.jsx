@@ -20,7 +20,7 @@ export function VideoCardSkeleton() {
 
 export function VideoGridSkeleton({ count = 12 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
+    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
       {Array.from({ length: count }).map((_, i) => (
         <VideoCardSkeleton key={i} />
       ))}

@@ -7,7 +7,7 @@ import { videoApi, commentApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
-import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, InFeedAd, SidebarAd } from "../components/AdPlaceholders";
+import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, InFeedAd } from "../components/AdPlaceholders";
 import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
 import { parseLinkedDescription } from "../lib/linkedDescription";
@@ -318,8 +318,8 @@ export default function VideoDetail() {
         </div>
 
         {/* Content */}
-        <div className="px-3 sm:px-6 pb-8 xl:flex xl:gap-6">
-        <div className="xl:flex-1 xl:min-w-0">
+        <div className="px-3 sm:px-6 pb-8">
+        <div>
 
           {/* Title */}
           <h1 className="font-semibold text-base sm:text-xl text-white mt-3 sm:mt-4 mb-3 leading-snug">
@@ -394,7 +394,7 @@ export default function VideoDetail() {
               <h2 className="text-xs font-semibold text-neutral-600 uppercase tracking-widest mb-4">
                 Benzer Videolar
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
                 {related.reduce((acc, v, i) => {
                   acc.push(<VideoCard key={v._id} video={v} />);
                   if ((i + 1) % 5 === 0 && i < related.length - 1) acc.push(<InFeedAd key={`ad-${i}`} />);
@@ -409,11 +409,7 @@ export default function VideoDetail() {
 
         </div>
 
-        {/* Sidebar — desktop only */}
-        <div className="hidden xl:block xl:w-72 xl:flex-shrink-0">
-          <SidebarAd />
         </div>
-
         </div>
       </div>
     </>

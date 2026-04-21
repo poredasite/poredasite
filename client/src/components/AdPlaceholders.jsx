@@ -92,14 +92,12 @@ export function InFeedAd() {
   const slot = getSlot("inFeed");
   if (!slot?.enabled) return null;
 
+  const h = slot.height || 300;
   return (
-    <div className="col-span-1 my-1 overflow-hidden">
-      <LazyAdSlot
-        html={slot.code}
-        style={{ width: "100%", maxWidth: "100%" }}
-        minHeight={slot.height || 90}
-        className="[&>*]:!max-w-full [&_img]:!max-w-full [&_img]:!h-auto"
-      />
+    <div className="col-span-1 my-1">
+      <div style={{ width: "100%", maxWidth: 320, height: h, overflow: "hidden" }}>
+        <LazyAdSlot html={slot.code} style={{ width: 320, height: h }} minHeight={h} />
+      </div>
     </div>
   );
 }
