@@ -114,7 +114,7 @@ export function StickyBannerAd() {
 
   return (
     <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-50 flex justify-center bg-black/30 backdrop-blur-sm">
-      <div className="relative">
+      <div className="relative mx-auto" style={slotStyle(slot)}>
         <button
           onClick={() => setClosed(true)}
           className="absolute -top-6 right-0 bg-surface-800 text-gray-400 hover:text-white text-xs px-2 py-0.5 rounded-t-md transition-colors"
@@ -122,7 +122,7 @@ export function StickyBannerAd() {
         >
           ✕
         </button>
-        <AdSlot html={slot.code} style={slotStyle(slot)} />
+        <AdSlot html={slot.code} style={{ width: "100%", height: "100%" }} />
       </div>
     </div>
   );
