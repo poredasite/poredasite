@@ -92,14 +92,14 @@ export function InFeedAd() {
   const slot = getSlot("inFeed");
   if (!slot?.enabled) return null;
 
-  const style = slotStyle(slot);
-  // col-span-2 sınırlar kaç native kart çıkacağını — tam genişlik verince ExoClick 10+ kart doldurur
   return (
-    <div className="col-span-1 sm:col-span-2 my-1" style={{ minHeight: slot.height || 90 }}>
-      {slot.code
-        ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
-        : <Placeholder label="Feed Reklam" style={{ width: "100%", minHeight: 90 }} />
-      }
+    <div className="col-span-1 my-1 overflow-hidden">
+      <LazyAdSlot
+        html={slot.code}
+        style={{ width: "100%", maxWidth: "100%" }}
+        minHeight={slot.height || 90}
+        className="[&>*]:!max-w-full [&_img]:!max-w-full [&_img]:!h-auto"
+      />
     </div>
   );
 }
