@@ -14,7 +14,10 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(git add *)",
-      "Bash(xargs wc *)"
+      "Bash(xargs wc *)",
+      "Bash(npx vite *)",
+      "Bash(./node_modules/.bin/vite build *)",
+      "Bash(node_modules/.bin/eslint src/pages/Home.jsx src/pages/StaticPage.jsx src/pages/EmbedPage.jsx src/lib/videoSchema.js --rule '{\"no-undef\": \"error\"}')"
     ]
   }
 }

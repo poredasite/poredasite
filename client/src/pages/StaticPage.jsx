@@ -64,7 +64,11 @@ export default function StaticPage() {
 
   return (
     <>
-      <SEOHead title={page.title} noIndex={true} />
+      <SEOHead
+        title={page.title}
+        description={page.content.replace(/\s+/g, " ").trim().slice(0, 160)}
+        url={pathname}
+      />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 animate-fade-in">
         <Link to="/" className="text-gray-500 hover:text-white text-sm transition-colors mb-8 inline-block">
           ← Ana Sayfaya Dön

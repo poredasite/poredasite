@@ -59,7 +59,7 @@ async function getVideoSitemap(chunk = 1) {
     .sort({ createdAt: -1 })
     .skip((chunk - 1) * CHUNK)
     .limit(CHUNK)
-    .select("_id slug title description thumbnailUrl videoUrl mp4FallbackUrl duration createdAt updatedAt")
+    .select("_id slug title description thumbnailUrl videoUrl mp4FallbackUrl duration tags createdAt updatedAt")
     .lean();
 
   const entries = videos.map((v) => {
@@ -86,6 +86,7 @@ async function getVideoSitemap(chunk = 1) {
       `      <video:publication_date>${isoDate(v.createdAt)}</video:publication_date>`,
       `      <video:family_friendly>no</video:family_friendly>`,
       `      <video:requires_subscription>no</video:requires_subscription>`,
+      ...(v.tags?.slice(0, 32).map(t => `      <video:tag>${esc(t)}</video:tag>`) || []),
       `    </video:video>`,
       `  </url>`,
     ].filter(Boolean).join("\n");

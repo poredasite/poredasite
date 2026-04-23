@@ -100,7 +100,7 @@ app.get("/sitemap-categories.xml", async (req, res) => { try { xmlHdr(res); res.
 app.get("/robots.txt", (req, res) => {
   const baseUrl = process.env.CLIENT_URL || "http://localhost:5173";
   res.type("text/plain");
-  res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${baseUrl}/sitemap.xml`);
+  res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${baseUrl}/sitemap.xml\nSitemap: ${baseUrl}/sitemap-videos.xml\nSitemap: ${baseUrl}/sitemap-tags.xml\nSitemap: ${baseUrl}/sitemap-categories.xml`);
 });
 
 // ─── Prerender (dynamic rendering for bots) ───────────────────────

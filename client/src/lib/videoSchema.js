@@ -30,7 +30,7 @@ export function generateVideoSchema(video) {
     thumbnailUrl:  [video.thumbnailUrl].filter(Boolean),
     uploadDate:    new Date(video.createdAt).toISOString(),
     duration:      isoDuration(video.duration),
-    contentUrl:    url,
+    contentUrl:    video.mp4FallbackUrl || video.videoUrl || url,
     embedUrl:      embed,
     url,
     publisher: {
@@ -49,6 +49,10 @@ export function generateVideoSchema(video) {
       target:   url,
     },
   };
+
+  if (video.tags?.length > 0) {
+    schema.keywords = video.tags.join(", ");
+  }
 
   if (video.views > 0) {
     schema.interactionStatistic = {

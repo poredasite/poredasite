@@ -11,16 +11,17 @@ import { HiFire, HiClock, HiSparkles } from "react-icons/hi";
 const PAGE_LIMIT = 24;
 const AD_EVERY = 5;
 
-function CategoryBar({ activeCategory, onSelect }) {
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+function CategoryBar({ activeCategory, onSelect, categories: propCategories }) {
+  const [categories, setCategories] = useState(propCategories || []);
+  const [loading, setLoading] = useState(!propCategories);
 
   useEffect(() => {
+    if (propCategories) { setCategories(propCategories); setLoading(false); return; }
     categoryApi.getAll()
       .then((res) => setCategories(res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [propCategories]);
 
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide mb-5 -mx-1 px-1">
@@ -70,8 +71,13 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+  const [allCategories, setAllCategories] = useState([]);
   const pageRef = useRef(1);
   const fetchIdRef = useRef(0);
+
+  useEffect(() => {
+    categoryApi.getAll().then(r => setAllCategories(r.data || [])).catch(() => {});
+  }, []);
 
   const { ref: sentinelRef, inView } = useInView({ rootMargin: "400px", threshold: 0 });
 
@@ -142,19 +148,43 @@ export default function Home() {
     { value: "views",     label: "Popüler", Icon: HiFire  },
   ];
 
+  const activeCatName = activeCategory
+    ? allCategories.find(c => c._id === activeCategory)?.name
+    : null;
+
+  const sortLabel = sort === "views" ? "En Popüler" : sort === "createdAt" ? "Son Yüklenen" : null;
+
+  const seoTitle = activeCatName
+    ? `${activeCatName} Porno${sortLabel ? ` — ${sortLabel}` : ""}`
+    : sortLabel
+      ? `${sortLabel} Porno Videolar`
+      : "Porno izle, Sikiş seyret";
+
+  const seoDescription = activeCatName
+    ? `${activeCatName} kategorisinde HD kalitede porno videoları. Türkiye'nin en iyi porno platformu. Ücretsiz, kayıt gerektirmez.`
+    : "Porno izle Türk ❤️ Porn sex video ☘️ xxxporeda inanılmaz Amatör porna ve sikiş filmleri seyret ⭐ altyazılı Full HD pornosu ⭐ Türkçe dublaj pornolar.";
+
+  const seoUrl = (() => {
+    const params = new URLSearchParams();
+    if (activeCategory) params.set("category", activeCategory);
+    if (sort && sort !== "algo") params.set("sort", sort);
+    const qs = params.toString();
+    return qs ? `/?${qs}` : "/";
+  })();
+
   return (
     <>
       <SEOHead
-        title="Porno izle, Sikiş seyret"
-        description="Porno izle Türk ❤️ Porn sex video ☘️ xxxporeda inanılmaz Amatör porna ve sikiş filmleri seyret ⭐ altyazılı Full HD pornosu ⭐ endişe verici Türkçe dublaj pornolar."
-        url="/"
+        title={seoTitle}
+        description={seoDescription}
+        url={seoUrl}
       />
 
       <div className="max-w-[1600px] mx-auto px-2 sm:px-5 py-4">
 
         <TopBannerAd />
 
-        <CategoryBar activeCategory={activeCategory} onSelect={handleCategorySelect} />
+        <CategoryBar activeCategory={activeCategory} onSelect={handleCategorySelect} categories={allCategories.length ? allCategories : undefined} />
 
         {/* Section header */}
         <div className="flex items-center justify-between mb-4">

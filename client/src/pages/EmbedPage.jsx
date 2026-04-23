@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { videoApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 
@@ -36,6 +37,12 @@ export default function EmbedPage() {
 
   return (
     <div className="w-full bg-black" style={{ minHeight: "100vh" }}>
+      <Helmet>
+        <title>{video.title} — xxxporeda</title>
+        <meta name="description" content={(video.description || video.title || "").slice(0, 160)} />
+        <meta name="robots" content="noindex, follow" />
+        <link rel="canonical" href={`${SITE}/video/${video.slug || video._id}`} />
+      </Helmet>
       <VideoPlayer
         src={video.videoUrl}
         poster={video.thumbnailUrl}
