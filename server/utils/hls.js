@@ -277,7 +277,7 @@ async function uploadThumbnailToStorage(filePath, videoId, mimeType) {
 async function createRawUploadUrl(videoId, contentType) {
   const extMap = {
     "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov",
-    "video/avi": "avi", "video/x-matroska": "mkv",
+    "video/avi": "avi", "video/x-matroska": "mkv", "video/mp2t": "ts",
   };
   const ext = extMap[contentType] || "mp4";
   const key = `raw/${videoId}.${ext}`;

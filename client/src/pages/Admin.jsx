@@ -228,7 +228,8 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
     setVideoDragOver(false);
     if (isActive) return;
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("video/")) onUpdate({ videoFile: file });
+    const isVideo = file && (file.type.startsWith("video/") || file.name.match(/\.(mp4|webm|mov|avi|mkv|ts)$/i));
+    if (isVideo) onUpdate({ videoFile: file });
   }
 
   const isActive = item.status !== "idle";
@@ -298,7 +299,7 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
             <span className={`text-xs truncate ${item.videoFile ? "text-brand-400" : videoDragOver ? "text-brand-400" : "text-gray-600"}`}>
               {item.videoFile ? `${item.videoFile.name} (${(item.videoFile.size / 1024 / 1024).toFixed(1)} MB)` : videoDragOver ? "Bırak!" : "Video seç veya sürükle *"}
             </span>
-            <input ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/avi,video/x-matroska,video/webm"
+            <input ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/avi,video/x-matroska,video/webm,video/mp2t,.ts"
               onChange={e => onUpdate({ videoFile: e.target.files[0] })} className="hidden" />
           </div>
 
