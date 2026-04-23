@@ -161,25 +161,53 @@ function SectionDropdown({ value = [], onChange, disabled }) {
   );
 }
 
-function CategoryMultiSelect({ allCategories, selected, onChange }) {
+function CategoryMultiSelect({ allCategories, selectedSections = [], selected, onChange }) {
+  const generalCats = allCategories.filter(cat => !cat.section);
+  const sectionGroups = selectedSections
+    .map(sec => ({
+      section: sec,
+      label: CATEGORY_SECTIONS.find(s => s.key === sec)?.label || sec,
+      cats: allCategories.filter(cat => cat.section === sec),
+    }))
+    .filter(g => g.cats.length > 0);
+
+  if (generalCats.length === 0 && sectionGroups.length === 0)
+    return <span className="text-xs text-gray-600">Kategori yok — önce oluştur</span>;
+
+  function CatButton({ cat }) {
+    const active = selected.includes(cat._id);
+    return (
+      <button
+        key={cat._id}
+        type="button"
+        onClick={() => onChange(active ? selected.filter(id => id !== cat._id) : [...selected, cat._id])}
+        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+          active ? "bg-brand-500 text-white" : "bg-surface-700 text-gray-400 hover:bg-surface-600"
+        }`}
+      >
+        {cat.name}
+      </button>
+    );
+  }
+
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {allCategories.map(cat => {
-        const active = selected.includes(cat._id);
-        return (
-          <button
-            key={cat._id}
-            type="button"
-            onClick={() => onChange(active ? selected.filter(id => id !== cat._id) : [...selected, cat._id])}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-              active ? "bg-brand-500 text-white" : "bg-surface-700 text-gray-400 hover:bg-surface-600"
-            }`}
-          >
-            {cat.name}
-          </button>
-        );
-      })}
-      {allCategories.length === 0 && <span className="text-xs text-gray-600">Kategori yok — önce oluştur</span>}
+    <div className="space-y-2">
+      {generalCats.length > 0 && (
+        <div>
+          <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Genel</p>
+          <div className="flex flex-wrap gap-1.5">
+            {generalCats.map(cat => <CatButton key={cat._id} cat={cat} />)}
+          </div>
+        </div>
+      )}
+      {sectionGroups.map(group => (
+        <div key={group.section}>
+          <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">🇹🇷 {group.label}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {group.cats.map(cat => <CatButton key={cat._id} cat={cat} />)}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -187,11 +215,20 @@ function CategoryMultiSelect({ allCategories, selected, onChange }) {
 function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
   const thumbRef = useRef(null);
   const videoRef = useRef(null);
+  const [videoDragOver, setVideoDragOver] = useState(false);
 
   function handleThumb(e) {
     const file = e.target.files[0];
     if (!file) return;
     onUpdate({ thumbFile: file, thumbPreview: URL.createObjectURL(file) });
+  }
+
+  function handleVideoDrop(e) {
+    e.preventDefault();
+    setVideoDragOver(false);
+    if (isActive) return;
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("video/")) onUpdate({ videoFile: file });
   }
 
   const isActive = item.status !== "idle";
@@ -248,14 +285,18 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
           {/* Video file picker */}
           <div
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed cursor-pointer transition-all
-              ${item.videoFile ? "border-brand-500/30 bg-brand-500/5" : "border-white/8 hover:border-brand-500/30 bg-surface-700"}`}
+              ${videoDragOver ? "border-brand-500/60 bg-brand-500/10" : item.videoFile ? "border-brand-500/30 bg-brand-500/5" : "border-white/8 hover:border-brand-500/30 bg-surface-700"}`}
             onClick={() => !isActive && videoRef.current?.click()}
+            onDragOver={e => { if (isActive) return; e.preventDefault(); setVideoDragOver(true); }}
+            onDragEnter={e => { if (isActive) return; e.preventDefault(); setVideoDragOver(true); }}
+            onDragLeave={() => setVideoDragOver(false)}
+            onDrop={handleVideoDrop}
           >
             <svg className={`w-4 h-4 flex-shrink-0 ${item.videoFile ? "text-brand-500" : "text-gray-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
-            <span className={`text-xs truncate ${item.videoFile ? "text-brand-400" : "text-gray-600"}`}>
-              {item.videoFile ? `${item.videoFile.name} (${(item.videoFile.size / 1024 / 1024).toFixed(1)} MB)` : "Video seç *"}
+            <span className={`text-xs truncate ${item.videoFile ? "text-brand-400" : videoDragOver ? "text-brand-400" : "text-gray-600"}`}>
+              {item.videoFile ? `${item.videoFile.name} (${(item.videoFile.size / 1024 / 1024).toFixed(1)} MB)` : videoDragOver ? "Bırak!" : "Video seç veya sürükle *"}
             </span>
             <input ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/avi,video/x-matroska,video/webm"
               onChange={e => onUpdate({ videoFile: e.target.files[0] })} className="hidden" />
@@ -271,13 +312,12 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
             />
           </div>
 
-          {/* Categories — filtered by selected sections */}
+          {/* Categories — grouped by section */}
           <div>
             <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Kategoriler</p>
             <CategoryMultiSelect
-              allCategories={allCategories.filter(cat =>
-                !cat.section || (item.specialTags || []).includes(cat.section)
-              )}
+              allCategories={allCategories}
+              selectedSections={item.specialTags || []}
               selected={item.categories}
               onChange={cats => onUpdate({ categories: cats })}
             />
@@ -884,13 +924,12 @@ function VideoEditModal({ video, allCategories, onSave, onClose }) {
               onChange={tags => setForm(p => ({ ...p, specialTags: tags }))}
             />
           </div>
-          {/* Categories — filtered by selected sections */}
+          {/* Categories — grouped by section */}
           <div>
             <p className="text-xs text-gray-500 mb-2">Kategoriler</p>
             <CategoryMultiSelect
-              allCategories={allCategories.filter(cat =>
-                !cat.section || (form.specialTags || []).includes(cat.section)
-              )}
+              allCategories={allCategories}
+              selectedSections={form.specialTags || []}
               selected={form.categories}
               onChange={cats => setForm(p => ({ ...p, categories: cats }))}
             />
