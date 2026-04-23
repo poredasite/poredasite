@@ -36,7 +36,7 @@ router.get("/thumbnails/:filename", (req, res) => {
   const { filename } = req.params;
   if (!/^[\w.-]+$/.test(filename)) return res.status(400).end();
   const ext = filename.split(".").pop().toLowerCase();
-  const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+  const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : ext === "avif" ? "image/avif" : "image/jpeg";
   proxyR2(`thumbnails/${filename}`, mime, req, res);
 });
 

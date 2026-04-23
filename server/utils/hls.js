@@ -268,7 +268,7 @@ function extractThumbnailFrame(inputPath, videoId, timeSeconds) {
 }
 
 async function uploadThumbnailToStorage(filePath, videoId, mimeType) {
-  const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
+  const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : mimeType.includes("avif") ? "avif" : "jpg";
   const key = `thumbnails/${videoId}.${ext}`;
   await streamUpload(key, filePath, mimeType);
   return { url: `${CDN_URL}/${key}`, key };
