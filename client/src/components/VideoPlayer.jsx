@@ -26,7 +26,7 @@ function buildProxyUrl(src, videoId) {
   return src;
 }
 
-export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUrl, onWatchProgress }) {
+export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUrl, subtitleUrl, onWatchProgress }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -40,6 +40,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
   const [hlsError, setHlsError] = useState(false);
   const pendingPlay = useRef(false);
   const [speed, setSpeed] = useState(1);
+  const [showSubtitles, setShowSubtitles] = useState(true);
   const [showSpeedToast, setShowSpeedToast] = useState(false);
   const [seekAnim, setSeekAnim] = useState(null); // { side, seconds }
   const hideTimer = useRef(null);
@@ -271,6 +272,23 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
     }
   }
 
+  // Subtitle track toggling — also handles tracks not yet loaded when effect runs
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !subtitleUrl) return;
+
+    const applyMode = () => {
+      const tracks = video.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        tracks[i].mode = showSubtitles ? "showing" : "hidden";
+      }
+    };
+
+    applyMode();
+    video.textTracks.addEventListener("addtrack", applyMode);
+    return () => video.textTracks.removeEventListener("addtrack", applyMode);
+  }, [showSubtitles, subtitleUrl]);
+
   // Sync fullscreen state with browser events (handles hardware back button etc.)
   useEffect(() => {
     const onChange = () => {
@@ -450,7 +468,18 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
         onDoubleClick={handleVideoDoubleClick}
         aria-label={title}
         playsInline
-      />
+      >
+        {subtitleUrl && (
+          <track
+            key={subtitleUrl}
+            kind="subtitles"
+            src={subtitleUrl}
+            srcLang="tr"
+            label="Türkçe"
+            default={showSubtitles}
+          />
+        )}
+      </video>
 
       {/* HLS error */}
       {hlsError && (
@@ -569,6 +598,14 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
             </span>
 
             <div className="flex-1" />
+
+            {/* Subtitle toggle */}
+            {subtitleUrl && (
+              <button onClick={() => setShowSubtitles(v => !v)} title="Altyazı Aç/Kapat"
+                className={`text-xs font-bold px-1.5 py-0.5 rounded transition-all touch-manipulation ${showSubtitles ? "bg-purple-500 text-white" : "text-white/60 hover:text-white"}`}>
+                TR
+              </button>
+            )}
 
             {/* Speed selector */}
             <div className="hidden sm:flex items-center gap-1">

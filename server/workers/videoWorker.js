@@ -16,6 +16,7 @@ const {
   uploadThumbnailToStorage,
   downloadRawFromStorage, deleteRawFromStorage,
 } = require("../utils/hls");
+const { processWhisperSubtitles } = require("../utils/whisper");
 
 // ── Env config ────────────────────────────────────────────────────────────────
 const CONCURRENCY    = parseInt(process.env.WORKER_CONCURRENCY)    || 1;
@@ -30,7 +31,7 @@ function cleanup(...paths) {
 
 // ── Main processor ────────────────────────────────────────────────────────────
 async function processVideoJob(job) {
-  const { videoId, rawKey } = job.data;
+  const { videoId, rawKey, enableWhisper } = job.data;
   const ext     = path.extname(rawKey) || ".mp4";
   const tmpPath = path.join(os.tmpdir(), `raw-${videoId}-${job.id}${ext}`);
 
@@ -126,7 +127,19 @@ async function processVideoJob(job) {
 
     await job.updateProgress(95);
 
-    // ── PHASE 4: Finalize ─────────────────────────────────────────────────────
+    // ── PHASE 4: Whisper subtitles (optional) ────────────────────────────────
+    let subtitleUrl = null;
+    if (enableWhisper) {
+      try {
+        console.log(`[Worker:${job.id}] Starting Whisper subtitle generation…`);
+        subtitleUrl = await processWhisperSubtitles(tmpPath, videoId);
+        console.log(`[Worker:${job.id}] Subtitles ready → ${subtitleUrl}`);
+      } catch (e) {
+        console.error(`[Worker:${job.id}] Whisper failed (non-fatal):`, e.message);
+      }
+    }
+
+    // ── PHASE 5: Finalize ─────────────────────────────────────────────────────
     cleanup(tmpPath);
     await deleteRawFromStorage(rawKey).catch(() => {});
     sitemap.invalidateCache();
@@ -139,6 +152,7 @@ async function processVideoJob(job) {
       status:       "ready",
       ...(previewUrl     ? { previewVideoUrl: previewUrl }    : {}),
       ...(mp4FallbackUrl ? { mp4FallbackUrl }                  : {}),
+      ...(subtitleUrl    ? { subtitleUrl }                     : {}),
     });
 
     await job.updateProgress(100);

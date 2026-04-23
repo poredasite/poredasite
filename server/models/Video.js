@@ -88,6 +88,14 @@ const videoSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    subtitleUrl: {
+      type: String,
+      default: "",
+    },
+    enableWhisper: {
+      type: Boolean,
+      default: false,
+    },
     codecInfo: {
       videoCodec: { type: String, default: "" },
       audioCodec: { type: String, default: "" },

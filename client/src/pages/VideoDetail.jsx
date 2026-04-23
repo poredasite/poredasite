@@ -305,6 +305,7 @@ export default function VideoDetail() {
                 title={video.title}
                 videoId={video._id}
                 mp4FallbackUrl={video.mp4FallbackUrl || null}
+                subtitleUrl={video.subtitleUrl || null}
                 onWatchProgress={handleWatchProgress}
               />
               {video.status === "uploaded" && (

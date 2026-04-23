@@ -313,7 +313,7 @@ router.post("/upload-init", adminAuth, (req, res) => {
   thumbOnlyUpload(req, res, async (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message });
     try {
-      const { title, description, tags, category, categories: categoriesRaw, videoType } = req.body;
+      const { title, description, tags, category, categories: categoriesRaw, videoType, enableWhisper } = req.body;
       if (!title?.trim()) return res.status(400).json({ success: false, message: "Title is required" });
 
       const thumbFile = req.file;
@@ -347,6 +347,7 @@ router.post("/upload-init", adminAuth, (req, res) => {
         categories: categoriesArr,
         status: "processing",
         rawVideoKey: rawKey,
+        enableWhisper: enableWhisper === "true" || enableWhisper === true,
       });
 
       res.status(201).json({ success: true, data: { videoId: video._id, uploadUrl, video } });
@@ -366,7 +367,7 @@ router.post("/:id/process", adminAuth, async (req, res) => {
 
     const job = await videoQueue.add(
       "encode",
-      { videoId: video._id.toString(), rawKey: video.rawVideoKey },
+      { videoId: video._id.toString(), rawKey: video.rawVideoKey, enableWhisper: !!video.enableWhisper },
       { priority: req.body.priority === "high" ? 1 : 10 }
     );
 

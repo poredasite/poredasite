@@ -78,7 +78,7 @@ const CATEGORY_SECTIONS = [
 ];
 
 function emptyItem() {
-  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", specialTags: [], categories: [], thumbFile: null, thumbPreview: null, videoFile: null, status: "idle", progress: 0, errorMsg: null };
+  return { id: Date.now() + Math.random(), title: "", description: "", tags: "", specialTags: [], categories: [], thumbFile: null, thumbPreview: null, videoFile: null, enableWhisper: false, status: "idle", progress: 0, errorMsg: null };
 }
 
 function SectionDropdown({ value = [], onChange, disabled }) {
@@ -344,6 +344,26 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
             disabled={isActive}
             className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-3 py-2 rounded-lg text-xs outline-none transition-colors disabled:opacity-50"
           />
+
+          {/* Whisper AI toggle */}
+          <label className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors cursor-pointer select-none ${
+            item.enableWhisper ? "border-purple-500/40 bg-purple-500/8" : "border-white/8 bg-surface-700"
+          } ${isActive ? "opacity-50 pointer-events-none" : "hover:border-purple-500/30"}`}>
+            <div
+              onClick={() => !isActive && onUpdate({ enableWhisper: !item.enableWhisper })}
+              className={`relative w-8 h-4.5 rounded-full transition-colors flex-shrink-0 ${item.enableWhisper ? "bg-purple-500" : "bg-surface-600"}`}
+              style={{ minWidth: "2rem", height: "1.125rem" }}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${item.enableWhisper ? "translate-x-3.5" : ""}`} style={{ width:"0.875rem", height:"0.875rem" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-300">Türkçe Altyazı (Whisper AI)</p>
+              <p className="text-[10px] text-gray-600 leading-tight">İngilizce sesi otomatik Türkçeye çevirir — OpenAI API gerektirir</p>
+            </div>
+            {item.enableWhisper && (
+              <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full flex-shrink-0">Aktif</span>
+            )}
+          </label>
         </div>
       </div>
 
@@ -364,7 +384,7 @@ function UploadItemCard({ item, allCategories, onUpdate, onRemove }) {
           {item.status === "processing" && (
             <div className="flex items-center gap-2 text-xs text-brand-400">
               <div className="w-3.5 h-3.5 border-2 border-brand-500/30 border-t-brand-400 rounded-full animate-spin" />
-              HLS dönüştürülüyor...
+              {item.enableWhisper ? "HLS dönüştürülüyor + Whisper altyazı oluşturuluyor..." : "HLS dönüştürülüyor..."}
             </div>
           )}
           {item.status === "done" && (
@@ -431,6 +451,7 @@ function MultiUploadQueue({ onSuccess }) {
       fd.append("categories", JSON.stringify(item.categories || []));
       if (item.thumbFile) fd.append("thumbnail", item.thumbFile);
       fd.append("videoType", item.videoFile.type || "video/mp4");
+      fd.append("enableWhisper", item.enableWhisper ? "true" : "false");
 
       const initRes = await videoApi.initUpload(fd);
       videoId = initRes.data.videoId;
