@@ -41,6 +41,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
   const pendingPlay = useRef(false);
   const [speed, setSpeed] = useState(1);
   const [showSubtitles, setShowSubtitles] = useState(true);
+  const [vttBlobUrl, setVttBlobUrl] = useState(null);
   const [showSpeedToast, setShowSpeedToast] = useState(false);
   const [seekAnim, setSeekAnim] = useState(null); // { side, seconds }
   const hideTimer = useRef(null);
@@ -272,10 +273,24 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
     }
   }
 
+  // Fetch VTT and convert to Blob URL (same-origin → track element loads it without crossOrigin)
+  useEffect(() => {
+    if (!subtitleUrl) return;
+    let blobUrl;
+    fetch(subtitleUrl)
+      .then(r => r.blob())
+      .then(blob => {
+        blobUrl = URL.createObjectURL(blob);
+        setVttBlobUrl(blobUrl);
+      })
+      .catch(() => {});
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [subtitleUrl]);
+
   // Subtitle track toggling
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !subtitleUrl) return;
+    if (!video || !vttBlobUrl) return;
 
     const mode = showSubtitles ? "showing" : "hidden";
 
@@ -288,17 +303,14 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
     applyMode();
     video.textTracks.addEventListener("addtrack", applyMode);
 
-    // Track may already exist but not yet loaded — also listen on the track element
     const trackEl = video.querySelector("track");
-    if (trackEl) {
-      trackEl.addEventListener("load", applyMode);
-    }
+    if (trackEl) trackEl.addEventListener("load", applyMode);
 
     return () => {
       video.textTracks.removeEventListener("addtrack", applyMode);
       if (trackEl) trackEl.removeEventListener("load", applyMode);
     };
-  }, [showSubtitles, subtitleUrl]);
+  }, [showSubtitles, vttBlobUrl]);
 
   // Sync fullscreen state with browser events (handles hardware back button etc.)
   useEffect(() => {
@@ -480,10 +492,10 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
         aria-label={title}
         playsInline
       >
-        {subtitleUrl && (
+        {vttBlobUrl && (
           <track
             kind="subtitles"
-            src={subtitleUrl}
+            src={vttBlobUrl}
             srcLang="tr"
             label="Türkçe"
           />
@@ -606,7 +618,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
             <div className="flex-1" />
 
             {/* Subtitle toggle */}
-            {subtitleUrl && (
+            {vttBlobUrl && (
               <button onClick={() => setShowSubtitles(v => !v)} title="Altyazı Aç/Kapat"
                 className={`text-xs font-bold px-1.5 py-0.5 rounded transition-all touch-manipulation ${showSubtitles ? "bg-purple-500 text-white" : "text-white/60 hover:text-white"}`}>
                 TR
