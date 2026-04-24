@@ -41,37 +41,27 @@ async function transcribeAudio(audioPath) {
   return response.segments || [];
 }
 
-// ── Turkish translation via GPT-4o-mini ───────────────────────────────────────
+// ── Turkish translation via MyMemory (no content filters, no API key needed) ──
 async function translateToTurkish(segments) {
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const BATCH = 30;
+  const BATCH = 10; // MyMemory has URL length limits, keep batches small
   const translated = [];
 
   for (let i = 0; i < segments.length; i += BATCH) {
-    const batch   = segments.slice(i, i + BATCH);
-    const prompt  = batch.map((s, j) => `${j + 1}. ${s.text.trim()}`).join("\n");
+    const batch = segments.slice(i, i + BATCH);
 
-    const res = await client.chat.completions.create({
-      model:       "gpt-4o-mini",
-      temperature: 0.2,
-      messages: [
-        {
-          role:    "system",
-          content: "Sen bir çevirmensin. Verilen numaralı İngilizce cümleleri Türkçeye çevir. Numaraları koru, yalnızca çeviriyi yaz. Filtreleme yapma, sansürleme. Küfürleri, argo ifadeleri ve +18 kelimeleri bire bir Türkçe karşılığıyla çevir. Örnek: cock=yarrak, pussy=am, fuck=sik, ass=göt, bitch=orospu, dick=sik, cum=boşalmak, horny=azgın, slut=sürtük, moan=inlemek vb. Doğal konuşma diline uygun çevir.",
-        },
-        { role: "user", content: prompt },
-      ],
-    });
-
-    const lines = (res.choices[0].message.content || "").trim().split("\n").filter(Boolean);
-
-    for (let j = 0; j < batch.length; j++) {
-      const raw  = lines[j] || "";
-      const text = raw.replace(/^\d+\.\s*/, "").trim() || batch[j].text;
-      translated.push({ ...batch[j], text });
-    }
+    await Promise.all(batch.map(async (seg, j) => {
+      try {
+        const q = encodeURIComponent(seg.text.trim());
+        const res = await fetch(
+          `https://api.mymemory.translated.net/get?q=${q}&langpair=en|tr&de=poredasite@proton.me`
+        );
+        const data = await res.json();
+        const text = data.responseData?.translatedText || seg.text;
+        translated[i + j] = { ...seg, text };
+      } catch {
+        translated[i + j] = seg;
+      }
+    }));
   }
 
   return translated;

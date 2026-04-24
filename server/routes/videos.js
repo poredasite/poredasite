@@ -530,6 +530,7 @@ router.delete("/:id", adminAuth, async (req, res) => {
       video.thumbnailPublicId ? deleteFromStorage(video.thumbnailPublicId) : Promise.resolve(),
       deleteFromStorage(`previews/${video._id}.mp4`),
       deleteFromStorage(`fallback/${video._id}.mp4`),
+      deleteFromStorage(`subtitles/${video._id}.vtt`),
     ]);
     await video.deleteOne();
     res.json({ success: true, message: "Video deleted successfully" });
