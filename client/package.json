@@ -2,9 +2,10 @@
   "name": "videosite-client",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node -e \"require('fs').writeFileSync('dist/_redirects', '/* /index.html 200')\"",
+    "build": "vite build && echo '/* /index.html 200' > dist/_redirects",
     "preview": "vite preview",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives"
   },
