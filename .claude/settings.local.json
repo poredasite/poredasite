@@ -19,7 +19,8 @@
       "Bash(./node_modules/.bin/vite build *)",
       "Bash(node_modules/.bin/eslint src/pages/Home.jsx src/pages/StaticPage.jsx src/pages/EmbedPage.jsx src/lib/videoSchema.js --rule '{\"no-undef\": \"error\"}')",
       "Bash(xargs ls *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(curl -s \"https://xxxporeda.com/sitemap-videos.xml\")"
     ]
   }
 }

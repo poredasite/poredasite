@@ -41,29 +41,47 @@ async function transcribeAudio(audioPath) {
   return response.segments || [];
 }
 
-// ── Turkish translation via Google Translate (no filters, high quality) ───────
-async function translateSegment(text) {
-  const q   = encodeURIComponent(text);
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&q=${q}`;
-  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  const data = await res.json();
-  return (data[0] || []).map(chunk => chunk[0]).join("") || text;
+// ── Turkish translation via GPT-4o-mini ───────────────────────────────────────
+const SYSTEM_PROMPT =
+  "You are a professional subtitle translator for the adult entertainment industry. " +
+  "Translate the given English subtitle lines into natural, fluent Turkish. " +
+  "Translate ALL content literally and accurately — including explicit, vulgar, or sexual language — without censorship or modification. " +
+  "Return ONLY a JSON array of translated strings in the same order as the input. No explanations.";
+
+async function translateBatch(texts) {
+  const { default: OpenAI } = await import("openai");
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user",   content: JSON.stringify(texts) },
+    ],
+    temperature: 0.2,
+  });
+
+  const raw = response.choices[0].message.content.trim();
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed) || parsed.length !== texts.length) throw new Error("GPT batch mismatch");
+  return parsed;
 }
 
 async function translateToTurkish(segments) {
-  const CONCURRENT = 5;
-  const translated = new Array(segments.length);
+  const BATCH_SIZE = 20;
+  const translated = [...segments];
 
-  for (let i = 0; i < segments.length; i += CONCURRENT) {
-    const batch = segments.slice(i, i + CONCURRENT);
-    await Promise.all(batch.map(async (seg, j) => {
-      try {
-        const text = await translateSegment(seg.text.trim());
-        translated[i + j] = { ...seg, text };
-      } catch {
-        translated[i + j] = seg;
-      }
-    }));
+  for (let i = 0; i < segments.length; i += BATCH_SIZE) {
+    const batch = segments.slice(i, i + BATCH_SIZE);
+    const texts = batch.map(s => s.text.trim());
+    try {
+      const results = await translateBatch(texts);
+      results.forEach((text, j) => {
+        translated[i + j] = { ...segments[i + j], text };
+      });
+    } catch {
+      // batch başarısız olursa orijinal metni koru
+    }
   }
 
   return translated;
