@@ -19,20 +19,23 @@ export function generateVideoSchema(video) {
 
   const url   = `${SITE_URL}/video/${video._id}`;
   const embed = `${SITE_URL}/embed/${video._id}`;
+  const tags = video.tags?.length ? video.tags.slice(0, 5).join(", ") : "";
   const desc  = stripHtml(video.description || "").slice(0, 200)
-              || `${video.title} — ${SITE_NAME}'de izle`;
+              || `${video.title}${tags ? ` — ${tags}` : ""} — ${SITE_NAME}'de ücretsiz izle`;
 
   const schema = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
-    name:          video.title || "",
-    description:   desc,
-    thumbnailUrl:  [video.thumbnailUrl].filter(Boolean),
-    uploadDate:    new Date(video.createdAt).toISOString(),
-    duration:      isoDuration(video.duration),
-    contentUrl:    video.mp4FallbackUrl || video.videoUrl || url,
-    embedUrl:      embed,
+    name:             video.title || "",
+    description:      desc,
+    thumbnailUrl:     [video.thumbnailUrl].filter(Boolean),
+    uploadDate:       new Date(video.createdAt).toISOString(),
+    duration:         isoDuration(video.duration),
+    contentUrl:       video.mp4FallbackUrl || url,
+    embedUrl:         embed,
     url,
+    isFamilyFriendly: false,
+    regionsAllowed:   "TR",
     publisher: {
       "@type": "Organization",
       name:   SITE_NAME,

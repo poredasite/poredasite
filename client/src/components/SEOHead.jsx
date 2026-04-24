@@ -76,8 +76,10 @@ export default function SEOHead({
       {image && <meta name="twitter:image" content={image} />}
 
       {/* Video OG */}
-      {videoUrl && <meta property="og:video"      content={videoUrl} />}
-      {videoUrl && <meta property="og:video:type" content="video/mp4" />}
+      {videoUrl && <meta property="og:video"        content={videoUrl} />}
+      {videoUrl && <meta property="og:video:type"   content="video/mp4" />}
+      {videoUrl && <meta property="og:video:width"  content="1280" />}
+      {videoUrl && <meta property="og:video:height" content="720" />}
 
       {/* VideoObject JSON-LD */}
       {videoObject ? (

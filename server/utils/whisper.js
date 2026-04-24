@@ -41,22 +41,24 @@ async function transcribeAudio(audioPath) {
   return response.segments || [];
 }
 
-// ── Turkish translation via MyMemory (no content filters, no API key needed) ──
+// ── Turkish translation via Google Translate (no filters, high quality) ───────
+async function translateSegment(text) {
+  const q   = encodeURIComponent(text);
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&q=${q}`;
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+  const data = await res.json();
+  return (data[0] || []).map(chunk => chunk[0]).join("") || text;
+}
+
 async function translateToTurkish(segments) {
-  const BATCH = 10; // MyMemory has URL length limits, keep batches small
-  const translated = [];
+  const CONCURRENT = 5;
+  const translated = new Array(segments.length);
 
-  for (let i = 0; i < segments.length; i += BATCH) {
-    const batch = segments.slice(i, i + BATCH);
-
+  for (let i = 0; i < segments.length; i += CONCURRENT) {
+    const batch = segments.slice(i, i + CONCURRENT);
     await Promise.all(batch.map(async (seg, j) => {
       try {
-        const q = encodeURIComponent(seg.text.trim());
-        const res = await fetch(
-          `https://api.mymemory.translated.net/get?q=${q}&langpair=en|tr&de=poredasite@proton.me`
-        );
-        const data = await res.json();
-        const text = data.responseData?.translatedText || seg.text;
+        const text = await translateSegment(seg.text.trim());
         translated[i + j] = { ...seg, text };
       } catch {
         translated[i + j] = seg;
@@ -68,11 +70,15 @@ async function translateToTurkish(segments) {
 }
 
 // ── WebVTT builder ────────────────────────────────────────────────────────────
+// SUBTITLE_OFFSET: positive = geciktir (önde gidiyorsa artır), negatif = öne al
+const SUBTITLE_OFFSET = parseFloat(process.env.SUBTITLE_OFFSET || "0.3");
+
 function toVttTime(sec) {
-  const h   = Math.floor(sec / 3600);
-  const m   = Math.floor((sec % 3600) / 60);
-  const s   = Math.floor(sec % 60);
-  const ms  = Math.round((sec - Math.floor(sec)) * 1000);
+  const clamped = Math.max(0, sec);
+  const h   = Math.floor(clamped / 3600);
+  const m   = Math.floor((clamped % 3600) / 60);
+  const s   = Math.floor(clamped % 60);
+  const ms  = Math.round((clamped - Math.floor(clamped)) * 1000);
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(ms).padStart(3,"0")}`;
 }
 
@@ -80,10 +86,15 @@ function buildVtt(segments) {
   const lines = ["WEBVTT", ""];
   let cue = 1;
   for (const seg of segments) {
-    if (!seg.text?.trim()) continue;
+    const text = seg.text?.trim();
+    if (!text) continue;
+    // Çok kısa segmentleri atla (gürültü/nefes sesleri)
+    if ((seg.end - seg.start) < 0.3) continue;
+    const start = seg.start + SUBTITLE_OFFSET;
+    const end   = seg.end   + SUBTITLE_OFFSET;
     lines.push(String(cue++));
-    lines.push(`${toVttTime(seg.start)} --> ${toVttTime(seg.end)}`);
-    lines.push(seg.text.trim());
+    lines.push(`${toVttTime(start)} --> ${toVttTime(end)}`);
+    lines.push(text);
     lines.push("");
   }
   return lines.join("\n");

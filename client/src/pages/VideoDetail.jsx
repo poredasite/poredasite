@@ -266,10 +266,14 @@ export default function VideoDetail() {
     <>
       <SEOHead
         title={video.title}
-        description={video.description?.slice(0, 160) || `"${video.title}" izle`}
+        description={
+          video.description?.slice(0, 160) ||
+          `${video.title}${tags.length ? ` — ${tags.slice(0,3).join(", ")}` : ""} videosu xxxporeda'da ücretsiz izle.`
+        }
         image={video.thumbnailUrl}
         url={`/video/${video.slug || video._id}`}
         type="video.other"
+        videoUrl={video.mp4FallbackUrl || null}
         videoObject={video}
       />
 
