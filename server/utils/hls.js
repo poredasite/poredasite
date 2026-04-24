@@ -8,7 +8,7 @@ if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Per-process thread cap — keeps multiple concurrent jobs from fighting over cores.
 // With WORKER_CONCURRENCY=2 + PARALLEL_ENCODE=true: 2 threads × 4 FFmpeg procs = 8 vCPU saturated.
-const FFMPEG_THREADS = parseInt(process.env.FFMPEG_THREADS) || 2;
+const FFMPEG_THREADS = parseInt(process.env.FFMPEG_THREADS) || 6;
 const fs      = require("fs");
 const os      = require("os");
 const { pipeline } = require("stream/promises");
@@ -80,7 +80,7 @@ function convertToHLS(inputPath, videoId) {
     ? ["-quality speed", "-qp_i 22", "-qp_p 22", "-profile:v main", "-level 4.1"]
     : gpu === "qsv"
     ? ["-global_quality 22", "-preset veryfast", "-profile:v main", "-level 4.1"]
-    : ["-crf 22", "-preset veryfast", "-profile:v main", "-level 4.1"];
+    : ["-crf 22", "-preset fast", "-profile:v main", "-level 4.1"];
 
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
@@ -109,7 +109,7 @@ function convertToHLS(inputPath, videoId) {
 // ── Parallel HLS upload — the single biggest perf win over the old sequential for-loop ──
 // Uploads up to BATCH_SIZE segments concurrently; drains disk as segments appear.
 
-async function uploadHLSParallel(outputDir, videoId, batchSize = 16) {
+async function uploadHLSParallel(outputDir, videoId, batchSize = 32) {
   const files = fs.readdirSync(outputDir);
 
   // Process in batches to avoid hitting R2 rate limits or OOM on huge segment lists

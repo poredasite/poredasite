@@ -399,7 +399,7 @@ export default function VideoDetail() {
               <h2 className="text-xs font-semibold text-neutral-600 uppercase tracking-widest mb-4">
                 Benzer Videolar
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
                 {related.reduce((acc, v, i) => {
                   acc.push(<VideoCard key={v._id} video={v} />);
                   if ((i + 1) % 5 === 0 && i < related.length - 1) acc.push(<InFeedAd key={`ad-${i}`} />);

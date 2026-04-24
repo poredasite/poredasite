@@ -207,10 +207,10 @@ router.get("/sitemap", async (req, res) => {
 router.get("/sidebar", async (req, res) => {
   try {
     const [trending, recent] = await Promise.all([
-      Video.find({ status: { $in: ["ready", "uploaded"] } }).sort({ views: -1 }).limit(8)
-        .select("_id title thumbnailUrl views duration createdAt slug").lean(),
-      Video.find({ status: { $in: ["ready", "uploaded"] } }).sort({ createdAt: -1 }).limit(8)
-        .select("_id title thumbnailUrl views duration createdAt slug").lean(),
+      Video.find({ status: { $in: ["ready", "uploaded"] } }).sort({ views: -1 }).limit(20)
+        .select("_id title thumbnailUrl views duration createdAt slug previewVideoUrl").lean(),
+      Video.find({ status: { $in: ["ready", "uploaded"] } }).sort({ createdAt: -1 }).limit(20)
+        .select("_id title thumbnailUrl views duration createdAt slug previewVideoUrl").lean(),
     ]);
     res.json({ success: true, data: { trending: trending.map(addDisplayViews), recent: recent.map(addDisplayViews) } });
   } catch (err) {
