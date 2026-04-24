@@ -183,6 +183,7 @@ function applyR2Cors() {
         AllowedOrigins: ["*"],
         AllowedMethods: ["GET", "HEAD", "PUT"],
         AllowedHeaders: ["*"],
+        ExposeHeaders: ["Content-Type", "Content-Length", "ETag"],
         MaxAgeSeconds: 86400,
       }],
     },

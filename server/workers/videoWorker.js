@@ -19,8 +19,8 @@ const {
 const { processWhisperSubtitles } = require("../utils/whisper");
 
 // ── Env config ────────────────────────────────────────────────────────────────
-const CONCURRENCY    = parseInt(process.env.WORKER_CONCURRENCY)    || 1;
-const PARALLEL_ENCODE = process.env.PARALLEL_ENCODE === "true";     // default off (safe for 1-2 vCPU)
+const CONCURRENCY     = parseInt(process.env.WORKER_CONCURRENCY) || 2;
+const PARALLEL_ENCODE = process.env.PARALLEL_ENCODE !== "false";    // default ON for 8 vCPU hobby plan
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function cleanup(...paths) {

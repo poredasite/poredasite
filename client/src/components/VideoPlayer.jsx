@@ -272,21 +272,32 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
     }
   }
 
-  // Subtitle track toggling — also handles tracks not yet loaded when effect runs
+  // Subtitle track toggling
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !subtitleUrl) return;
 
+    const mode = showSubtitles ? "showing" : "hidden";
+
     const applyMode = () => {
-      const tracks = video.textTracks;
-      for (let i = 0; i < tracks.length; i++) {
-        tracks[i].mode = showSubtitles ? "showing" : "hidden";
+      for (let i = 0; i < video.textTracks.length; i++) {
+        video.textTracks[i].mode = mode;
       }
     };
 
     applyMode();
     video.textTracks.addEventListener("addtrack", applyMode);
-    return () => video.textTracks.removeEventListener("addtrack", applyMode);
+
+    // Track may already exist but not yet loaded — also listen on the track element
+    const trackEl = video.querySelector("track");
+    if (trackEl) {
+      trackEl.addEventListener("load", applyMode);
+    }
+
+    return () => {
+      video.textTracks.removeEventListener("addtrack", applyMode);
+      if (trackEl) trackEl.removeEventListener("load", applyMode);
+    };
   }, [showSubtitles, subtitleUrl]);
 
   // Sync fullscreen state with browser events (handles hardware back button etc.)
@@ -412,6 +423,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
         ref={videoRef}
         poster={poster}
         className="w-full h-full object-contain"
+        crossOrigin="anonymous"
         preload="metadata"
         onTimeUpdate={() => setCurrent(videoRef.current?.currentTime || 0)}
         onDurationChange={() => setDuration(videoRef.current?.duration || 0)}
@@ -471,12 +483,10 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
       >
         {subtitleUrl && (
           <track
-            key={subtitleUrl}
             kind="subtitles"
             src={subtitleUrl}
             srcLang="tr"
             label="Türkçe"
-            default={showSubtitles}
           />
         )}
       </video>
@@ -590,11 +600,8 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
               }
             </button>
 
-            <span className="text-white/70 text-xs font-mono ml-1 hidden sm:block">
+            <span className="text-white/70 text-xs font-mono ml-1">
               {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
-            <span className="text-white/70 text-xs font-mono ml-1 sm:hidden">
-              {formatTime(currentTime)}
             </span>
 
             <div className="flex-1" />

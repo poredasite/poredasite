@@ -5,6 +5,10 @@ const path        = require("path");
 
 // Use bundled binary when system FFmpeg is not on PATH (Railway, Docker, etc.)
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+
+// Per-process thread cap — keeps multiple concurrent jobs from fighting over cores.
+// With WORKER_CONCURRENCY=2 + PARALLEL_ENCODE=true: 2 threads × 4 FFmpeg procs = 8 vCPU saturated.
+const FFMPEG_THREADS = parseInt(process.env.FFMPEG_THREADS) || 2;
 const fs      = require("fs");
 const os      = require("os");
 const { pipeline } = require("stream/promises");
@@ -83,9 +87,9 @@ function convertToHLS(inputPath, videoId) {
       .outputOptions([
         `-c:v ${videoCodec}`,
         ...qualityOpts,
-        "-vf scale=-2:'min(ih,720)'",  // cap at 720p — halves frame buffer RAM
+        "-vf scale=-2:'min(ih,720)'",
         "-pix_fmt yuv420p",
-        "-threads 1",                  // single-threaded → ~50% less RAM, Railway-safe
+        `-threads ${FFMPEG_THREADS}`,
         "-force_key_frames expr:gte(t,n_forced*6)",
         "-sc_threshold 0",
         "-c:a aac", "-b:a 128k", "-ar 48000", "-ac 2",
@@ -105,7 +109,7 @@ function convertToHLS(inputPath, videoId) {
 // ── Parallel HLS upload — the single biggest perf win over the old sequential for-loop ──
 // Uploads up to BATCH_SIZE segments concurrently; drains disk as segments appear.
 
-async function uploadHLSParallel(outputDir, videoId, batchSize = 8) {
+async function uploadHLSParallel(outputDir, videoId, batchSize = 16) {
   const files = fs.readdirSync(outputDir);
 
   // Process in batches to avoid hitting R2 rate limits or OOM on huge segment lists
@@ -144,9 +148,9 @@ function encodeClip(inputPath, outPath, seekTime, clipDur = 2) {
       .outputOptions([
         "-c:v libx264", "-profile:v main", "-level 4.1",
         "-crf 28", "-preset ultrafast",
-        "-vf scale=640:-2,setpts=PTS-STARTPTS",  // reset pts so concat timestamps are continuous
+        "-vf scale=640:-2,setpts=PTS-STARTPTS",
         "-pix_fmt yuv420p",
-        "-threads 1", "-an",
+        `-threads ${FFMPEG_THREADS}`, "-an",
         "-reset_timestamps 1",
       ])
       .output(outPath)
@@ -196,13 +200,9 @@ async function generatePreviewClip(inputPath, videoId, duration) {
     return outPath;
   }
 
-  const clipPaths = [];
+  const clipPaths = points.map((_, i) => path.join(os.tmpdir(), `clip-${videoId}-${i}.mp4`));
   try {
-    for (let i = 0; i < points.length; i++) {
-      const clipPath = path.join(os.tmpdir(), `clip-${videoId}-${i}.mp4`);
-      await encodeClip(inputPath, clipPath, points[i], CLIP_DUR);
-      clipPaths.push(clipPath);
-    }
+    await Promise.all(points.map((t, i) => encodeClip(inputPath, clipPaths[i], t, CLIP_DUR)));
     await concatClips(clipPaths, outPath);
   } finally {
     for (const p of clipPaths) try { fs.unlinkSync(p); } catch {}
@@ -226,7 +226,7 @@ function generateMp4Fallback(inputPath, videoId) {
         "-preset veryfast",
         "-vf scale=-2:'min(ih,720)'",
         "-pix_fmt yuv420p",
-        "-threads 1",
+        `-threads ${FFMPEG_THREADS}`,
         "-c:a aac", "-b:a 128k",
         "-movflags +faststart",
       ])
