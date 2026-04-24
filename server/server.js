@@ -76,6 +76,20 @@ app.use("/api/settings", settingsRouter);
 app.use("/api/stream", streamRouter);
 app.use("/api/comments", commentsRouter);
 
+// ─── Subtitle proxy — serves VTT from R2 via same origin (no crossOrigin needed) ───
+const { GetObjectCommand } = require("@aws-sdk/client-s3");
+app.get("/api/subtitle/:videoId", async (req, res) => {
+  try {
+    const key = `subtitles/${req.params.videoId}.vtt`;
+    const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    res.setHeader("Content-Type", "text/vtt; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    obj.Body.pipe(res);
+  } catch {
+    res.status(404).end();
+  }
+});
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({

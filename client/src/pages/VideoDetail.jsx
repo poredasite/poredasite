@@ -305,7 +305,7 @@ export default function VideoDetail() {
                 title={video.title}
                 videoId={video._id}
                 mp4FallbackUrl={video.mp4FallbackUrl || null}
-                subtitleUrl={video.subtitleUrl || null}
+                subtitleUrl={video.subtitleUrl ? `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "")}/api/subtitle/${video._id}` : null}
                 onWatchProgress={handleWatchProgress}
               />
               {video.status === "uploaded" && (

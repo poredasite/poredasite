@@ -423,7 +423,6 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
         ref={videoRef}
         poster={poster}
         className="w-full h-full object-contain"
-        crossOrigin="anonymous"
         preload="metadata"
         onTimeUpdate={() => setCurrent(videoRef.current?.currentTime || 0)}
         onDurationChange={() => setDuration(videoRef.current?.duration || 0)}
