@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { videoApi, categoryApi } from "../api";
 import VideoCard from "../components/VideoCard";
@@ -11,7 +11,8 @@ import { HiFire, HiClock, HiSparkles } from "react-icons/hi";
 const PAGE_LIMIT = 24;
 const AD_EVERY = 5;
 
-function CategoryBar({ activeCategory, onSelect, categories: propCategories }) {
+function CategoryBar({ categories: propCategories }) {
+  const navigate = useNavigate();
   const [categories, setCategories] = useState(propCategories || []);
   const [loading, setLoading] = useState(!propCategories);
 
@@ -25,36 +26,28 @@ function CategoryBar({ activeCategory, onSelect, categories: propCategories }) {
 
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide mb-5 -mx-1 px-1">
-      <button
-        onClick={() => onSelect(null)}
-        className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 whitespace-nowrap touch-manipulation ${
-          !activeCategory
-            ? "bg-brand-500 text-white"
-            : "bg-white/5 text-neutral-500 hover:text-white hover:bg-white/8"
-        }`}
+      <Link
+        to="/"
+        className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 whitespace-nowrap touch-manipulation bg-brand-500 text-white"
       >
         Tümü
-      </button>
+      </Link>
 
       {loading && Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="skeleton h-7 w-20 rounded-full flex-shrink-0" />
       ))}
 
       {categories.map((cat) => (
-        <button
+        <Link
           key={cat._id}
-          onClick={() => onSelect(cat._id)}
-          className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 whitespace-nowrap touch-manipulation ${
-            activeCategory === cat._id
-              ? "bg-brand-500 text-white"
-              : "bg-white/5 text-neutral-500 hover:text-white hover:bg-white/8"
-          }`}
+          to={`/kategori/${cat.slug || cat._id}`}
+          className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 whitespace-nowrap touch-manipulation bg-white/5 text-neutral-500 hover:text-white hover:bg-white/8"
         >
           {cat.name}
           {cat.videoCount > 0 && (
             <span className="ml-1 opacity-40 font-normal">{cat.videoCount}</span>
           )}
-        </button>
+        </Link>
       ))}
     </div>
   );
@@ -62,22 +55,32 @@ function CategoryBar({ activeCategory, onSelect, categories: propCategories }) {
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const sort = searchParams.get("sort") || "algo";
-  const activeCategory = searchParams.get("category") || null;
 
-  const [videos, setVideos] = useState([]);
-  const [total, setTotal] = useState(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [videos,      setVideos]      = useState([]);
+  const [total,       setTotal]       = useState(null);
+  const [hasMore,     setHasMore]     = useState(true);
+  const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState(null);
+  const [error,       setError]       = useState(null);
   const [allCategories, setAllCategories] = useState([]);
-  const pageRef = useRef(1);
+  const pageRef    = useRef(1);
   const fetchIdRef = useRef(0);
 
   useEffect(() => {
     categoryApi.getAll().then(r => setAllCategories(r.data || [])).catch(() => {});
   }, []);
+
+  // Redirect legacy /?category=id URLs to /kategori/slug
+  useEffect(() => {
+    const legacyCatId = searchParams.get("category");
+    if (!legacyCatId || allCategories.length === 0) return;
+    const cat = allCategories.find(c => c._id === legacyCatId);
+    if (cat?.slug) {
+      navigate(`/kategori/${cat.slug}`, { replace: true });
+    }
+  }, [searchParams, allCategories]);
 
   const { ref: sentinelRef, inView } = useInView({ rootMargin: "400px", threshold: 0 });
 
@@ -88,7 +91,6 @@ export default function Home() {
 
     try {
       const params = { page, limit: PAGE_LIMIT, sort };
-      if (activeCategory) params.category = activeCategory;
       const res = await videoApi.getAll(params);
       if (id !== fetchIdRef.current) return;
 
@@ -104,7 +106,7 @@ export default function Home() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [sort, activeCategory]);
+  }, [sort]);
 
   useEffect(() => {
     pageRef.current = 1;
@@ -112,7 +114,7 @@ export default function Home() {
     setHasMore(true);
     fetchVideos(1, false);
     window.scrollTo({ top: 0, behavior: "instant" });
-  }, [sort, activeCategory]);
+  }, [sort]);
 
   useEffect(() => {
     if (inView && hasMore && !loading && !loadingMore) {
@@ -120,15 +122,9 @@ export default function Home() {
     }
   }, [inView]);
 
-  function handleCategorySelect(catId) {
-    const next = new URLSearchParams(searchParams);
-    if (catId) next.set("category", catId);
-    else next.delete("category");
-    setSearchParams(next, { replace: true });
-  }
-
   function handleSortChange(value) {
     const next = new URLSearchParams(searchParams);
+    next.delete("category");
     if (value && value !== "algo") next.set("sort", value);
     else next.delete("sort");
     setSearchParams(next, { replace: true });
@@ -148,29 +144,15 @@ export default function Home() {
     { value: "views",     label: "Popüler", Icon: HiFire  },
   ];
 
-  const activeCatName = activeCategory
-    ? allCategories.find(c => c._id === activeCategory)?.name
-    : null;
-
   const sortLabel = sort === "views" ? "En Popüler" : sort === "createdAt" ? "Son Yüklenen" : null;
 
-  const seoTitle = activeCatName
-    ? `${activeCatName} Porno${sortLabel ? ` — ${sortLabel}` : ""}`
-    : sortLabel
-      ? `${sortLabel} Porno Videolar`
-      : "Porno izle, Sikiş seyret";
+  const seoTitle = sortLabel
+    ? `${sortLabel} Porno Videolar`
+    : "Porno izle, Sikiş seyret";
 
-  const seoDescription = activeCatName
-    ? `${activeCatName} kategorisinde HD kalitede porno videoları. Türkiye'nin en iyi porno platformu. Ücretsiz, kayıt gerektirmez.`
-    : "Porno izle Türk ❤️ Porn sex video ☘️ xxxporeda inanılmaz Amatör porna ve sikiş filmleri seyret ⭐ altyazılı Full HD pornosu ⭐ Türkçe dublaj pornolar.";
+  const seoDescription = "Porno izle Türk ❤️ Porn sex video ☘️ xxxporeda inanılmaz Amatör porna ve sikiş filmleri seyret ⭐ altyazılı Full HD pornosu ⭐ Türkçe dublaj pornolar.";
 
-  const seoUrl = (() => {
-    const params = new URLSearchParams();
-    if (activeCategory) params.set("category", activeCategory);
-    if (sort && sort !== "algo") params.set("sort", sort);
-    const qs = params.toString();
-    return qs ? `/?${qs}` : "/";
-  })();
+  const seoUrl = sort && sort !== "algo" ? `/?sort=${sort}` : "/";
 
   return (
     <>
@@ -184,13 +166,17 @@ export default function Home() {
 
         <TopBannerAd />
 
-        <CategoryBar activeCategory={activeCategory} onSelect={handleCategorySelect} categories={allCategories.length ? allCategories : undefined} />
+        <CategoryBar categories={allCategories.length ? allCategories : undefined} />
 
         {/* Section header */}
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
-              {sort === "views" ? "En Popüler" : sort === "algo" ? "Keşfet" : "Son Yüklenenler"}
+              {sort === "views"
+                ? "En Popüler Türk Porno Videoları"
+                : sort === "createdAt"
+                  ? "Son Yüklenen Porno Videoları"
+                  : "Türkçe Porno İzle — HD Sikiş Videoları"}
             </h1>
             {total != null && (
               <p className="text-neutral-700 text-xs mt-0.5">

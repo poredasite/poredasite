@@ -4,6 +4,17 @@ const Category = require("../models/Category");
 const Video = require("../models/Video");
 const { adminAuth } = require("../middleware/auth");
 
+// GET /categories/by-slug/:slug — single category by slug
+router.get("/by-slug/:slug", async (req, res) => {
+  try {
+    const category = await Category.findOne({ slug: req.params.slug }).lean();
+    if (!category) return res.status(404).json({ success: false, message: "Kategori bulunamadı" });
+    res.json({ success: true, data: category });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 // GET /categories — list all with video counts (single aggregation, no N+1)
 router.get("/", async (req, res) => {
   try {

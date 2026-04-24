@@ -140,14 +140,16 @@ async function getCategorySitemap() {
 
   const home = `  <url>\n    <loc>${BASE}/</loc>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>`;
 
-  const entries = cats.map((c) => [
-    `  <url>`,
-    `    <loc>${BASE}/?category=${c._id}</loc>`,
-    `    <lastmod>${isoDate(c.updatedAt)}</lastmod>`,
-    `    <changefreq>daily</changefreq>`,
-    `    <priority>0.7</priority>`,
-    `  </url>`,
-  ].join("\n"));
+  const entries = cats
+    .filter((c) => c.slug)
+    .map((c) => [
+      `  <url>`,
+      `    <loc>${BASE}/kategori/${esc(c.slug)}</loc>`,
+      `    <lastmod>${isoDate(c.updatedAt)}</lastmod>`,
+      `    <changefreq>daily</changefreq>`,
+      `    <priority>0.8</priority>`,
+      `  </url>`,
+    ].join("\n"));
 
   return put("categories",
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
@@ -159,17 +161,31 @@ async function getCategorySitemap() {
 // ── Invalidate all (call on video add/process) ────────────────────────────────
 function invalidateCache() { cache.clear(); }
 
-// ── Scheduled warm-up every 2 hours (no extra packages needed) ───────────────
+async function buildAll() {
+  await Promise.allSettled([
+    getSitemapIndex(),
+    getVideoSitemap(1),
+    getTagSitemap(),
+    getCategorySitemap(),
+  ]);
+}
+
+// ── Initial warm-up on server start ──────────────────────────────────────────
+async function warmup() {
+  try {
+    await buildAll();
+    console.log("[Sitemap] Initial cache built");
+  } catch (e) {
+    console.error("[Sitemap] Warmup error:", e.message);
+  }
+}
+
+// ── Scheduled warm-up every 2 hours ──────────────────────────────────────────
 function startScheduler() {
   setInterval(async () => {
     cache.clear();
     try {
-      await Promise.allSettled([
-        getSitemapIndex(),
-        getVideoSitemap(1),
-        getTagSitemap(),
-        getCategorySitemap(),
-      ]);
+      await buildAll();
       console.log("[Sitemap] Cache refreshed");
     } catch (e) {
       console.error("[Sitemap] Refresh error:", e.message);
@@ -183,5 +199,6 @@ module.exports = {
   getCategorySitemap,
   getTagSitemap,
   invalidateCache,
+  warmup,
   startScheduler,
 };

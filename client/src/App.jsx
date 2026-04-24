@@ -9,12 +9,13 @@ import { StickyBannerAd, PopunderAd, InstantMessageAd, SidebarAd } from "./compo
 import StaticPage from "./pages/StaticPage";
 import NotFound from "./pages/NotFound";
 
-const Home        = lazy(() => import("./pages/Home"));
-const VideoDetail = lazy(() => import("./pages/VideoDetail"));
-const Admin       = lazy(() => import("./pages/Admin"));
-const TagPage     = lazy(() => import("./pages/TagPage"));
-const Search      = lazy(() => import("./pages/Search"));
-const EmbedPage   = lazy(() => import("./pages/EmbedPage"));
+const Home         = lazy(() => import("./pages/Home"));
+const VideoDetail  = lazy(() => import("./pages/VideoDetail"));
+const Admin        = lazy(() => import("./pages/Admin"));
+const TagPage      = lazy(() => import("./pages/TagPage"));
+const CategoryPage = lazy(() => import("./pages/CategoryPage"));
+const Search       = lazy(() => import("./pages/Search"));
+const EmbedPage    = lazy(() => import("./pages/EmbedPage"));
 
 function PageLoader() {
   return (
@@ -59,7 +60,8 @@ export default function App() {
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/video/:slug" element={<VideoDetail />} />
-                      <Route path="/tag/:tag"  element={<TagPage />} />
+                      <Route path="/tag/:tag"      element={<TagPage />} />
+                      <Route path="/kategori/:slug" element={<CategoryPage />} />
                       <Route path="/search"   element={<Search />} />
                       <Route path="/embed/:id" element={<EmbedPage />} />
                       <Route path="/admin-baba" element={<Admin />} />

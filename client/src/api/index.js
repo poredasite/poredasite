@@ -79,10 +79,11 @@ export const commentApi = {
 // ─── Category API ─────────────────────────────────────────────────
 
 export const categoryApi = {
-  getAll: () => api.get("/categories"),
-  create: (data) => api.post("/categories", data),
-  update: (id, data) => api.patch("/categories/" + id, data),
-  delete: (id) => api.delete("/categories/" + id),
+  getAll:      () => api.get("/categories"),
+  getBySlug:   (slug) => api.get(`/categories/by-slug/${slug}`),
+  create:      (data) => api.post("/categories", data),
+  update:      (id, data) => api.patch("/categories/" + id, data),
+  delete:      (id) => api.delete("/categories/" + id),
 };
 
 // ─── Ads / Settings API ───────────────────────────────────────────

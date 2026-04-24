@@ -232,7 +232,7 @@ async function renderHome() {
   const videoLinks = videos.map(v =>
     `<li><a href="${BASE}/video/${v._id}">${esc(v.title)}</a></li>`).join("\n");
   const catLinks   = categories.map(c =>
-    `<li><a href="${BASE}/?category=${c._id}">${esc(c.name)}</a></li>`).join("\n");
+    `<li><a href="${BASE}/kategori/${esc(c.slug || c._id)}">${esc(c.name)}</a></li>`).join("\n");
 
   const body = `<h1>${SITE_NAME}</h1>
 <h2>Kategoriler</h2>
@@ -243,4 +243,50 @@ async function renderHome() {
   return page(head, body);
 }
 
-module.exports = { isBot, renderVideo, renderTag, renderHome };
+// ── /kategori/:slug ───────────────────────────────────────────────────────────
+async function renderCategory(slug) {
+  const category = await Category.findOne({ slug }).lean();
+  if (!category) return null;
+
+  const catId  = category._id;
+  const videos = await Video.find({
+    status: "ready",
+    $or: [{ category: catId }, { categories: catId }],
+  })
+    .sort({ views: -1 })
+    .limit(20)
+    .select("_id slug title")
+    .lean();
+
+  const url       = `${BASE}/kategori/${esc(slug)}`;
+  const name      = esc(category.name);
+  const fullTitle = `${name} Porno Videoları — ${SITE_NAME}`;
+  const desc      = esc(
+    category.description ||
+    `${category.name} kategorisindeki en iyi HD porno videoları ${SITE_NAME}'de. Ücretsiz ve kayıt gerektirmez.`
+  );
+
+  const head = `<title>${fullTitle}</title>
+<meta name="description" content="${desc}">
+<link rel="canonical" href="${url}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${fullTitle}">
+<meta property="og:description" content="${desc}">
+<meta property="og:url" content="${url}">
+<meta property="og:site_name" content="${SITE_NAME}">
+<script type="application/ld+json">${breadcrumbSchema([
+  { name: SITE_NAME,              url: BASE },
+  { name: `${category.name} Porno`, url },
+])}</script>`;
+
+  const videoLinks = videos.map((v, i) =>
+    `<li><a href="${BASE}/video/${v.slug || v._id}">${esc(v.title)}</a></li>`).join("\n");
+
+  const body = `<h1>${fullTitle}</h1>
+${videoLinks ? `<ul>${videoLinks}</ul>` : "<p>Video bulunamadı.</p>"}
+<p><a href="${BASE}">← Ana Sayfa</a></p>`;
+
+  return page(head, body);
+}
+
+module.exports = { isBot, renderVideo, renderTag, renderHome, renderCategory };

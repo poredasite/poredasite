@@ -17,7 +17,7 @@ function isoDuration(s) {
 export function generateVideoSchema(video) {
   if (!video) return null;
 
-  const url   = `${SITE_URL}/video/${video._id}`;
+  const url   = `${SITE_URL}/video/${video.slug || video._id}`;
   const embed = `${SITE_URL}/embed/${video._id}`;
   const tags = video.tags?.length ? video.tags.slice(0, 5).join(", ") : "";
   const desc  = stripHtml(video.description || "").slice(0, 200)

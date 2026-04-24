@@ -134,9 +134,10 @@ const sendPrerender = (fn) => async (req, res, next) => {
   }
 };
 
-app.get("/prerender/",           sendPrerender(() => prerender.renderHome()));
-app.get("/prerender/video/:id",  sendPrerender((req) => prerender.renderVideo(req.params.id)));
-app.get("/prerender/tag/:tag",   sendPrerender((req) => prerender.renderTag(req.params.tag)));
+app.get("/prerender/",                   sendPrerender(() => prerender.renderHome()));
+app.get("/prerender/video/:id",          sendPrerender((req) => prerender.renderVideo(req.params.id)));
+app.get("/prerender/tag/:tag",           sendPrerender((req) => prerender.renderTag(req.params.tag)));
+app.get("/prerender/kategori/:slug",     sendPrerender((req) => prerender.renderCategory(req.params.slug)));
 
 // ─── 301 redirect: /video/[ObjectId] → /video/[slug] ─────────────
 app.get("/video/:id", async (req, res, next) => {
@@ -217,6 +218,7 @@ mongoose
         console.log(`🚀 Server running on http://localhost:${PORT}`);
         console.log(`📡 Environment: ${process.env.NODE_ENV || "development"}`);
         sitemap.startScheduler();
+        sitemap.warmup();
         if (process.env.REDIS_URL) {
           createWorker();
           console.log(`⚡ Video worker started (concurrency: ${process.env.WORKER_CONCURRENCY || 1})`);

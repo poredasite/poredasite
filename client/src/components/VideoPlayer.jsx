@@ -42,6 +42,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
   const [speed, setSpeed] = useState(1);
   const [showSubtitles, setShowSubtitles] = useState(true);
   const [vttBlobUrl, setVttBlobUrl] = useState(null);
+  const [currentCue, setCurrentCue] = useState("");
   const [showSpeedToast, setShowSpeedToast] = useState(false);
   const [seekAnim, setSeekAnim] = useState(null); // { side, seconds }
   const hideTimer = useRef(null);
@@ -291,30 +292,38 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
   }, [subtitleUrl]);
 
-  // Subtitle track toggling
+  // Subtitle track — always hidden (we render a custom overlay for position control)
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !vttBlobUrl) return;
 
-    const mode = showSubtitles ? "showing" : "hidden";
-
-    const applyMode = () => {
+    const setupTrack = () => {
       for (let i = 0; i < video.textTracks.length; i++) {
-        video.textTracks[i].mode = mode;
+        const track = video.textTracks[i];
+        track.mode = "hidden";
+        track.oncuechange = () => {
+          const activeCues = track.activeCues;
+          if (activeCues && activeCues.length > 0) {
+            setCurrentCue(activeCues[0].text.replace(/<[^>]*>/g, ""));
+          } else {
+            setCurrentCue("");
+          }
+        };
       }
     };
 
-    applyMode();
-    video.textTracks.addEventListener("addtrack", applyMode);
+    setupTrack();
+    video.textTracks.addEventListener("addtrack", setupTrack);
 
     const trackEl = video.querySelector("track");
-    if (trackEl) trackEl.addEventListener("load", applyMode);
+    if (trackEl) trackEl.addEventListener("load", setupTrack);
 
     return () => {
-      video.textTracks.removeEventListener("addtrack", applyMode);
-      if (trackEl) trackEl.removeEventListener("load", applyMode);
+      video.textTracks.removeEventListener("addtrack", setupTrack);
+      if (trackEl) trackEl.removeEventListener("load", setupTrack);
+      setCurrentCue("");
     };
-  }, [showSubtitles, vttBlobUrl]);
+  }, [vttBlobUrl]);
 
   // Sync fullscreen state with browser events (handles hardware back button etc.)
   useEffect(() => {
@@ -554,6 +563,15 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
               {seekAnim.seconds > 0 ? `+${seekAnim.seconds}s` : `${seekAnim.seconds}s`}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Custom subtitle overlay */}
+      {showSubtitles && currentCue && (
+        <div className="absolute bottom-20 left-0 right-0 flex justify-center pointer-events-none px-4">
+          <span className="bg-black/70 text-white text-sm sm:text-base px-3 py-1 rounded text-center leading-snug whitespace-pre-line">
+            {currentCue}
+          </span>
         </div>
       )}
 

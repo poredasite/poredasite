@@ -19,6 +19,20 @@ function buildBreadcrumb(items) {
   }).replace(/<\/script>/gi, "<\\/script>");
 }
 
+function buildItemList(items, listUrl) {
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    url: listUrl,
+    itemListElement: items.map((item, i) => ({
+      "@type":    "ListItem",
+      position:   i + 1,
+      url:        item.url,
+      name:       item.name,
+    })),
+  }).replace(/<\/script>/gi, "<\\/script>");
+}
+
 export default function SEOHead({
   title,
   description = DEFAULT_DESCRIPTION,
@@ -30,7 +44,8 @@ export default function SEOHead({
   prevPage    = null,
   nextPage    = null,
   videoObject = null,
-  breadcrumbs = null,   // array of { name, url } — auto-built for video pages
+  breadcrumbs = null,
+  itemList    = null,   // array of { name, url } — for listing pages
 }) {
   const fullTitle    = title ? `${title} — ${SITE_NAME}` : `${SITE_NAME} Porno izle`;
   const canonicalUrl = url ? `${SITE_URL}${url}` : SITE_URL;
@@ -105,6 +120,13 @@ export default function SEOHead({
       {crumbs && crumbs.length > 1 && (
         <script type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: buildBreadcrumb(crumbs) }}
+        />
+      )}
+
+      {/* ItemList JSON-LD (listing pages) */}
+      {itemList && itemList.length > 0 && (
+        <script type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: buildItemList(itemList, canonicalUrl) }}
         />
       )}
     </Helmet>
