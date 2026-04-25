@@ -117,29 +117,35 @@ function buildCuesFromSegments(segments) {
 // ── Turkish translation via GPT-4o-mini ───────────────────────────────────────
 const SYSTEM_PROMPT =
   "You are a professional subtitle translator for the adult entertainment industry. " +
-  "Translate the given English subtitle lines into natural, fluent Turkish. " +
+  "You will receive a JSON object where keys are numbers and values are English subtitle lines. " +
+  "Translate each value into natural, fluent Turkish. " +
   "Translate ALL content literally and accurately — including explicit, vulgar, or sexual language — without censorship or modification. " +
-  "Return ONLY a JSON array of translated strings in the same order as the input. No explanations.";
+  "Return ONLY a JSON object with the SAME keys and translated Turkish values. Every key must be present. No explanations.";
 
 async function translateBatch(texts) {
   const { default: OpenAI } = await import("openai");
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+  const inputObj = Object.fromEntries(texts.map((t, i) => [i, t]));
+
   const response = await client.chat.completions.create({
     model:    "gpt-4o-mini",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user",   content: JSON.stringify(texts) },
+      { role: "user",   content: JSON.stringify(inputObj) },
     ],
     temperature: 0.2,
   });
 
   const raw    = response.choices[0].message.content.trim().replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/,"");
   const parsed = JSON.parse(raw);
-  if (!Array.isArray(parsed) || parsed.length !== texts.length) {
-    throw new Error("GPT batch mismatch");
-  }
-  return parsed;
+  if (typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("GPT did not return an object");
+
+  // Key bazlı eşleştir — GPT birkaç satırı atlasa bile doğru index'e düşer
+  return texts.map((orig, i) => {
+    const val = parsed[i] ?? parsed[String(i)];
+    return (typeof val === "string" && val.trim()) ? val : orig;
+  });
 }
 
 async function translateCues(cues) {
