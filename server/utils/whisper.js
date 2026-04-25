@@ -11,8 +11,8 @@ const { s3, BUCKET, CDN_URL } = require("../config/storage");
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
 // ── Audio extraction ──────────────────────────────────────────────────────────
-// 32 kbps mono MP3 @ 16 kHz — keeps Whisper quality while staying under 25 MB
-// for videos up to ~90 minutes.
+// 48 kbps mono MP3 @ 16 kHz — Whisper'ın beklediği format, 25 MB limiti altında
+// ~90 dakikaya kadar güvenli.
 function extractAudio(videoPath, audioPath) {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
@@ -20,7 +20,7 @@ function extractAudio(videoPath, audioPath) {
       .audioCodec("libmp3lame")
       .audioFrequency(16000)
       .audioChannels(1)
-      .audioBitrate("32k")
+      .audioBitrate("48k")
       .output(audioPath)
       .on("end", resolve)
       .on("error", reject)
@@ -29,16 +29,87 @@ function extractAudio(videoPath, audioPath) {
 }
 
 // ── Whisper transcription ─────────────────────────────────────────────────────
+// timestamp_granularities: ["segment","word"] → kelime bazlı hassas zamanlama
 async function transcribeAudio(audioPath) {
   const { default: OpenAI } = await import("openai");
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const response = await client.audio.transcriptions.create({
-    file:            fs.createReadStream(audioPath),
-    model:           "whisper-1",
-    response_format: "verbose_json",
+    file:                    fs.createReadStream(audioPath),
+    model:                   "whisper-1",
+    response_format:         "verbose_json",
+    timestamp_granularities: ["segment", "word"],
   });
-  return response.segments || [];
+  return {
+    segments: response.segments || [],
+    words:    response.words    || [],
+  };
+}
+
+// ── Smart cue building from word timestamps ───────────────────────────────────
+// Cue limitleri: 4.5 saniye max, 80 karakter max, cümle sonu öncelikli bölme
+const MAX_CUE_SECS  = 4.5;
+const MAX_CUE_CHARS = 80;
+const MIN_CUE_SECS  = 0.4;
+
+function buildCuesFromWords(words) {
+  if (!words.length) return [];
+  const cues   = [];
+  let start    = words[0].start;
+  let buffer   = [];
+
+  const flush = (end) => {
+    const text = buffer.map(w => w.word).join("").trim();
+    if (text && (end - start) >= MIN_CUE_SECS) {
+      cues.push({ start, end, text });
+    }
+    buffer = [];
+    start  = end;
+  };
+
+  for (const w of words) {
+    buffer.push(w);
+    const text        = buffer.map(x => x.word).join("").trim();
+    const isSentEnd   = /[.!?]["']?$/.test(w.word.trim());
+    const tooLong     = (w.end - start) >= MAX_CUE_SECS;
+    const tooManyChrs = text.length >= MAX_CUE_CHARS;
+
+    if (isSentEnd || tooLong || tooManyChrs) {
+      flush(w.end);
+    }
+  }
+
+  if (buffer.length) flush(buffer[buffer.length - 1].end);
+  return cues;
+}
+
+// ── Fallback: segment-based cue building ──────────────────────────────────────
+// Word timestamps yoksa segment'leri zamana göre eşit böl.
+function buildCuesFromSegments(segments) {
+  const cues = [];
+  for (const seg of segments) {
+    const text = seg.text?.trim();
+    if (!text || (seg.end - seg.start) < MIN_CUE_SECS) continue;
+
+    const dur = seg.end - seg.start;
+    if (dur > MAX_CUE_SECS) {
+      // Noktalama işaretinde böl, yoksa eşit parçala
+      const parts = text.split(/(?<=[.!?,;])\s+/).filter(Boolean);
+      if (parts.length > 1) {
+        const partDur = dur / parts.length;
+        parts.forEach((part, i) => {
+          cues.push({
+            start: seg.start + i * partDur,
+            end:   seg.start + (i + 1) * partDur,
+            text:  part.trim(),
+          });
+        });
+        continue;
+      }
+    }
+    cues.push({ start: seg.start, end: seg.end, text });
+  }
+  return cues;
 }
 
 // ── Turkish translation via GPT-4o-mini ───────────────────────────────────────
@@ -53,7 +124,7 @@ async function translateBatch(texts) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const response = await client.chat.completions.create({
-    model: "gpt-4o-mini",
+    model:    "gpt-4o-mini",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user",   content: JSON.stringify(texts) },
@@ -61,56 +132,53 @@ async function translateBatch(texts) {
     temperature: 0.2,
   });
 
-  const raw = response.choices[0].message.content.trim();
+  const raw    = response.choices[0].message.content.trim();
   const parsed = JSON.parse(raw);
-  if (!Array.isArray(parsed) || parsed.length !== texts.length) throw new Error("GPT batch mismatch");
+  if (!Array.isArray(parsed) || parsed.length !== texts.length) {
+    throw new Error("GPT batch mismatch");
+  }
   return parsed;
 }
 
-async function translateToTurkish(segments) {
+async function translateCues(cues) {
   const BATCH_SIZE = 20;
-  const translated = [...segments];
+  const translated = [...cues];
 
-  for (let i = 0; i < segments.length; i += BATCH_SIZE) {
-    const batch = segments.slice(i, i + BATCH_SIZE);
-    const texts = batch.map(s => s.text.trim());
+  for (let i = 0; i < cues.length; i += BATCH_SIZE) {
+    const batch = cues.slice(i, i + BATCH_SIZE);
+    const texts = batch.map(c => c.text);
     try {
       const results = await translateBatch(texts);
       results.forEach((text, j) => {
-        translated[i + j] = { ...segments[i + j], text };
+        translated[i + j] = { ...cues[i + j], text };
       });
     } catch {
-      // batch başarısız olursa orijinal metni koru
+      // batch başarısız → orijinal İngilizce metni koru
     }
   }
-
   return translated;
 }
 
 // ── WebVTT builder ────────────────────────────────────────────────────────────
-// SUBTITLE_OFFSET: positive = geciktir (önde gidiyorsa artır), negatif = öne al
-const SUBTITLE_OFFSET = parseFloat(process.env.SUBTITLE_OFFSET || "0.3");
+// SUBTITLE_OFFSET: fine-tune için — word timestamps ile genellikle 0 yeterli.
+// Pozitif = geciktir, negatif = öne al.
+const SUBTITLE_OFFSET = parseFloat(process.env.SUBTITLE_OFFSET || "0");
 
 function toVttTime(sec) {
-  const clamped = Math.max(0, sec);
-  const h   = Math.floor(clamped / 3600);
-  const m   = Math.floor((clamped % 3600) / 60);
-  const s   = Math.floor(clamped % 60);
-  const ms  = Math.round((clamped - Math.floor(clamped)) * 1000);
+  const clamped = Math.max(0, sec + SUBTITLE_OFFSET);
+  const h  = Math.floor(clamped / 3600);
+  const m  = Math.floor((clamped % 3600) / 60);
+  const s  = Math.floor(clamped % 60);
+  const ms = Math.round((clamped - Math.floor(clamped)) * 1000);
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(ms).padStart(3,"0")}`;
 }
 
-function buildVtt(segments) {
+function buildVtt(cues) {
   const lines = ["WEBVTT", ""];
-  let cue = 1;
-  for (const seg of segments) {
-    const text = seg.text?.trim();
-    if (!text) continue;
-    // Çok kısa segmentleri atla (gürültü/nefes sesleri)
-    if ((seg.end - seg.start) < 0.3) continue;
-    const start = seg.start + SUBTITLE_OFFSET;
-    const end   = seg.end   + SUBTITLE_OFFSET;
-    lines.push(String(cue++));
+  let cueNum  = 1;
+  for (const { start, end, text } of cues) {
+    if (!text || end <= start) continue;
+    lines.push(String(cueNum++));
     lines.push(`${toVttTime(start)} --> ${toVttTime(end)}`);
     lines.push(text);
     lines.push("");
@@ -137,10 +205,21 @@ async function processWhisperSubtitles(videoPath, videoId) {
   const audioPath = path.join(os.tmpdir(), `audio-${videoId}.mp3`);
   try {
     await extractAudio(videoPath, audioPath);
-    const segments   = await transcribeAudio(audioPath);
+
+    const { segments, words } = await transcribeAudio(audioPath);
     if (!segments.length) return null;
-    const translated = await translateToTurkish(segments);
-    const vtt        = buildVtt(translated);
+
+    // Word timestamps varsa çok daha hassas zamanlama → tercih et
+    const rawCues = words.length > 0
+      ? buildCuesFromWords(words)
+      : buildCuesFromSegments(segments);
+
+    if (!rawCues.length) return null;
+
+    console.log(`[Whisper] ${rawCues.length} cues (${words.length > 0 ? "word" : "segment"}-level timestamps)`);
+
+    const translatedCues = await translateCues(rawCues);
+    const vtt            = buildVtt(translatedCues);
     return await uploadVtt(vtt, videoId);
   } finally {
     try { fs.unlinkSync(audioPath); } catch {}
