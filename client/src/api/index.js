@@ -91,6 +91,11 @@ export const categoryApi = {
 export const adsApi = {
   get: () => api.get("/settings/ads"),
   update: (data) => api.patch("/settings/ads", data),
+  uploadBanner: (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api.post("/settings/banner-upload", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 });
+  },
 };
 
 export default api;

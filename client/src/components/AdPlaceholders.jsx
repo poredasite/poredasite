@@ -52,6 +52,15 @@ function Placeholder({ label, style }) {
   );
 }
 
+// ─── Image Banner (resim + link) ───────────────────────────────────
+function ImageBannerSlot({ slot, style }) {
+  return (
+    <a href={slot.linkUrl || "#"} target="_blank" rel="noopener noreferrer" style={style} className="block overflow-hidden">
+      <img src={slot.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+    </a>
+  );
+}
+
 // ─── Top Banner ────────────────────────────────────────────────────
 export function TopBannerAd() {
   const { getSlot } = useAds();
@@ -61,9 +70,11 @@ export function TopBannerAd() {
   const style = slotStyle(slot);
   return (
     <div className="flex justify-center mb-6" style={{ minHeight: slot.height ? `${slot.height}px` : 90 }}>
-      {slot.code
-        ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
-        : <Placeholder label="Banner Reklam" style={style} />
+      {slot.imageUrl
+        ? <ImageBannerSlot slot={slot} style={style} />
+        : slot.code
+          ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
+          : <Placeholder label="Banner Reklam" style={style} />
       }
     </div>
   );
@@ -78,9 +89,11 @@ export function SidebarAd() {
   const style = slotStyle(slot);
   return (
     <div className="sticky top-24 mb-5" style={{ minHeight: slot.height || 250 }}>
-      {slot.code
-        ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 250} />
-        : <Placeholder label="Kenar Reklam" style={{ ...style, minHeight: 250 }} />
+      {slot.imageUrl
+        ? <ImageBannerSlot slot={slot} style={{ ...style, minHeight: slot.height || 250 }} />
+        : slot.code
+          ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 250} />
+          : <Placeholder label="Kenar Reklam" style={{ ...style, minHeight: 250 }} />
       }
     </div>
   );
@@ -218,9 +231,11 @@ export function BelowDescriptionAd() {
   const style = slotStyle(slot);
   return (
     <div className="flex justify-center my-4" style={{ minHeight: slot.height || 90 }}>
-      {slot.code
-        ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
-        : <Placeholder label="Açıklama Altı Reklam" style={style} />
+      {slot.imageUrl
+        ? <ImageBannerSlot slot={slot} style={style} />
+        : slot.code
+          ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
+          : <Placeholder label="Açıklama Altı Reklam" style={style} />
       }
     </div>
   );

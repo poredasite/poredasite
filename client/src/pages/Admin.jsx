@@ -576,6 +576,60 @@ function Toggle({ value, onChange }) {
   );
 }
 
+function BannerImageUpload({ imageUrl, onChange }) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const res = await adsApi.uploadBanner(file);
+      onChange(res.url);
+      toast.success("Banner yüklendi");
+    } catch (err) {
+      toast.error("Yükleme başarısız: " + err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-2 items-center">
+        <input
+          type="text"
+          value={imageUrl}
+          onChange={e => onChange(e.target.value)}
+          placeholder="https://cdn.site.com/banner.gif"
+          className="flex-1 bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="shrink-0 bg-surface-600 hover:bg-surface-500 disabled:opacity-50 text-white text-xs px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+        >
+          {uploading ? "Yükleniyor…" : "Dosya Seç"}
+        </button>
+        <input ref={inputRef} type="file" accept="image/*,.gif" className="hidden" onChange={handleFile} />
+      </div>
+      {imageUrl && (
+        <div className="relative w-full rounded-lg overflow-hidden bg-surface-900" style={{ maxHeight: 80 }}>
+          <img src={imageUrl} alt="banner önizleme" className="w-full object-contain" style={{ maxHeight: 80 }} />
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="absolute top-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded hover:bg-red-600 transition-colors"
+          >✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DevicePanel({ slotDef, device, data, onChange }) {
   const presets = slotDef.presets[device] || [];
   function set(field, val) { onChange({ ...data, [field]: val }); }
@@ -626,10 +680,23 @@ function DevicePanel({ slotDef, device, data, onChange }) {
             className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y" />
         </div>
       ) : (
-        <textarea value={data.code || ""} onChange={e => set("code", e.target.value)}
-          placeholder={`<!-- ${slotDef.label} ${device === "mobile" ? "mobil" : "masaüstü"} kodu -->`}
-          rows={4}
-          className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y" />
+        <div className="space-y-2">
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Resim Banner (URL + Link)</label>
+            <BannerImageUpload imageUrl={data.imageUrl || ""} onChange={url => set("imageUrl", url)} />
+            <input type="text" value={data.linkUrl || ""} onChange={e => set("linkUrl", e.target.value)}
+              placeholder="https://hedef-site.com (tıklayınca gidecek link)"
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none" />
+            <p className="text-[10px] text-gray-600">Resim yüklenirse HTML kodundan öncelikli kullanılır.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Veya HTML Kodu</label>
+            <textarea value={data.code || ""} onChange={e => set("code", e.target.value)}
+              placeholder={`<!-- ${slotDef.label} ${device === "mobile" ? "mobil" : "masaüstü"} kodu -->`}
+              rows={4}
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y" />
+          </div>
+        </div>
       )}
     </div>
   );

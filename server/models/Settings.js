@@ -1,11 +1,13 @@
 const mongoose = require("mongoose");
 
 const deviceSlotSchema = new mongoose.Schema({
-  enabled: { type: Boolean, default: false },
-  code:    { type: String,  default: "" },
-  vastUrl: { type: String,  default: "" },
-  width:   { type: String,  default: "" },
-  height:  { type: String,  default: "" },
+  enabled:  { type: Boolean, default: false },
+  code:     { type: String,  default: "" },
+  vastUrl:  { type: String,  default: "" },
+  imageUrl: { type: String,  default: "" },
+  linkUrl:  { type: String,  default: "" },
+  width:    { type: String,  default: "" },
+  height:   { type: String,  default: "" },
 }, { _id: false });
 
 const adSlotSchema = new mongoose.Schema({
