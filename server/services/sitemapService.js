@@ -39,7 +39,6 @@ async function getSitemapIndex() {
     lines.push(`  <sitemap><loc>${BASE}/${fname}</loc><lastmod>${today}</lastmod></sitemap>`);
   }
   lines.push(
-    `  <sitemap><loc>${BASE}/sitemap-tags.xml</loc><lastmod>${today}</lastmod></sitemap>`,
     `  <sitemap><loc>${BASE}/sitemap-categories.xml</loc><lastmod>${today}</lastmod></sitemap>`
   );
 
