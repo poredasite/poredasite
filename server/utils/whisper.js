@@ -58,8 +58,10 @@ function buildCuesFromWords(words) {
   let start    = words[0].start;
   let buffer   = [];
 
+  const joinWords = (ws) => ws.map(w => w.word).join("").replace(/\s+/g, " ").trim();
+
   const flush = (end) => {
-    const text = buffer.map(w => w.word).join("").trim();
+    const text = joinWords(buffer);
     if (text && (end - start) >= MIN_CUE_SECS) {
       cues.push({ start, end, text });
     }
@@ -69,7 +71,7 @@ function buildCuesFromWords(words) {
 
   for (const w of words) {
     buffer.push(w);
-    const text        = buffer.map(x => x.word).join("").trim();
+    const text        = joinWords(buffer);
     const isSentEnd   = /[.!?]["']?$/.test(w.word.trim());
     const tooLong     = (w.end - start) >= MAX_CUE_SECS;
     const tooManyChrs = text.length >= MAX_CUE_CHARS;
@@ -132,7 +134,7 @@ async function translateBatch(texts) {
     temperature: 0.2,
   });
 
-  const raw    = response.choices[0].message.content.trim();
+  const raw    = response.choices[0].message.content.trim().replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/,"");
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed) || parsed.length !== texts.length) {
     throw new Error("GPT batch mismatch");
@@ -152,8 +154,8 @@ async function translateCues(cues) {
       results.forEach((text, j) => {
         translated[i + j] = { ...cues[i + j], text };
       });
-    } catch {
-      // batch başarısız → orijinal İngilizce metni koru
+    } catch (err) {
+      console.error(`[Whisper] Translation batch ${i}–${i + BATCH_SIZE} failed:`, err.message);
     }
   }
   return translated;
