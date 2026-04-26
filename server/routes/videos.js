@@ -18,6 +18,20 @@ const {
 const { CDN_URL }  = require("../config/storage");
 const sitemap      = require("../services/sitemapService");
 const { videoQueue } = require("../queue/index");
+const Category = require("../models/Category");
+
+// Cache "Türk İfşa" category id (1-hour TTL) to apply score penalty on homepage
+let _penaltyCache = { id: null, at: 0 };
+async function getPenaltyCatId() {
+  if (Date.now() - _penaltyCache.at < 3_600_000) return _penaltyCache.id;
+  try {
+    const cat = await Category.findOne({
+      $or: [{ slug: "trk-ifa" }, { name: { $regex: "ifşa|ifsa", $options: "i" } }],
+    }).select("_id").lean();
+    _penaltyCache = { id: cat?._id || null, at: Date.now() };
+  } catch { _penaltyCache.at = Date.now(); }
+  return _penaltyCache.id;
+}
 
 const diskUpload = multer({
   storage: multer.diskStorage({
@@ -128,16 +142,31 @@ router.get("/", async (req, res) => {
     // Algorithm sort: weighted score using views, likes, comments, recency, completion
     if (!sortParam || sortParam === "algo") {
       const dayMs  = 86400000;
+      const penaltyCatId = await getPenaltyCatId();
+      const baseScore = { $add: [
+        { $multiply: [{ $ln: { $add: [{ $ifNull: ["$views", 0] }, 1] } }, 1] },
+        { $multiply: [{ $ifNull: ["$likes", 0] }, 3] },
+        { $multiply: [{ $ifNull: ["$commentCount", 0] }, 2] },
+        { $max: [0, { $subtract: [7, { $divide: [{ $subtract: ["$$NOW", "$createdAt"] }, dayMs] }] }] },
+        { $multiply: [{ $ifNull: ["$completionRate", 0] }, 5] },
+      ]};
+      const scoreExpr = penaltyCatId ? {
+        $multiply: [
+          baseScore,
+          { $cond: [
+            { $or: [
+              { $eq: ["$category", penaltyCatId] },
+              { $in: [penaltyCatId, { $ifNull: ["$categories", []] }] },
+            ]},
+            0.25,
+            1.0,
+          ]},
+        ],
+      } : baseScore;
       const [docs, total] = await Promise.all([
         Video.aggregate([
           { $match: filter },
-          { $addFields: { _score: { $add: [
-            { $multiply: [{ $ln: { $add: [{ $ifNull: ["$views", 0] }, 1] } }, 1] },
-            { $multiply: [{ $ifNull: ["$likes", 0] }, 3] },
-            { $multiply: [{ $ifNull: ["$commentCount", 0] }, 2] },
-            { $max: [0, { $subtract: [7, { $divide: [{ $subtract: ["$$NOW", "$createdAt"] }, dayMs] }] }] },
-            { $multiply: [{ $ifNull: ["$completionRate", 0] }, 5] },
-          ]}}},
+          { $addFields: { _score: scoreExpr } },
           { $sort: { _score: -1 } },
           { $skip: skip }, { $limit: limit },
           { $lookup: { from: "categories", localField: "category",   foreignField: "_id", as: "_c" } },
@@ -150,12 +179,32 @@ router.get("/", async (req, res) => {
       return res.json({ success: true, data: docs.map(addDisplayViews), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
     }
 
-    const sort = sortParam === "views" ? { views: -1 } : { createdAt: -1 };
+    const penaltyCatId2 = await getPenaltyCatId();
+    const penaltyExpr = penaltyCatId2 ? {
+      $cond: [
+        { $or: [
+          { $eq: ["$category", penaltyCatId2] },
+          { $in: [penaltyCatId2, { $ifNull: ["$categories", []] }] },
+        ]},
+        0.25,
+        1.0,
+      ],
+    } : 1.0;
+    const sortField = sortParam === "views"
+      ? { $multiply: [{ $ifNull: ["$views", 0] }, penaltyExpr] }
+      : { $multiply: [{ $toLong: "$createdAt" }, penaltyExpr] };
+
     const [videos, total] = await Promise.all([
-      Video.find(filter).sort(sort).skip(skip).limit(limit)
-        .select("-videoPublicId -thumbnailPublicId")
-        .populate("category", "name icon color slug")
-        .populate("categories", "name icon color slug"),
+      Video.aggregate([
+        { $match: filter },
+        { $addFields: { _sortVal: sortField } },
+        { $sort: { _sortVal: -1 } },
+        { $skip: skip }, { $limit: limit },
+        { $lookup: { from: "categories", localField: "category",   foreignField: "_id", as: "_c" } },
+        { $lookup: { from: "categories", localField: "categories", foreignField: "_id", as: "categories" } },
+        { $addFields: { category: { $first: "$_c" } } },
+        { $project: { _c: 0, _sortVal: 0, videoPublicId: 0, thumbnailPublicId: 0 } },
+      ]),
       Video.countDocuments(filter),
     ]);
     res.json({ success: true, data: videos.map(addDisplayViews), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
