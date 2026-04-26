@@ -18,20 +18,21 @@ const {
 const { CDN_URL }  = require("../config/storage");
 const sitemap      = require("../services/sitemapService");
 const { videoQueue } = require("../queue/index");
-const Category = require("../models/Category");
-
-// Cache "Türk İfşa" category id (1-hour TTL) to apply score penalty on homepage
-let _penaltyCache = { id: null, at: 0 };
-async function getPenaltyCatId() {
-  if (Date.now() - _penaltyCache.at < 3_600_000) return _penaltyCache.id;
-  try {
-    const cat = await Category.findOne({
-      $or: [{ slug: "trk-ifa" }, { name: { $regex: "ifşa|ifsa", $options: "i" } }],
-    }).select("_id").lean();
-    _penaltyCache = { id: cat?._id || null, at: Date.now() };
-  } catch { _penaltyCache.at = Date.now(); }
-  return _penaltyCache.id;
-}
+// Tag-based score penalty: videos tagged "türk ifşa" get ×0.25 on homepage sorts
+const PENALTY_TAGS = ["türk ifşa", "turk ifsa", "türk-ifşa"];
+const penaltyTagExpr = {
+  $cond: [
+    { $gt: [
+      { $size: { $ifNull: [{ $setIntersection: [
+        { $map: { input: { $ifNull: ["$tags", []] }, as: "t", in: { $toLower: "$$t" } } },
+        PENALTY_TAGS,
+      ]}, []] } },
+      0,
+    ]},
+    0.25,
+    1.0,
+  ],
+};
 
 const diskUpload = multer({
   storage: multer.diskStorage({
@@ -142,7 +143,6 @@ router.get("/", async (req, res) => {
     // Algorithm sort: weighted score using views, likes, comments, recency, completion
     if (!sortParam || sortParam === "algo") {
       const dayMs  = 86400000;
-      const penaltyCatId = await getPenaltyCatId();
       const baseScore = { $add: [
         { $multiply: [{ $ln: { $add: [{ $ifNull: ["$views", 0] }, 1] } }, 1] },
         { $multiply: [{ $ifNull: ["$likes", 0] }, 3] },
@@ -150,19 +150,7 @@ router.get("/", async (req, res) => {
         { $max: [0, { $subtract: [7, { $divide: [{ $subtract: ["$$NOW", "$createdAt"] }, dayMs] }] }] },
         { $multiply: [{ $ifNull: ["$completionRate", 0] }, 5] },
       ]};
-      const scoreExpr = penaltyCatId ? {
-        $multiply: [
-          baseScore,
-          { $cond: [
-            { $or: [
-              { $eq: ["$category", penaltyCatId] },
-              { $in: [penaltyCatId, { $ifNull: ["$categories", []] }] },
-            ]},
-            0.25,
-            1.0,
-          ]},
-        ],
-      } : baseScore;
+      const scoreExpr = { $multiply: [baseScore, penaltyTagExpr] };
       const [docs, total] = await Promise.all([
         Video.aggregate([
           { $match: filter },
@@ -179,20 +167,9 @@ router.get("/", async (req, res) => {
       return res.json({ success: true, data: docs.map(addDisplayViews), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
     }
 
-    const penaltyCatId2 = await getPenaltyCatId();
-    const penaltyExpr = penaltyCatId2 ? {
-      $cond: [
-        { $or: [
-          { $eq: ["$category", penaltyCatId2] },
-          { $in: [penaltyCatId2, { $ifNull: ["$categories", []] }] },
-        ]},
-        0.25,
-        1.0,
-      ],
-    } : 1.0;
     const sortField = sortParam === "views"
-      ? { $multiply: [{ $ifNull: ["$views", 0] }, penaltyExpr] }
-      : { $multiply: [{ $toLong: "$createdAt" }, penaltyExpr] };
+      ? { $multiply: [{ $ifNull: ["$views", 0] }, penaltyTagExpr] }
+      : { $multiply: [{ $toLong: "$createdAt" }, penaltyTagExpr] };
 
     const [videos, total] = await Promise.all([
       Video.aggregate([
