@@ -115,15 +115,28 @@ async function processVideoJob(job) {
     await job.updateProgress(80);
 
     // ── PHASE 3: Parallel R2 upload ───────────────────────────────────────────
-    const [hlsUrl, mp4FallbackUrl] = await Promise.all([
-      uploadHLSParallel(hlsOutputDir, videoId),
-      mp4FallbackPath
-        ? uploadMp4FallbackToStorage(mp4FallbackPath, videoId).catch((e) => {
-            console.error(`[Worker:${job.id}] MP4 fallback upload failed:`, e.message);
-            return null;
-          })
-        : Promise.resolve(null),
-    ]);
+    console.log(`[Worker:${job.id}] Uploading HLS to R2…`);
+    let hlsUrl, mp4FallbackUrl;
+    try {
+      hlsUrl = await uploadHLSParallel(hlsOutputDir, videoId);
+      console.log(`[Worker:${job.id}] ✅ HLS uploaded → ${hlsUrl}`);
+    } catch (e) {
+      console.error(`[Worker:${job.id}] ❌ HLS upload FAILED:`, e.message);
+      throw e;
+    }
+
+    if (mp4FallbackPath) {
+      try {
+        mp4FallbackUrl = await uploadMp4FallbackToStorage(mp4FallbackPath, videoId);
+        console.log(`[Worker:${job.id}] ✅ MP4 fallback uploaded → ${mp4FallbackUrl}`);
+      } catch (e) {
+        console.error(`[Worker:${job.id}] ⚠️ MP4 fallback upload failed (non-fatal):`, e.message);
+        mp4FallbackUrl = null;
+      }
+    } else {
+      mp4FallbackUrl = null;
+      console.warn(`[Worker:${job.id}] ⚠️ No MP4 fallback (encode skipped)`);
+    }
 
     await job.updateProgress(95);
 
@@ -133,15 +146,16 @@ async function processVideoJob(job) {
       try {
         console.log(`[Worker:${job.id}] Starting Whisper subtitle generation…`);
         subtitleUrl = await processWhisperSubtitles(tmpPath, videoId);
-        console.log(`[Worker:${job.id}] Subtitles ready → ${subtitleUrl}`);
+        console.log(`[Worker:${job.id}] ✅ Subtitles ready → ${subtitleUrl}`);
       } catch (e) {
-        console.error(`[Worker:${job.id}] Whisper failed (non-fatal):`, e.message);
+        console.error(`[Worker:${job.id}] ⚠️ Whisper failed (non-fatal):`, e.message);
       }
     }
 
     // ── PHASE 5: Finalize ─────────────────────────────────────────────────────
     cleanup(tmpPath);
-    await deleteRawFromStorage(rawKey).catch(() => {});
+    console.log(`[Worker:${job.id}] Deleting raw file from R2: ${rawKey}`);
+    await deleteRawFromStorage(rawKey).catch((e) => console.warn(`[Worker:${job.id}] Raw delete failed:`, e.message));
     sitemap.invalidateCache();
 
     await Video.findByIdAndUpdate(videoId, {
@@ -156,7 +170,11 @@ async function processVideoJob(job) {
     });
 
     await job.updateProgress(100);
-    console.log(`✅ [Worker:${job.id}] Ready: ${videoId} | HLS: ${hlsUrl}`);
+    console.log(`✅ [Worker:${job.id}] DONE: ${videoId}`);
+    console.log(`   HLS:      ${hlsUrl}`);
+    console.log(`   Preview:  ${previewUrl || "—"}`);
+    console.log(`   MP4 fallback: ${mp4FallbackUrl || "—"}`);
+    console.log(`   Subtitles: ${subtitleUrl || "—"}`);
 
   } catch (err) {
     cleanup(tmpPath);

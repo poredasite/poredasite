@@ -551,14 +551,24 @@ router.delete("/:id", adminAuth, async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ success: false, message: "Video not found" });
-    await Promise.allSettled([
-      deleteFromStorage(`videos/${video._id}/`),
-      video.thumbnailPublicId ? deleteFromStorage(video.thumbnailPublicId) : Promise.resolve(),
-      deleteFromStorage(`previews/${video._id}.mp4`),
-      deleteFromStorage(`fallback/${video._id}.mp4`),
-      deleteFromStorage(`subtitles/${video._id}.vtt`),
-    ]);
+    const id = video._id.toString();
+    console.log(`[Delete] Removing video ${id} — "${video.title}"`);
+    const keys = [
+      `videos/${id}/`,
+      video.thumbnailPublicId || null,
+      `previews/${id}.mp4`,
+      `fallback/${id}.mp4`,
+      `subtitles/${id}.vtt`,
+    ].filter(Boolean);
+
+    const results = await Promise.allSettled(keys.map(k => deleteFromStorage(k)));
+    results.forEach((r, i) => {
+      if (r.status === "rejected") console.warn(`[Delete] Storage key "${keys[i]}" failed:`, r.reason?.message);
+      else console.log(`[Delete] ✅ Removed: ${keys[i]}`);
+    });
+
     await video.deleteOne();
+    console.log(`[Delete] ✅ DB record removed: ${id}`);
     res.json({ success: true, message: "Video deleted successfully" });
   } catch (err) {
     if (err.name === "CastError") return res.status(404).json({ success: false, message: "Video not found" });
