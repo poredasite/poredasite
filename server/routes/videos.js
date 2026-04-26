@@ -607,6 +607,23 @@ router.patch("/:id", adminAuth, (req, res, next) => {
   }
 });
 
+// GET /videos/admin/all  — all videos regardless of status (for admin panel)
+router.get("/admin/all", adminAuth, async (req, res) => {
+  try {
+    const limit = Math.min(200, parseInt(req.query.limit) || 100);
+    const videos = await Video.find({})
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .select("-videoPublicId -thumbnailPublicId")
+      .populate("category", "name icon color slug")
+      .populate("categories", "name icon color slug")
+      .lean();
+    res.json({ success: true, data: videos.map(addDisplayViews) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 // POST /videos/admin/regen-slugs  — rebuild all slugs with Turkish normalization
 router.post("/admin/regen-slugs", adminAuth, async (req, res) => {
   try {

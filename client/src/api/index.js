@@ -67,6 +67,7 @@ export const videoApi = {
   recordWatch: (id, data) => api.post(`/videos/${id}/watch`, data),
   like: (id, liked) => api.post(`/videos/${id}/like`, { liked }),
   regenSlugs: () => api.post("/videos/admin/regen-slugs"),
+  getAllAdmin: (params = {}) => api.get("/videos/admin/all", { params }),
 };
 
 // ─── Comment API ──────────────────────────────────────────────────
