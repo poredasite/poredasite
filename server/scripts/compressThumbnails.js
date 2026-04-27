@@ -1,32 +1,38 @@
 "use strict";
 /**
- * Mevcut thumbnail'leri R2'den indir, WebP'ye sıkıştır, geri yükle, DB güncelle.
+ * Mevcut thumbnail'leri HTTP ile indir, WebP'ye sıkıştır, R2'ye yükle, DB güncelle.
+ * Herhangi bir CDN/URL'den çalışır.
  * Çalıştır: node scripts/compressThumbnails.js
  */
 require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
 
-const mongoose          = require("mongoose");
-const sharp             = require("sharp");
-const { GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
+const mongoose = require("mongoose");
+const sharp    = require("sharp");
+const https    = require("https");
+const http     = require("http");
+const { PutObjectCommand } = require("@aws-sdk/client-s3");
 const { s3, BUCKET, CDN_URL } = require("../config/storage");
 
-const OLD_CDN = (process.env.OLD_CDN || "").replace(/\/$/, "");
-
-if (!OLD_CDN) {
-  console.error("Hata: OLD_CDN env değişkeni gerekli.");
-  console.error("Örnek: OLD_CDN=https://poredasite.b-cdn.net node scripts/compressThumbnails.js");
-  process.exit(1);
-}
-
-async function streamToBuffer(stream) {
-  const chunks = [];
-  for await (const chunk of stream) chunks.push(chunk);
-  return Buffer.concat(chunks);
+function fetchBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https") ? https : http;
+    client.get(url, res => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+      }
+      const chunks = [];
+      res.on("data", c => chunks.push(c));
+      res.on("end",  () => resolve(Buffer.concat(chunks)));
+      res.on("error", reject);
+    }).on("error", reject);
+  });
 }
 
 async function run() {
   await mongoose.connect(process.env.MONGODB_URI);
   console.log("MongoDB bağlandı");
+  console.log(`Yeni CDN: ${CDN_URL}\n`);
 
   const Video = require("../models/Video");
   const videos = await Video.find({ thumbnailUrl: { $exists: true, $ne: "" } })
@@ -34,28 +40,27 @@ async function run() {
     .lean();
 
   console.log(`${videos.length} video bulundu\n`);
-  console.log(`Eski CDN: ${OLD_CDN}`);
-  console.log(`Yeni CDN: ${CDN_URL}\n`);
 
   let compressed = 0, skipped = 0, failed = 0;
   let totalSavedKB = 0;
 
   for (const video of videos) {
     const url = video.thumbnailUrl;
-    if (!url || !url.startsWith(OLD_CDN)) {
-      console.log(`[SKIP] ${video._id}: harici URL, atlandı`);
+    if (!url) { skipped++; continue; }
+
+    const newKey = `thumbnails/${video._id}.webp`;
+    const newUrl = `${CDN_URL}/${newKey}`;
+
+    // Zaten yeni CDN'de WebP ise atla
+    if (url === newUrl) {
+      console.log(`[SKIP] ${video._id}: zaten güncel`);
       skipped++;
       continue;
     }
 
-    const oldKey = url.replace(`${OLD_CDN}/`, "");
-    const newKey = `thumbnails/${video._id}.webp`;
-    const newUrl = `${CDN_URL}/${newKey}`;
-
     try {
-      // R2'den indir
-      const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: oldKey }));
-      const inputBuf = await streamToBuffer(obj.Body);
+      // HTTP ile kaynak URL'den indir
+      const inputBuf = await fetchBuffer(url);
       const origKB   = Math.round(inputBuf.length / 1024);
 
       // Sharp ile sıkıştır → WebP
@@ -63,14 +68,8 @@ async function run() {
         .resize(1280, 720, { fit: "inside", withoutEnlargement: true })
         .webp({ quality: 80 })
         .toBuffer();
-      const newKB = Math.round(outputBuf.length / 1024);
+      const newKB   = Math.round(outputBuf.length / 1024);
       const savedKB = origKB - newKB;
-
-      if (newKB >= origKB && oldKey === newKey) {
-        console.log(`[SKIP] ${video._id}: zaten optimal (${origKB}KB)`);
-        skipped++;
-        continue;
-      }
 
       // R2'ye yükle
       await s3.send(new PutObjectCommand({
@@ -78,7 +77,7 @@ async function run() {
         Key: newKey,
         Body: outputBuf,
         ContentType: "image/webp",
-        CacheControl: "public, max-age=31536000",
+        CacheControl: "public, max-age=31536000, immutable",
       }));
 
       // DB güncelle
