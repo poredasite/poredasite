@@ -10,6 +10,14 @@ const sharp             = require("sharp");
 const { GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { s3, BUCKET, CDN_URL } = require("../config/storage");
 
+const OLD_CDN = (process.env.OLD_CDN || "").replace(/\/$/, "");
+
+if (!OLD_CDN) {
+  console.error("Hata: OLD_CDN env değişkeni gerekli.");
+  console.error("Örnek: OLD_CDN=https://poredasite.b-cdn.net node scripts/compressThumbnails.js");
+  process.exit(1);
+}
+
 async function streamToBuffer(stream) {
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
@@ -26,19 +34,21 @@ async function run() {
     .lean();
 
   console.log(`${videos.length} video bulundu\n`);
+  console.log(`Eski CDN: ${OLD_CDN}`);
+  console.log(`Yeni CDN: ${CDN_URL}\n`);
 
   let compressed = 0, skipped = 0, failed = 0;
   let totalSavedKB = 0;
 
   for (const video of videos) {
     const url = video.thumbnailUrl;
-    if (!url || !url.includes(CDN_URL)) {
+    if (!url || !url.startsWith(OLD_CDN)) {
       console.log(`[SKIP] ${video._id}: harici URL, atlandı`);
       skipped++;
       continue;
     }
 
-    const oldKey = url.replace(`${CDN_URL}/`, "");
+    const oldKey = url.replace(`${OLD_CDN}/`, "");
     const newKey = `thumbnails/${video._id}.webp`;
     const newUrl = `${CDN_URL}/${newKey}`;
 
