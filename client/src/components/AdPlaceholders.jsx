@@ -242,17 +242,26 @@ export function BelowDescriptionAd() {
 }
 
 // ─── Instream Video (pre-roll) ─────────────────────────────────────
+const SKIP_AFTER_SECONDS = 8;
+
 export function InstreamVideoAd({ onSkip }) {
   const { getSlot } = useAds();
   const slot = getSlot("instreamVideo");
   const containerRef = useRef(null);
-  const videoRef = useRef(null);
+  const imaVideoRef = useRef(null);
+  const adVideoRef = useRef(null);
   const adsManagerRef = useRef(null);
-  const [countdown, setCountdown] = useState(5);
+  // For VAST/HTML code modes (wall-clock countdown, starts from mount)
+  const [countdown, setCountdown] = useState(SKIP_AFTER_SECONDS);
   const [canSkip, setCanSkip] = useState(false);
+  // For custom video URL mode
+  const [adStarted, setAdStarted] = useState(false);
+  const [adMuted, setAdMuted] = useState(true);
+  const [adCurrentTime, setAdCurrentTime] = useState(0);
 
+  // VAST IMA mode
   useEffect(() => {
-    if (!slot?.enabled) { onSkip?.(); return; }
+    if (!slot?.enabled || slot?.videoUrl) return;
     if (!slot?.vastUrl) return;
 
     let destroyed = false;
@@ -262,7 +271,7 @@ export function InstreamVideoAd({ onSkip }) {
       if (destroyed) return;
 
       const adContainer = containerRef.current;
-      const contentVideo = videoRef.current;
+      const contentVideo = imaVideoRef.current;
       if (!adContainer || !contentVideo) return;
 
       const adDisplayContainer = new window.google.ima.AdDisplayContainer(adContainer, contentVideo);
@@ -300,23 +309,121 @@ export function InstreamVideoAd({ onSkip }) {
 
     initIMA();
     return () => { destroyed = true; adsManagerRef.current?.destroy(); };
-  }, [slot?.enabled, slot?.vastUrl]);
+  }, [slot?.enabled, slot?.vastUrl, slot?.videoUrl]);
 
+  // Wall-clock countdown for VAST/HTML code modes only
   useEffect(() => {
-    if (!slot?.enabled) return;
+    if (!slot?.enabled || slot?.videoUrl) return;
     if (countdown <= 0) { setCanSkip(true); return; }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
-  }, [countdown, slot?.enabled]);
+  }, [countdown, slot?.enabled, slot?.videoUrl]);
 
   if (!slot?.enabled) return null;
 
+  // ─── Mode 1: Custom MP4 video URL ──────────────────────────────
+  if (slot.videoUrl) {
+    const skipCountdown = Math.max(0, SKIP_AFTER_SECONDS - Math.floor(adCurrentTime));
+    const videoCanSkip = adCurrentTime >= SKIP_AFTER_SECONDS;
+
+    function handleVideoClick(e) {
+      e.stopPropagation();
+      const v = adVideoRef.current;
+      if (!v) return;
+      if (!adStarted) {
+        v.muted = false;
+        setAdMuted(false);
+        v.play().catch(() => {});
+      } else if (slot.linkUrl) {
+        window.open(slot.linkUrl, "_blank", "noopener,noreferrer");
+      }
+    }
+
+    function toggleMute(e) {
+      e.stopPropagation();
+      const v = adVideoRef.current;
+      if (!v) return;
+      v.muted = !v.muted;
+      setAdMuted(v.muted);
+    }
+
+    return (
+      <div className="relative w-full aspect-video sm:rounded-2xl overflow-hidden mb-4 bg-black">
+        <video
+          ref={adVideoRef}
+          src={slot.videoUrl}
+          className="w-full h-full object-contain"
+          style={{ cursor: slot.linkUrl && adStarted ? "pointer" : "default" }}
+          autoPlay
+          muted
+          playsInline
+          onPlay={() => setAdStarted(true)}
+          onTimeUpdate={() => setAdCurrentTime(adVideoRef.current?.currentTime || 0)}
+          onEnded={() => onSkip?.()}
+          onClick={handleVideoClick}
+        />
+
+        {/* Play overlay when autoplay blocked */}
+        {!adStarted && (
+          <button
+            onClick={handleVideoClick}
+            className="absolute inset-0 flex items-center justify-center bg-black/40"
+          >
+            <div className="w-16 h-16 bg-brand-500/90 hover:bg-brand-400 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-[0_0_40px_rgba(255,107,0,0.4)]">
+              <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1"><path d="M8 5v14l11-7z" /></svg>
+            </div>
+          </button>
+        )}
+
+        {/* Top-left: Ad label + mute toggle */}
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+          <span className="bg-black/60 text-yellow-400 text-[10px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">Reklam</span>
+          {adStarted && (
+            <button
+              onClick={toggleMute}
+              className="bg-black/60 hover:bg-black/80 text-white text-[10px] px-2 py-0.5 rounded transition-colors"
+              title={adMuted ? "Sesi aç" : "Sesi kapat"}
+            >
+              {adMuted ? "🔇" : "🔊"}
+            </button>
+          )}
+        </div>
+
+        {/* Top-right: Visit link */}
+        {adStarted && slot.linkUrl && (
+          <button
+            onClick={() => window.open(slot.linkUrl, "_blank", "noopener,noreferrer")}
+            className="absolute top-3 right-3 z-10 bg-black/60 hover:bg-black/80 text-white text-[10px] px-2 py-0.5 rounded transition-colors"
+          >
+            Siteyi Ziyaret Et ↗
+          </button>
+        )}
+
+        {/* Bottom-right: Skip countdown / button */}
+        <div className="absolute bottom-4 right-4 z-10">
+          {!videoCanSkip
+            ? <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg font-mono">
+                {!adStarted ? "Reklam yükleniyor..." : `${skipCountdown}s sonra geç`}
+              </span>
+            : <button
+                onClick={onSkip}
+                className="bg-surface-700 hover:bg-surface-600 text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Reklamı Geç →
+              </button>
+          }
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Mode 2: VAST URL (Google IMA) ─────────────────────────────
   const h = slot.height ? `${slot.height}px` : "360px";
 
   if (slot.vastUrl) {
     return (
       <div className="relative w-full rounded-2xl overflow-hidden mb-4 bg-black" style={{ height: h }}>
-        <video ref={videoRef} style={{ display: "none" }} />
+        <video ref={imaVideoRef} style={{ display: "none" }} />
         <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
         <div className="absolute top-3 left-3 z-10 pointer-events-none">
           <span className="bg-black/60 text-yellow-400 text-[10px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">Reklam</span>
@@ -334,6 +441,7 @@ export function InstreamVideoAd({ onSkip }) {
     );
   }
 
+  // ─── Mode 3: HTML code ──────────────────────────────────────────
   const style = slotStyle(slot);
   return (
     <div className="relative w-full rounded-2xl overflow-hidden mb-4 bg-black flex items-center justify-center" style={{ minHeight: style.height || "300px" }}>

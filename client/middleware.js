@@ -3,7 +3,7 @@ const BOT_UA = /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|twitte
 const RAILWAY = "https://poredasite-production.up.railway.app";
 
 export const config = {
-  matcher: ["/", "/video/:path*", "/tag/:path*"],
+  matcher: ["/", "/video/:path*", "/tag/:path*", "/kategori/:path*"],
 };
 
 export default async function middleware(request) {

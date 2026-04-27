@@ -5,8 +5,8 @@ const AdsContext = createContext(null);
 
 function makeSlot() {
   return {
-    desktop: { enabled: false, code: "", vastUrl: "", imageUrl: "", linkUrl: "", width: "", height: "" },
-    mobile:  { enabled: false, code: "", vastUrl: "", imageUrl: "", linkUrl: "", width: "", height: "" },
+    desktop: { enabled: false, code: "", vastUrl: "", imageUrl: "", linkUrl: "", videoUrl: "", width: "", height: "" },
+    mobile:  { enabled: false, code: "", vastUrl: "", imageUrl: "", linkUrl: "", videoUrl: "", width: "", height: "" },
   };
 }
 

@@ -664,20 +664,42 @@ function DevicePanel({ slotDef, device, data, onChange }) {
         </div>
       )}
       {slotDef.key === "instreamVideo" ? (
-        <div className="space-y-2">
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">VAST URL</label>
-          <input
-            type="text"
-            value={data.vastUrl || ""}
-            onChange={e => set("vastUrl", e.target.value)}
-            placeholder="https://s.magsrv.com/v1/vast.php?idzone=..."
-            className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
-          />
-          <p className="text-[10px] text-gray-600">VAST URL girilirse IMA SDK ile oynatılır. Alternatif olarak aşağıya HTML kodu da girebilirsin.</p>
-          <textarea value={data.code || ""} onChange={e => set("code", e.target.value)}
-            placeholder="<!-- alternatif HTML kodu (VAST URL yoksa kullanılır) -->"
-            rows={3}
-            className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y" />
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Kendi Video Reklamın (MP4)</label>
+            <input
+              type="text"
+              value={data.videoUrl || ""}
+              onChange={e => set("videoUrl", e.target.value)}
+              placeholder="https://cdn.site.com/reklam.mp4"
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
+            />
+            <input
+              type="text"
+              value={data.linkUrl || ""}
+              onChange={e => set("linkUrl", e.target.value)}
+              placeholder="https://hedef-site.com (tıklayınca gidecek link)"
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
+            />
+            <p className="text-[10px] text-gray-600">MP4 URL gir. Video başlayınca 8 saniye geri sayım başlar, sonra geç butonu çıkar. Videoya tıklayınca linke gider. 1920×1080 desteklenir.</p>
+          </div>
+          <div className="border-t border-white/5 pt-2 space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Veya VAST URL</label>
+            <input
+              type="text"
+              value={data.vastUrl || ""}
+              onChange={e => set("vastUrl", e.target.value)}
+              placeholder="https://s.magsrv.com/v1/vast.php?idzone=..."
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Veya HTML Kodu</label>
+            <textarea value={data.code || ""} onChange={e => set("code", e.target.value)}
+              placeholder="<!-- Video URL ve VAST URL yoksa kullanılır -->"
+              rows={3}
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none resize-y" />
+          </div>
         </div>
       ) : (
         <div className="space-y-2">

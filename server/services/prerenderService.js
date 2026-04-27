@@ -30,7 +30,7 @@ function isoDuration(s) {
 }
 
 function videoSchema(video) {
-  const url   = `${BASE}/video/${video._id}`;
+  const url   = `${BASE}/video/${video.slug || video._id}`;
   const embed = `${BASE}/embed/${video._id}`;
   const desc  = stripHtml(video.description || "").slice(0, 200) || `${video.title} — ${SITE_NAME}`;
 
@@ -105,7 +105,10 @@ ${body}
 
 // ── /video/:id ────────────────────────────────────────────────────────────────
 async function renderVideo(id) {
-  const video = await Video.findById(id)
+  const isObjectId = /^[a-f\d]{24}$/i.test(id);
+  const query = isObjectId ? { _id: id } : { slug: id };
+
+  const video = await Video.findOne(query)
     .populate("categories", "name _id")
     .populate("category",   "name _id")
     .lean();
@@ -122,10 +125,10 @@ async function renderVideo(id) {
   })
     .sort({ views: -1 })
     .limit(10)
-    .select("_id title")
+    .select("_id slug title")
     .lean();
 
-  const url       = `${BASE}/video/${video._id}`;
+  const url       = `${BASE}/video/${video.slug || video._id}`;
   const desc      = esc(stripHtml(video.description || "").slice(0, 160) || `${video.title} — ${SITE_NAME}`);
   const titleEsc  = esc(video.title);
   const fullTitle = `${titleEsc} — ${SITE_NAME}`;
@@ -158,7 +161,7 @@ ${video.thumbnailUrl ? `<meta property="og:image" content="${esc(video.thumbnail
   const catLinks  = cats.map(c =>
     `<a href="${BASE}/?category=${c._id}">${esc(c.name)}</a>`).join(", ");
   const relLinks  = related.map(v =>
-    `<li><a href="${BASE}/video/${v._id}">${esc(v.title)}</a></li>`).join("\n");
+    `<li><a href="${BASE}/video/${v.slug || v._id}">${esc(v.title)}</a></li>`).join("\n");
 
   const body = `<h1>${titleEsc}</h1>
 ${video.thumbnailUrl ? `<img src="${esc(video.thumbnailUrl)}" alt="${titleEsc}" width="1280" height="720">` : ""}
@@ -177,7 +180,7 @@ async function renderTag(tag) {
   const videos  = await Video.find({ status: "ready", tags: decoded })
     .sort({ views: -1 })
     .limit(20)
-    .select("_id title")
+    .select("_id slug title")
     .lean();
 
   const url       = `${BASE}/tag/${encodeURIComponent(decoded.toLowerCase())}`;
@@ -198,7 +201,7 @@ async function renderTag(tag) {
 ])}</script>`;
 
   const videoLinks = videos.map(v =>
-    `<li><a href="${BASE}/video/${v._id}">${esc(v.title)}</a></li>`).join("\n");
+    `<li><a href="${BASE}/video/${v.slug || v._id}">${esc(v.title)}</a></li>`).join("\n");
 
   const body = `<h1>${fullTitle}</h1>
 ${videoLinks ? `<ul>${videoLinks}</ul>` : "<p>Video bulunamadı.</p>"}
@@ -213,7 +216,7 @@ async function renderHome() {
     Video.find({ status: "ready" })
       .sort({ createdAt: -1 })
       .limit(20)
-      .select("_id title")
+      .select("_id slug title")
       .lean(),
     Category.find().select("_id name").lean(),
   ]);
@@ -230,7 +233,7 @@ async function renderHome() {
 <meta property="og:url" content="${esc(BASE)}">`;
 
   const videoLinks = videos.map(v =>
-    `<li><a href="${BASE}/video/${v._id}">${esc(v.title)}</a></li>`).join("\n");
+    `<li><a href="${BASE}/video/${v.slug || v._id}">${esc(v.title)}</a></li>`).join("\n");
   const catLinks   = categories.map(c =>
     `<li><a href="${BASE}/kategori/${esc(c.slug || c._id)}">${esc(c.name)}</a></li>`).join("\n");
 

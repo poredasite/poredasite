@@ -124,13 +124,13 @@ app.get("/robots.txt", (req, res) => {
 const sendPrerender = (fn) => async (req, res, next) => {
   try {
     const html = await fn(req);
-    if (!html) return next();
+    if (!html) return res.status(404).send("Not found");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("X-Prerender", "1");
     res.send(html);
   } catch (e) {
     console.error("[Prerender] error:", e.message);
-    next();
+    res.status(500).send("Prerender error");
   }
 };
 
@@ -139,15 +139,43 @@ app.get("/prerender/video/:id",          sendPrerender((req) => prerender.render
 app.get("/prerender/tag/:tag",           sendPrerender((req) => prerender.renderTag(req.params.tag)));
 app.get("/prerender/kategori/:slug",     sendPrerender((req) => prerender.renderCategory(req.params.slug)));
 
-// ─── 301 redirect: /video/[ObjectId] → /video/[slug] ─────────────
+// ─── 301 redirects for /video/:id ─────────────────────────────────
+// 1) ObjectId → current slug
+// 2) Old/stale slug (e.g. "byk-abc12345") → current slug via ID suffix
 app.get("/video/:id", async (req, res, next) => {
-  if (!/^[a-f\d]{24}$/i.test(req.params.id)) return next();
+  const param = req.params.id;
+  const Video = require("./models/Video");
+
+  // Case 1: raw ObjectId
+  if (/^[a-f\d]{24}$/i.test(param)) {
+    try {
+      const video = await Video.findById(param).select("slug").lean();
+      if (video?.slug) return res.redirect(301, `/video/${video.slug}`);
+    } catch {}
+    return next();
+  }
+
+  // Case 2: slug-like string — check if it exists first
   try {
-    const Video = require("./models/Video");
-    const video = await Video.findById(req.params.id).select("slug").lean();
-    if (!video?.slug) return next();
-    return res.redirect(301, `/video/${video.slug}`);
-  } catch { return next(); }
+    const exists = await Video.findOne({ slug: param }).select("_id").lean();
+    if (exists) return next(); // correct slug, serve SPA normally
+  } catch {}
+
+  // Case 3: stale slug — extract the 8-char ID suffix and find the current slug
+  const suffixMatch = param.match(/-([a-f\d]{8})$/i);
+  if (suffixMatch) {
+    try {
+      const suffix = suffixMatch[1];
+      const video = await Video.findOne({
+        slug: { $regex: `-${suffix}$`, $options: "i" }
+      }).select("slug").lean();
+      if (video?.slug && video.slug !== param) {
+        return res.redirect(301, `/video/${video.slug}`);
+      }
+    } catch {}
+  }
+
+  return next();
 });
 
 // ─── Static Files (Production) ────────────────────────────────────
