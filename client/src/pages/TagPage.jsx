@@ -113,7 +113,7 @@ export default function TagPage() {
         url={maxPage > 1 ? `${tagBase}?page=${maxPage}` : tagBase}
         prevPage={prevPage}
         nextPage={nextPage}
-        noIndex={true}
+        noIndex={maxPage > 1}
       />
 
       <div className="max-w-[1600px] mx-auto px-2 sm:px-5 py-4">
