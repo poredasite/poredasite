@@ -19,6 +19,7 @@ const DEFAULT_ADS = {
   instreamVideo:    makeSlot(),
   instantMessage:   makeSlot(),
   belowDescription: makeSlot(),
+  entryPopup:       makeSlot(),
 };
 
 function mergeAds(remote) {
@@ -34,6 +35,7 @@ function mergeAds(remote) {
 
 export function AdsProvider({ children }) {
   const [ads, setAds] = useState(DEFAULT_ADS);
+  const [adsLoaded, setAdsLoaded] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
@@ -45,7 +47,8 @@ export function AdsProvider({ children }) {
   useEffect(() => {
     adsApi.get()
       .then(res => setAds(mergeAds(res.data)))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setAdsLoaded(true));
   }, []);
 
   function getSlot(key) {
@@ -55,7 +58,7 @@ export function AdsProvider({ children }) {
   }
 
   return (
-    <AdsContext.Provider value={{ ads, setAds, isMobile, getSlot }}>
+    <AdsContext.Provider value={{ ads, setAds, isMobile, getSlot, adsLoaded }}>
       {children}
     </AdsContext.Provider>
   );

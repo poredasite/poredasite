@@ -63,13 +63,17 @@ function ImageBannerSlot({ slot, style }) {
 
 // ─── Top Banner ────────────────────────────────────────────────────
 export function TopBannerAd() {
-  const { getSlot } = useAds();
+  const { getSlot, adsLoaded } = useAds();
   const slot = getSlot("topBanner");
+  const minH = slot?.height ? `${slot.height}px` : "90px";
+
+  // Reserve space while ads API loads to prevent CLS
+  if (!adsLoaded) return <div style={{ minHeight: minH }} className="mb-6" />;
   if (!slot?.enabled) return null;
 
   const style = slotStyle(slot);
   return (
-    <div className="flex justify-center mb-6" style={{ minHeight: slot.height ? `${slot.height}px` : 90 }}>
+    <div className="flex justify-center mb-6" style={{ minHeight: minH }}>
       {slot.imageUrl
         ? <ImageBannerSlot slot={slot} style={style} />
         : slot.code
@@ -461,6 +465,65 @@ export function InstreamVideoAd({ onSkip }) {
               Reklamı Geç →
             </button>
         }
+      </div>
+    </div>
+  );
+}
+
+// ─── Entry Popup (video sayfasına girişte küçük popup) ─────────────
+export function EntryPopupAd() {
+  const { getSlot } = useAds();
+  const slot = getSlot("entryPopup");
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (!slot?.enabled || !slot?.message) return;
+    if (sessionStorage.getItem("ep_shown")) return;
+    const t = setTimeout(() => {
+      setShow(true);
+      sessionStorage.setItem("ep_shown", "1");
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [slot?.enabled, slot?.message]);
+
+  if (!show) return null;
+
+  function handleYes() {
+    if (slot.linkUrl) window.open(slot.linkUrl, "_blank", "noopener,noreferrer");
+    setShow(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4" onClick={() => setShow(false)}>
+      <div className="absolute inset-0 bg-black/50" />
+      <div
+        className="relative bg-surface-800 border border-white/10 rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-slide-up"
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          onClick={() => setShow(false)}
+          className="absolute top-3 right-3 text-gray-500 hover:text-white transition-colors"
+          aria-label="Kapat"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <p className="text-white text-sm leading-relaxed pr-4 mb-5">{slot.message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={handleYes}
+            className="flex-1 bg-brand-500 hover:bg-brand-400 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+          >
+            Evet
+          </button>
+          <button
+            onClick={() => setShow(false)}
+            className="flex-1 bg-surface-700 hover:bg-surface-600 text-gray-300 text-sm py-2.5 rounded-xl transition-colors"
+          >
+            Hayır
+          </button>
+        </div>
       </div>
     </div>
   );

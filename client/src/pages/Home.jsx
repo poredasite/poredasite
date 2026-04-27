@@ -239,7 +239,7 @@ export default function Home() {
         )}
 
         {!loading && !error && videos.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
             {gridItems.map((item, idx) =>
               item.type === "ad"
                 ? <InFeedAd key={item.key} />

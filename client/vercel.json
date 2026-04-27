@@ -1,4 +1,12 @@
 {
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "poredasite.vercel.app" }],
+      "destination": "https://xxxporeda.com/$1",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/robots.txt",               "destination": "https://poredasite-production.up.railway.app/robots.txt" },
     { "source": "/sitemap.xml",              "destination": "https://poredasite-production.up.railway.app/sitemap.xml" },

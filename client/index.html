@@ -74,18 +74,15 @@
     }
     </script>
 
-    <!-- Ad Network -->
-    <script async type="application/javascript" src="https://a.magsrv.com/ad-provider.js"></script>
-    <!-- Google IMA SDK (VAST pre-roll) -->
-    <script async src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
-
-    <!-- Fonts -->
+    <!-- Fonts: preload CSS non-blocking, fallback for no-JS -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preload" as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    </noscript>
 
     <style>
       * { box-sizing: border-box; }
@@ -107,5 +104,8 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Ad scripts deferred to after page load -->
+    <script defer type="application/javascript" src="https://a.magsrv.com/ad-provider.js"></script>
+    <script defer src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
   </body>
 </html>

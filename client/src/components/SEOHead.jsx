@@ -45,7 +45,8 @@ export default function SEOHead({
   nextPage    = null,
   videoObject = null,
   breadcrumbs = null,
-  itemList    = null,   // array of { name, url } — for listing pages
+  itemList    = null,
+  preloadImage = null,  // LCP image URL — preloaded in <head>
 }) {
   const fullTitle    = title ? `${title} — ${SITE_NAME}` : `${SITE_NAME} Porno izle`;
   const canonicalUrl = url ? `${SITE_URL}${url}` : SITE_URL;
@@ -66,6 +67,7 @@ export default function SEOHead({
         : <meta name="robots" content="index, follow" />
       }
       <link rel="canonical" href={canonicalUrl} />
+      {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
       {prevPage && <link rel="prev" href={`${SITE_URL}${prevPage}`} />}
       {nextPage && <link rel="next" href={`${SITE_URL}${nextPage}`} />}
 

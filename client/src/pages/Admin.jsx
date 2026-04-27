@@ -565,6 +565,7 @@ const AD_SLOT_DEFS = [
   { key: "instreamVideo",  icon: "▶",  label: "Video Öncesi",      desc: "Video oynatılmadan önce gösterilir",                          presets: { desktop: [["100%","480"],["100%","360"]], mobile: [["100%","240"],["100%","180"]] } },
   { key: "instantMessage",   icon: "◻",  label: "Tam Ekran",       desc: "Sayfa yüklenmesinden 2sn sonra tam ekran overlay",            presets: { desktop: [["800","600"],["640","480"]], mobile: [["320","480"],["300","250"]] } },
   { key: "belowDescription", icon: "≡",  label: "Açıklama Altı",  desc: "Video sayfasında açıklama/etiketlerin altında gösterilir",     presets: { desktop: [["728","90"],["970","90"],["300","250"]], mobile: [["300","250"],["320","100"]] } },
+  { key: "entryPopup",       icon: "💬", label: "Video Popup",    desc: "Videoya girildiğinde küçük popup çıkar, 'Evet' butonuna basınca linke yönlendirir", presets: { desktop: [], mobile: [] }, noSize: true, isPopup: true },
 ];
 
 function Toggle({ value, onChange }) {
@@ -663,7 +664,31 @@ function DevicePanel({ slotDef, device, data, onChange }) {
           </div>
         </div>
       )}
-      {slotDef.key === "instreamVideo" ? (
+      {slotDef.isPopup ? (
+        <div className="space-y-2">
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Popup Mesajı</label>
+            <textarea
+              value={data.message || ""}
+              onChange={e => set("message", e.target.value)}
+              placeholder="Örn: Özel teklifimizden yararlanmak ister misin?"
+              rows={3}
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs outline-none resize-y"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Link (Evet butonuna basınca)</label>
+            <input
+              type="text"
+              value={data.linkUrl || ""}
+              onChange={e => set("linkUrl", e.target.value)}
+              placeholder="https://hedef-site.com (boş bırakılırsa sadece kapanır)"
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
+            />
+            <p className="text-[10px] text-gray-600">Link boş bırakılırsa "Evet" butonuna basıldığında popup sadece kapanır.</p>
+          </div>
+        </div>
+      ) : slotDef.key === "instreamVideo" ? (
         <div className="space-y-3">
           <div className="space-y-1.5">
             <label className="text-[10px] text-gray-500 uppercase tracking-wider">Kendi Video Reklamın (MP4)</label>

@@ -2,6 +2,7 @@
 const ffmpeg      = require("fluent-ffmpeg");
 const ffmpegPath  = require("ffmpeg-static");
 const path        = require("path");
+const sharp       = require("sharp");
 
 // Use bundled binary when system FFmpeg is not on PATH (Railway, Docker, etc.)
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
@@ -255,22 +256,51 @@ async function uploadMp4FallbackToStorage(filePath, videoId) {
 
 function extractThumbnailFrame(inputPath, videoId, timeSeconds) {
   return new Promise((resolve, reject) => {
-    const outputPath = path.join(os.tmpdir(), `thumb-auto-${videoId}-${Date.now()}.jpg`);
+    const jpgPath  = path.join(os.tmpdir(), `thumb-auto-${videoId}-${Date.now()}.jpg`);
+    const webpPath = jpgPath.replace(".jpg", ".webp");
     ffmpeg(inputPath)
       .seekInput(Math.max(0, timeSeconds))
       .frames(1)
-      .outputOptions(["-vf", "scale=1280:-2", "-q:v", "3"])
-      .output(outputPath)
-      .on("end", () => resolve(outputPath))
+      .outputOptions(["-vf", "scale=1280:-2", "-q:v", "2"])
+      .output(jpgPath)
+      .on("end", () => {
+        // Convert to WebP with sharp
+        sharp(jpgPath)
+          .webp({ quality: 80 })
+          .toFile(webpPath)
+          .then(() => { try { fs.unlinkSync(jpgPath); } catch {} resolve(webpPath); })
+          .catch(() => resolve(jpgPath)); // fallback to jpg if sharp fails
+      })
       .on("error", reject)
       .run();
   });
 }
 
 async function uploadThumbnailToStorage(filePath, videoId, mimeType) {
-  const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : mimeType.includes("avif") ? "avif" : "jpg";
-  const key = `thumbnails/${videoId}.${ext}`;
-  await streamUpload(key, filePath, mimeType);
+  const key = `thumbnails/${videoId}.webp`;
+  let uploadPath = filePath;
+  let tmpWebp = null;
+
+  // Convert any format → WebP 1280px max, quality 80
+  if (!mimeType.includes("webp")) {
+    tmpWebp = path.join(os.tmpdir(), `thumb-webp-${videoId}-${Date.now()}.webp`);
+    await sharp(filePath)
+      .resize(1280, 720, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toFile(tmpWebp);
+    uploadPath = tmpWebp;
+  } else {
+    // Even if already WebP, still resize + optimize
+    tmpWebp = path.join(os.tmpdir(), `thumb-webp-${videoId}-${Date.now()}.webp`);
+    await sharp(filePath)
+      .resize(1280, 720, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toFile(tmpWebp);
+    uploadPath = tmpWebp;
+  }
+
+  await streamUpload(key, uploadPath, "image/webp");
+  if (tmpWebp) try { fs.unlinkSync(tmpWebp); } catch {}
   return { url: `${CDN_URL}/${key}`, key };
 }
 

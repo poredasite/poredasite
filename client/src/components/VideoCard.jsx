@@ -54,7 +54,10 @@ export default function VideoCard({ video, priority = false }) {
               src={video.thumbnailUrl}
               alt={video.title}
               loading={priority ? "eager" : "lazy"}
-              decoding="async"
+              fetchpriority={priority ? "high" : "low"}
+              decoding={priority ? "sync" : "async"}
+              width="640"
+              height="360"
               onLoad={() => setImgLoaded(true)}
               onError={() => setImgError(true)}
               className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${

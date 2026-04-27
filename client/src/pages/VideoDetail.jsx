@@ -7,7 +7,7 @@ import { videoApi, commentApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
-import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, InFeedAd } from "../components/AdPlaceholders";
+import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, InFeedAd, EntryPopupAd } from "../components/AdPlaceholders";
 import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
 import { parseLinkedDescription } from "../lib/linkedDescription";
@@ -264,6 +264,7 @@ export default function VideoDetail() {
 
   return (
     <>
+      <EntryPopupAd />
       <SEOHead
         title={video.title}
         description={
@@ -275,6 +276,7 @@ export default function VideoDetail() {
         type="video.other"
         videoUrl={video.mp4FallbackUrl || null}
         videoObject={video}
+        preloadImage={video.thumbnailUrl || null}
       />
 
       <div className="max-w-5xl mx-auto animate-fade-in">
