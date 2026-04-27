@@ -1,4 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+
+// Load IMA SDK only on video pages — saves 146 KiB on home/listing pages
+function useIMASDK() {
+  useEffect(() => {
+    if (window.google?.ima) return;
+    if (document.querySelector('script[src*="imasdk.googleapis.com"]')) return;
+    const s = document.createElement("script");
+    s.src = "https://imasdk.googleapis.com/js/sdkloader/ima3.js";
+    s.async = true;
+    document.head.appendChild(s);
+  }, []);
+}
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -184,6 +196,7 @@ function CommentSection({ videoId }) {
 }
 
 export default function VideoDetail() {
+  useIMASDK();
   const { slug }   = useParams();
   const navigate   = useNavigate();
   const [video,        setVideo]        = useState(null);

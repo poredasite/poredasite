@@ -20,7 +20,11 @@
       "Bash(node_modules/.bin/eslint src/pages/Home.jsx src/pages/StaticPage.jsx src/pages/EmbedPage.jsx src/lib/videoSchema.js --rule '{\"no-undef\": \"error\"}')",
       "Bash(xargs ls *)",
       "Bash(npx tsc *)",
-      "Bash(curl -s \"https://xxxporeda.com/sitemap-videos.xml\")"
+      "Bash(curl -s \"https://xxxporeda.com/sitemap-videos.xml\")",
+      "Bash(xargs cat *)",
+      "Bash(curl -s \"https://poredasite-production.up.railway.app/robots.txt\")",
+      "Bash(curl -sI \"https://xxxporeda.com/\")",
+      "Bash(curl -sI \"https://poredasite.vercel.app/\")"
     ]
   }
 }

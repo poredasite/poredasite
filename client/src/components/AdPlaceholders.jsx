@@ -67,13 +67,13 @@ export function TopBannerAd() {
   const slot = getSlot("topBanner");
   const minH = slot?.height ? `${slot.height}px` : "90px";
 
-  // Reserve space while ads API loads to prevent CLS
-  if (!adsLoaded) return <div style={{ minHeight: minH }} className="mb-6" />;
+  // Reserve exact space while ads API loads to prevent CLS
+  if (!adsLoaded) return <div style={{ height: minH }} className="mb-6" />;
   if (!slot?.enabled) return null;
 
   const style = slotStyle(slot);
   return (
-    <div className="flex justify-center mb-6" style={{ minHeight: minH }}>
+    <div className="flex justify-center mb-6" style={{ height: minH, overflow: "hidden" }}>
       {slot.imageUrl
         ? <ImageBannerSlot slot={slot} style={style} />
         : slot.code
@@ -105,17 +105,11 @@ export function SidebarAd() {
 
 // ─── In-Feed ──────────────────────────────────────────────────────
 export function InFeedAd() {
-  const { getSlot, adsLoaded } = useAds();
+  const { getSlot } = useAds();
   const slot = getSlot("inFeed");
-  const h = slot?.height || 300;
-
-  // Always reserve space until ads are loaded to prevent CLS
-  if (!adsLoaded) {
-    return <div className="col-span-1 my-1" style={{ height: h }} />;
-  }
-
   if (!slot?.enabled) return null;
 
+  const h = slot.height || 300;
   return (
     <div className="col-span-1 my-1">
       <div style={{ width: "100%", maxWidth: 320, height: h, overflow: "hidden" }}>

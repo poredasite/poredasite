@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { videoApi, categoryApi } from "../api";
 import VideoCard from "../components/VideoCard";
-import { VideoGridSkeleton } from "../components/Skeletons";
+import { VideoCardSkeleton } from "../components/Skeletons";
 import { TopBannerAd, InFeedAd } from "../components/AdPlaceholders";
 import SEOHead from "../components/SEOHead";
 import { HiFire, HiClock, HiSparkles } from "react-icons/hi";
@@ -178,11 +178,9 @@ export default function Home() {
                   ? "Son Yüklenen Porno Videoları"
                   : "Türkçe Porno İzle — HD Sikiş Videoları"}
             </h1>
-            {total != null && (
-              <p className="text-neutral-700 text-xs mt-0.5">
-                {total.toLocaleString("tr-TR")} video
-              </p>
-            )}
+            <p className="text-neutral-700 text-xs mt-0.5" style={{ visibility: total != null ? "visible" : "hidden" }}>
+              {total != null ? `${total.toLocaleString("tr-TR")} video` : "0 video"}
+            </p>
           </div>
 
           {/* Sort tabs */}
@@ -190,6 +188,7 @@ export default function Home() {
             {SORT_TABS.map(({ value, label, Icon }) => (
               <button
                 key={value}
+                aria-label={label}
                 onClick={() => handleSortChange(value)}
                 className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md font-semibold transition-all duration-150 touch-manipulation ${
                   sort === value
@@ -204,7 +203,19 @@ export default function Home() {
           </div>
         </div>
 
-        {loading && <VideoGridSkeleton count={PAGE_LIMIT} />}
+        {/* Unified grid: same container during loading → real, prevents footer CLS */}
+        {(loading || (!error && videos.length > 0)) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
+            {loading
+              ? Array.from({ length: PAGE_LIMIT }).map((_, i) => <VideoCardSkeleton key={i} />)
+              : gridItems.map((item, idx) =>
+                  item.type === "ad"
+                    ? <InFeedAd key={item.key} />
+                    : <VideoCard key={item.key} video={item.video} priority={idx < 6} />
+                )
+            }
+          </div>
+        )}
 
         {!loading && error && (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -234,16 +245,6 @@ export default function Home() {
               <button onClick={() => handleCategorySelect(null)} className="btn-ghost text-sm mt-1">
                 Tüm videolara dön
               </button>
-            )}
-          </div>
-        )}
-
-        {!loading && !error && videos.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
-            {gridItems.map((item, idx) =>
-              item.type === "ad"
-                ? <InFeedAd key={item.key} />
-                : <VideoCard key={item.key} video={item.video} priority={idx < 6} />
             )}
           </div>
         )}
