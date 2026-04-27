@@ -105,11 +105,17 @@ export function SidebarAd() {
 
 // ─── In-Feed ──────────────────────────────────────────────────────
 export function InFeedAd() {
-  const { getSlot } = useAds();
+  const { getSlot, adsLoaded } = useAds();
   const slot = getSlot("inFeed");
+  const h = slot?.height || 300;
+
+  // Always reserve space until ads are loaded to prevent CLS
+  if (!adsLoaded) {
+    return <div className="col-span-1 my-1" style={{ height: h }} />;
+  }
+
   if (!slot?.enabled) return null;
 
-  const h = slot.height || 300;
   return (
     <div className="col-span-1 my-1">
       <div style={{ width: "100%", maxWidth: 320, height: h, overflow: "hidden" }}>
