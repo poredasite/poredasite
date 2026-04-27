@@ -153,6 +153,7 @@ function encodeClip(inputPath, outPath, seekTime, clipDur = 2) {
         "-pix_fmt yuv420p",
         `-threads ${FFMPEG_THREADS}`, "-an",
         "-reset_timestamps 1",
+        "-movflags +faststart",
       ])
       .output(outPath)
       .on("end",   () => resolve(outPath))
