@@ -120,22 +120,21 @@ export function InFeedAd() {
 }
 
 // ─── Native Feed Ad ───────────────────────────────────────────────
-// Picks a random enabled variant from nativeFeed1-4 and renders it
-// as a card that blends with VideoCard in the grid.
+// Cycles through enabled nativeFeed1-4 variants in order (1→2→3→4→1…)
 const NATIVE_KEYS = ["nativeFeed1", "nativeFeed2", "nativeFeed3", "nativeFeed4"];
+let nativeFeedCounter = 0;
 
 export function NativeFeedAd() {
   const { getSlot } = useAds();
 
-  // Collect enabled slots that have at least an image or a title
   const candidates = NATIVE_KEYS
     .map(k => getSlot(k))
     .filter(s => s?.enabled && (s.imageUrl || s.title));
 
-  // Stable random pick — fixed on first render, doesn't re-roll on re-renders
+  // Assign a sequential index on first render — stable across re-renders
   const idxRef = useRef(null);
   if (idxRef.current === null && candidates.length > 0) {
-    idxRef.current = Math.floor(Math.random() * candidates.length);
+    idxRef.current = nativeFeedCounter++;
   }
 
   if (candidates.length === 0) return null;

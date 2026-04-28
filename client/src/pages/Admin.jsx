@@ -641,6 +641,69 @@ function BannerImageUpload({ imageUrl, onChange }) {
   );
 }
 
+function AdVideoUpload({ videoUrl, onChange }) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setProgress(0);
+    try {
+      const res = await adsApi.uploadAdVideo(file, (ev) => {
+        if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100));
+      });
+      onChange(res.url);
+      toast.success("Video yüklendi");
+    } catch (err) {
+      toast.error("Yükleme başarısız: " + err.message);
+    } finally {
+      setUploading(false);
+      setProgress(0);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-2 items-center">
+        <input
+          type="text"
+          value={videoUrl}
+          onChange={e => onChange(e.target.value)}
+          placeholder="https://cdn.site.com/reklam.mp4"
+          className="flex-1 bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="shrink-0 bg-surface-600 hover:bg-surface-500 disabled:opacity-50 text-white text-xs px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+        >
+          {uploading ? `${progress}%` : "Dosya Seç"}
+        </button>
+        <input ref={inputRef} type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" className="hidden" onChange={handleFile} />
+      </div>
+      {uploading && (
+        <div className="w-full bg-surface-700 rounded-full h-1.5 overflow-hidden">
+          <div className="bg-brand-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+        </div>
+      )}
+      {videoUrl && !uploading && (
+        <div className="flex items-center gap-2 bg-surface-900 rounded-lg px-3 py-2">
+          <svg className="w-3.5 h-3.5 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 002 2v8a2 2 0 002 2z" />
+          </svg>
+          <span className="text-green-400 text-[10px] font-mono truncate flex-1">{videoUrl.split("/").pop()}</span>
+          <button type="button" onClick={() => onChange("")} className="text-gray-600 hover:text-red-400 transition-colors text-[10px]">✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DevicePanel({ slotDef, device, data, onChange }) {
   const presets = slotDef.presets[device] || [];
   function set(field, val) { onChange({ ...data, [field]: val }); }
@@ -732,13 +795,7 @@ function DevicePanel({ slotDef, device, data, onChange }) {
         <div className="space-y-3">
           <div className="space-y-1.5">
             <label className="text-[10px] text-gray-500 uppercase tracking-wider">Kendi Video Reklamın (MP4)</label>
-            <input
-              type="text"
-              value={data.videoUrl || ""}
-              onChange={e => set("videoUrl", e.target.value)}
-              placeholder="https://cdn.site.com/reklam.mp4"
-              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
-            />
+            <AdVideoUpload videoUrl={data.videoUrl || ""} onChange={url => set("videoUrl", url)} />
             <input
               type="text"
               value={data.linkUrl || ""}
@@ -746,7 +803,7 @@ function DevicePanel({ slotDef, device, data, onChange }) {
               placeholder="https://hedef-site.com (tıklayınca gidecek link)"
               className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
             />
-            <p className="text-[10px] text-gray-600">MP4 URL gir. Video başlayınca 8 saniye geri sayım başlar, sonra geç butonu çıkar. Videoya tıklayınca linke gider. 1920×1080 desteklenir.</p>
+            <p className="text-[10px] text-gray-600">MP4 URL gir veya dosya yükle. Video başlayınca 8 saniye geri sayım başlar, sonra geç butonu çıkar. Videoya tıklayınca linke gider.</p>
           </div>
           <div className="border-t border-white/5 pt-2 space-y-1.5">
             <label className="text-[10px] text-gray-500 uppercase tracking-wider">Veya VAST URL</label>

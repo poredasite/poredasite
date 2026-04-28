@@ -18,6 +18,19 @@ const bannerUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
 }).single("file");
 
+const adVideoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_, __, cb) => cb(null, os.tmpdir()),
+    filename: (_, file, cb) => cb(null, `advideo-${Date.now()}${path.extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+  fileFilter: (_, file, cb) => {
+    const allowed = [".mp4", ".mov", ".webm"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, allowed.includes(ext));
+  },
+}).single("file");
+
 const ADS_KEY = "ads_config";
 
 async function getOrCreateAds() {
@@ -71,6 +84,33 @@ router.post("/banner-upload", adminAuth, (req, res) => {
       const key = `banners/${crypto.randomUUID()}${ext}`;
       const mimeMap = { ".gif": "image/gif", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" };
       const contentType = mimeMap[ext] || "image/jpeg";
+
+      await s3.send(new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: fs.createReadStream(req.file.path),
+        ContentType: contentType,
+      }));
+
+      fs.unlinkSync(req.file.path);
+      res.json({ success: true, url: `${CDN_URL}/${key}` });
+    } catch (e) {
+      try { fs.unlinkSync(req.file.path); } catch {}
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+});
+
+// POST /settings/ad-video-upload — admin only, mp4/mov/webm → R2
+router.post("/ad-video-upload", adminAuth, (req, res) => {
+  adVideoUpload(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message });
+    if (!req.file) return res.status(400).json({ success: false, message: "Dosya bulunamadı veya geçersiz format (mp4/mov/webm)" });
+    try {
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      const key = `ad-videos/${crypto.randomUUID()}${ext}`;
+      const mimeMap = { ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm" };
+      const contentType = mimeMap[ext] || "video/mp4";
 
       await s3.send(new PutObjectCommand({
         Bucket: BUCKET,

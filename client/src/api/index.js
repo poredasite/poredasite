@@ -97,6 +97,15 @@ export const adsApi = {
     fd.append("file", file);
     return api.post("/settings/banner-upload", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 });
   },
+  uploadAdVideo: (file, onProgress) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api.post("/settings/ad-video-upload", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 10 * 60 * 1000, // 10 dakika
+      onUploadProgress: onProgress,
+    });
+  },
 };
 
 export default api;
