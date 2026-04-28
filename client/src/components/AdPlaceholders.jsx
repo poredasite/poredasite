@@ -149,37 +149,38 @@ export function NativeFeedAd() {
       rel="noopener noreferrer"
       className="group flex flex-col gap-2 cursor-pointer"
     >
-      {/* Thumbnail */}
+      {/* Thumbnail — same structure as VideoCard */}
       <div className="relative rounded-xl overflow-hidden bg-neutral-900" style={{ aspectRatio: "16/9" }}>
-        {slot.imageUrl ? (
-          <img
-            src={slot.imageUrl}
-            alt={slot.title || ""}
-            loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-neutral-800">
-            <span className="text-neutral-600 text-xs font-mono uppercase tracking-widest">Reklam</span>
+        <div className="absolute inset-0">
+          {slot.imageUrl ? (
+            <img
+              src={slot.imageUrl}
+              alt={slot.title || ""}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-contain"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-neutral-800" />
+          )}
+        </div>
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="w-11 h-11 rounded-full bg-brand-500/90 backdrop-blur-sm flex items-center justify-center shadow-lg shadow-brand-500/30">
+            <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 ml-0.5"><path d="M8 5v14l11-7z" /></svg>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Text */}
-      <div className="flex flex-col gap-0.5">
+      {/* Text — same padding as VideoCard */}
+      <div className="px-1">
         {slot.title && (
-          <p className="text-white text-sm font-semibold leading-snug line-clamp-2 group-hover:text-brand-400 transition-colors">
+          <p className="text-neutral-200 text-sm font-medium leading-snug line-clamp-2 group-hover:text-white transition-colors">
             {slot.title}
           </p>
         )}
         {slot.description && (
-          <p className="text-neutral-500 text-xs leading-relaxed line-clamp-2">
+          <p className="text-neutral-500 text-[11px] mt-1 line-clamp-2">
             {slot.description}
-          </p>
-        )}
-        {slot.linkUrl && (
-          <p className="text-brand-500 text-[11px] mt-0.5 truncate">
-            {(() => { try { return new URL(slot.linkUrl).hostname; } catch { return slot.linkUrl; } })()}
           </p>
         )}
       </div>
