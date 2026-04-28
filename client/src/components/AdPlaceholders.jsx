@@ -328,7 +328,8 @@ export function InstreamVideoAd({ onSkip }) {
   const [canSkip, setCanSkip] = useState(false);
   // For custom video URL mode
   const [adStarted, setAdStarted] = useState(false);
-  const [adMuted, setAdMuted] = useState(true);
+  const [adMuted, setAdMuted] = useState(false);
+  const [adForcedMute, setAdForcedMute] = useState(false); // tarayıcı engelledi mi
   const [adCurrentTime, setAdCurrentTime] = useState(0);
 
   // VAST IMA mode
@@ -403,12 +404,23 @@ export function InstreamVideoAd({ onSkip }) {
       const v = adVideoRef.current;
       if (!v) return;
       if (!adStarted) {
+        // Kullanıcı tıkladı — sesli başlat
         v.muted = false;
         setAdMuted(false);
+        setAdForcedMute(false);
         v.play().catch(() => {});
       } else if (slot.linkUrl) {
         window.open(slot.linkUrl, "_blank", "noopener,noreferrer");
       }
+    }
+
+    function handleUnmute(e) {
+      e.stopPropagation();
+      const v = adVideoRef.current;
+      if (!v) return;
+      v.muted = false;
+      setAdMuted(false);
+      setAdForcedMute(false);
     }
 
     function toggleMute(e) {
@@ -417,6 +429,21 @@ export function InstreamVideoAd({ onSkip }) {
       if (!v) return;
       v.muted = !v.muted;
       setAdMuted(v.muted);
+      if (!v.muted) setAdForcedMute(false);
+    }
+
+    function handleAutoplay() {
+      const v = adVideoRef.current;
+      if (!v) return;
+      // Sesli başlatmayı dene
+      v.muted = false;
+      v.play().catch(() => {
+        // Tarayıcı engelledi — sessiz başlat, uyarı göster
+        v.muted = true;
+        setAdMuted(true);
+        setAdForcedMute(true);
+        v.play().catch(() => {});
+      });
     }
 
     return (
@@ -427,8 +454,8 @@ export function InstreamVideoAd({ onSkip }) {
           className="w-full h-full object-contain"
           style={{ cursor: slot.linkUrl && adStarted ? "pointer" : "default" }}
           autoPlay
-          muted
           playsInline
+          onCanPlay={handleAutoplay}
           onPlay={() => setAdStarted(true)}
           onTimeUpdate={() => setAdCurrentTime(adVideoRef.current?.currentTime || 0)}
           onEnded={() => onSkip?.()}
@@ -447,10 +474,27 @@ export function InstreamVideoAd({ onSkip }) {
           </button>
         )}
 
+        {/* Tarayıcı ses engelledi — büyük unmute butonu */}
+        {adStarted && adForcedMute && (
+          <button
+            onClick={handleUnmute}
+            className="absolute inset-0 flex items-center justify-center bg-black/30 z-20"
+          >
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-14 h-14 bg-black/70 rounded-full flex items-center justify-center text-2xl">
+                🔇
+              </div>
+              <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg font-semibold">
+                Sesi Aç
+              </span>
+            </div>
+          </button>
+        )}
+
         {/* Top-left: Ad label + mute toggle */}
         <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
           <span className="bg-black/60 text-yellow-400 text-[10px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">Reklam</span>
-          {adStarted && (
+          {adStarted && !adForcedMute && (
             <button
               onClick={toggleMute}
               className="bg-black/60 hover:bg-black/80 text-white text-[10px] px-2 py-0.5 rounded transition-colors"
