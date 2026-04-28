@@ -67,8 +67,8 @@ export function TopBannerAd({ slotKey = "topBanner" }) {
   const slot = getSlot(slotKey);
   const minH = slot?.height ? `${slot.height}px` : "90px";
 
-  // Reserve exact space while ads API loads to prevent CLS (only first slot)
-  if (!adsLoaded) return slotKey === "topBanner" ? <div style={{ height: minH }} className="mb-6" /> : null;
+  // Reserve space while ads API loads to prevent CLS
+  if (!adsLoaded) return <div style={{ height: minH }} className="mb-6" />;
   if (!slot?.enabled) return null;
 
   const style = slotStyle(slot);
@@ -77,7 +77,7 @@ export function TopBannerAd({ slotKey = "topBanner" }) {
       {slot.imageUrl
         ? <ImageBannerSlot slot={slot} style={style} />
         : slot.code
-          ? <LazyAdSlot html={slot.code} style={style} minHeight={slot.height || 90} />
+          ? <AdSlot html={slot.code} style={style} />
           : <Placeholder label="Banner Reklam" style={style} />
       }
     </div>
@@ -590,10 +590,11 @@ export function EntryPopupAd() {
 
   useEffect(() => {
     if (!slot?.enabled || !slot?.message) return;
-    if (sessionStorage.getItem("ep_shown")) return;
+    const key = `ep_shown_${window.location.pathname}`;
+    if (sessionStorage.getItem(key)) return;
     const t = setTimeout(() => {
       setShow(true);
-      sessionStorage.setItem("ep_shown", "1");
+      sessionStorage.setItem(key, "1");
     }, 1500);
     return () => clearTimeout(t);
   }, [slot?.enabled, slot?.message]);

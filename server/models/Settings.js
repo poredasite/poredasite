@@ -11,6 +11,7 @@ const deviceSlotSchema = new mongoose.Schema({
   description: { type: String,  default: "" },
   width:       { type: String,  default: "" },
   height:      { type: String,  default: "" },
+  message:     { type: String,  default: "" },
 }, { _id: false });
 
 const adSlotSchema = new mongoose.Schema({
@@ -39,6 +40,7 @@ const settingsSchema = new mongoose.Schema({
     nativeFeed2:       { type: adSlotSchema, default: () => ({}) },
     nativeFeed3:       { type: adSlotSchema, default: () => ({}) },
     nativeFeed4:       { type: adSlotSchema, default: () => ({}) },
+    entryPopup:        { type: adSlotSchema, default: () => ({}) },
   },
 }, { timestamps: true });
 
