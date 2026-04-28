@@ -168,6 +168,23 @@ export default function Navbar() {
         </button>
       </nav>
 
+      {/* ── Mobile quick links ──────────────────────────────────── */}
+      <div className="md:hidden border-t border-white/[0.04] px-3 py-1.5 flex gap-2 overflow-x-auto scrollbar-hide">
+        {SPECIAL_LINKS.map(({ label, href }) => (
+          <Link
+            key={href}
+            to={href}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 ${
+              location.pathname === href
+                ? "bg-brand-500 text-white"
+                : "bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            {label === "Türk İfşa" ? "🔥" : "🇹🇷"} {label}
+          </Link>
+        ))}
+      </div>
+
       {/* ── Mobile dropdown ─────────────────────────────────────── */}
       {menuOpen && (
         <div className="md:hidden border-t border-white/[0.06] bg-surface-900 px-3 py-2 space-y-0.5 animate-slide-up">
