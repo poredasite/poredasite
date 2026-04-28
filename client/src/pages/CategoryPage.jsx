@@ -153,9 +153,9 @@ export default function CategoryPage() {
           </div>
         </div>
 
-        {/* SEO description text */}
+        {/* SEO description text — masaüstünde göster, mobilde gizle */}
         {category && total != null && (
-          <p className="text-neutral-700 text-xs leading-relaxed mb-5 max-w-3xl">
+          <p className="hidden sm:block text-neutral-700 text-xs leading-relaxed mb-5 max-w-3xl">
             {buildCategoryDescription(category, total)}
           </p>
         )}

@@ -137,16 +137,16 @@ export default function TagPage() {
           </div>
         </div>
 
-        {/* SEO description */}
+        {/* SEO description — masaüstünde göster, mobilde gizle */}
         {total != null && (
-          <p className="text-neutral-700 text-xs leading-relaxed mb-5 max-w-3xl">
+          <p className="hidden sm:block text-neutral-700 text-xs leading-relaxed mb-5 max-w-3xl">
             {buildTagDescription(decoded, total)}
           </p>
         )}
 
-        {/* Related tags */}
+        {/* Related tags — masaüstünde göster, mobilde gizle */}
         {meta?.relatedTags?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-5">
+          <div className="hidden sm:flex flex-wrap gap-1.5 mb-5">
             <span className="text-neutral-700 text-xs self-center mr-1">İlgili:</span>
             {meta.relatedTags.map((t) => (
               <Link
