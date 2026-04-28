@@ -61,6 +61,8 @@ app.use("/api/videos/upload", uploadLimiter);
 
 // ─── Routes ───────────────────────────────────────────────────────
 
+app.get("/api/health", (req, res) => res.json({ ok: true }));
+
 // Admin verify -- EN ÖNCE
 app.post("/api/admin/verify", (req, res) => {
   const password = req.headers["x-admin-password"] || req.body.adminPassword;

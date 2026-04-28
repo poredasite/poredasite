@@ -443,6 +443,15 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
       onTouchEnd={handleTouchEnd}
       onTouchCancel={() => { clearTimeout(longPressTimer.current); clearTimeout(touchTapTimer.current); touchTapCount.current = 0; touchStartPos.current = null; if (speed === 2) { setVideoSpeed(1); setShowSpeedToast(false); } }}
     >
+      {poster && !playing && (
+        <img
+          src={poster}
+          alt=""
+          fetchpriority="high"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none z-[1]"
+        />
+      )}
       <video
         key={src}
         ref={videoRef}
