@@ -42,7 +42,14 @@ router.get("/ads", async (req, res) => {
 router.patch("/ads", adminAuth, async (req, res) => {
   try {
     const doc = await getOrCreateAds();
-    const slots = ["topBanner", "sidebar", "inFeed", "stickyBanner", "popunder", "instreamVideo", "instantMessage", "belowDescription"];
+    const slots = [
+      "topBanner", "topBanner2", "topBanner3", "topBanner4",
+      "sidebar", "inFeed", "stickyBanner", "popunder",
+      "instreamVideo", "instantMessage",
+      "belowDescription", "belowDescription2", "belowDescription3", "belowDescription4",
+      "nativeFeed1", "nativeFeed2", "nativeFeed3", "nativeFeed4",
+      "entryPopup",
+    ];
     slots.forEach(key => {
       if (req.body[key] !== undefined) doc.ads[key] = req.body[key];
     });

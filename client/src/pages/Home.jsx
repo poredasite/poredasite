@@ -4,7 +4,7 @@ import { useInView } from "react-intersection-observer";
 import { videoApi, categoryApi } from "../api";
 import VideoCard from "../components/VideoCard";
 import { VideoCardSkeleton } from "../components/Skeletons";
-import { TopBannerAd, InFeedAd } from "../components/AdPlaceholders";
+import { TopBannerAd, NativeFeedAd } from "../components/AdPlaceholders";
 import SEOHead from "../components/SEOHead";
 import { HiFire, HiClock, HiSparkles } from "react-icons/hi";
 
@@ -210,7 +210,7 @@ export default function Home() {
               ? Array.from({ length: PAGE_LIMIT }).map((_, i) => <VideoCardSkeleton key={i} />)
               : gridItems.map((item, idx) =>
                   item.type === "ad"
-                    ? <InFeedAd key={item.key} />
+                    ? <NativeFeedAd key={item.key} />
                     : <VideoCard key={item.key} video={item.video} priority={idx < 6} />
                 )
             }

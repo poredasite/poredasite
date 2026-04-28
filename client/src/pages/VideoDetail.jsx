@@ -19,7 +19,7 @@ import { videoApi, commentApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
-import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, InFeedAd, EntryPopupAd } from "../components/AdPlaceholders";
+import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, NativeFeedAd, EntryPopupAd } from "../components/AdPlaceholders";
 import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
 import { parseLinkedDescription } from "../lib/linkedDescription";
@@ -294,9 +294,12 @@ export default function VideoDetail() {
 
       <div className="max-w-5xl mx-auto animate-fade-in">
 
-        {/* Top ad */}
+        {/* Top ads — up to 4 slots */}
         <div className="px-3 sm:px-6 pt-3 sm:pt-5">
-          <TopBannerAd />
+          <TopBannerAd slotKey="topBanner" />
+          <TopBannerAd slotKey="topBanner2" />
+          <TopBannerAd slotKey="topBanner3" />
+          <TopBannerAd slotKey="topBanner4" />
         </div>
 
         {/* Player — full-bleed mobile, rounded sm+ */}
@@ -406,7 +409,11 @@ export default function VideoDetail() {
             </div>
           )}
 
-          <BelowDescriptionAd />
+          {/* Below description ads — up to 4 slots */}
+          <BelowDescriptionAd slotKey="belowDescription" />
+          <BelowDescriptionAd slotKey="belowDescription2" />
+          <BelowDescriptionAd slotKey="belowDescription3" />
+          <BelowDescriptionAd slotKey="belowDescription4" />
 
           {/* Related videos */}
           {related.length > 0 && (
@@ -417,7 +424,7 @@ export default function VideoDetail() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5">
                 {related.reduce((acc, v, i) => {
                   acc.push(<VideoCard key={v._id} video={v} />);
-                  if ((i + 1) % 5 === 0 && i < related.length - 1) acc.push(<InFeedAd key={`ad-${i}`} />);
+                  if ((i + 1) % 5 === 0 && i < related.length - 1) acc.push(<NativeFeedAd key={`ad-${i}`} />);
                   return acc;
                 }, [])}
               </div>

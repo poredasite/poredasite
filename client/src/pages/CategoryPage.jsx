@@ -5,7 +5,7 @@ import { videoApi, categoryApi } from "../api";
 import VideoCard from "../components/VideoCard";
 import { VideoGridSkeleton } from "../components/Skeletons";
 import SEOHead from "../components/SEOHead";
-import { TopBannerAd, InFeedAd } from "../components/AdPlaceholders";
+import { TopBannerAd, NativeFeedAd } from "../components/AdPlaceholders";
 
 const PAGE_LIMIT = 24;
 const AD_EVERY   = 5;
@@ -178,7 +178,7 @@ export default function CategoryPage() {
                 <VideoCard key={video._id} video={video} />
                 {(i + 1) % AD_EVERY === 0 && (
                   <div key={`ad-${i}`} className="col-span-full">
-                    <InFeedAd />
+                    <NativeFeedAd />
                   </div>
                 )}
               </>

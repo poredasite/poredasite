@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import { useAds } from "../context/AdsContext";
 
@@ -62,13 +62,13 @@ function ImageBannerSlot({ slot, style }) {
 }
 
 // ─── Top Banner ────────────────────────────────────────────────────
-export function TopBannerAd() {
+export function TopBannerAd({ slotKey = "topBanner" }) {
   const { getSlot, adsLoaded } = useAds();
-  const slot = getSlot("topBanner");
+  const slot = getSlot(slotKey);
   const minH = slot?.height ? `${slot.height}px` : "90px";
 
-  // Reserve exact space while ads API loads to prevent CLS
-  if (!adsLoaded) return <div style={{ height: minH }} className="mb-6" />;
+  // Reserve exact space while ads API loads to prevent CLS (only first slot)
+  if (!adsLoaded) return slotKey === "topBanner" ? <div style={{ height: minH }} className="mb-6" /> : null;
   if (!slot?.enabled) return null;
 
   const style = slotStyle(slot);
@@ -116,6 +116,74 @@ export function InFeedAd() {
         <LazyAdSlot html={slot.code} style={{ width: 320, height: h }} minHeight={h} />
       </div>
     </div>
+  );
+}
+
+// ─── Native Feed Ad ───────────────────────────────────────────────
+// Picks a random enabled variant from nativeFeed1-4 and renders it
+// as a card that blends with VideoCard in the grid.
+const NATIVE_KEYS = ["nativeFeed1", "nativeFeed2", "nativeFeed3", "nativeFeed4"];
+
+export function NativeFeedAd() {
+  const { getSlot } = useAds();
+
+  // Collect enabled slots that have at least an image or a title
+  const candidates = NATIVE_KEYS
+    .map(k => getSlot(k))
+    .filter(s => s?.enabled && (s.imageUrl || s.title));
+
+  // Stable random pick — fixed on first render, doesn't re-roll on re-renders
+  const idxRef = useRef(null);
+  if (idxRef.current === null && candidates.length > 0) {
+    idxRef.current = Math.floor(Math.random() * candidates.length);
+  }
+
+  if (candidates.length === 0) return null;
+
+  const slot = candidates[idxRef.current % candidates.length];
+
+  return (
+    <a
+      href={slot.linkUrl || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex flex-col gap-2 cursor-pointer"
+    >
+      {/* Thumbnail */}
+      <div className="relative rounded-xl overflow-hidden bg-neutral-900" style={{ aspectRatio: "16/9" }}>
+        {slot.imageUrl ? (
+          <img
+            src={slot.imageUrl}
+            alt={slot.title || ""}
+            loading="lazy"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-neutral-800">
+            <span className="text-neutral-600 text-xs font-mono uppercase tracking-widest">Reklam</span>
+          </div>
+        )}
+      </div>
+
+      {/* Text */}
+      <div className="flex flex-col gap-0.5">
+        {slot.title && (
+          <p className="text-white text-sm font-semibold leading-snug line-clamp-2 group-hover:text-brand-400 transition-colors">
+            {slot.title}
+          </p>
+        )}
+        {slot.description && (
+          <p className="text-neutral-500 text-xs leading-relaxed line-clamp-2">
+            {slot.description}
+          </p>
+        )}
+        {slot.linkUrl && (
+          <p className="text-brand-500 text-[11px] mt-0.5 truncate">
+            {(() => { try { return new URL(slot.linkUrl).hostname; } catch { return slot.linkUrl; } })()}
+          </p>
+        )}
+      </div>
+    </a>
   );
 }
 
@@ -227,9 +295,9 @@ export function InstantMessageAd() {
 }
 
 // ─── Below Description ────────────────────────────────────────────
-export function BelowDescriptionAd() {
+export function BelowDescriptionAd({ slotKey = "belowDescription" }) {
   const { getSlot } = useAds();
-  const slot = getSlot("belowDescription");
+  const slot = getSlot(slotKey);
   if (!slot?.enabled) return null;
 
   const style = slotStyle(slot);

@@ -557,15 +557,25 @@ function MultiUploadQueue({ onSuccess }) {
 
 // ─── Ads Manager ─────────────────────────────────────────────────
 const AD_SLOT_DEFS = [
-  { key: "topBanner",      icon: "—",  label: "Üst Banner",        desc: "Ana sayfanın üstünde gösterilir",                              presets: { desktop: [["728","90"],["970","90"],["970","250"]], mobile: [["320","50"],["320","100"],["300","50"]] } },
-  { key: "sidebar",        icon: "||", label: "Kenar Çubuğu",      desc: "Sol/sağ sütunda sabit durur",                                  presets: { desktop: [["300","250"],["300","600"],["160","600"]], mobile: [["300","250"],["320","100"]] } },
-  { key: "inFeed",         icon: "▪",  label: "Feed İçi",          desc: "Video kartları arasında çıkar",                               presets: { desktop: [["336","280"],["300","250"],["728","90"]], mobile: [["300","250"],["320","100"]] } },
-  { key: "stickyBanner",   icon: "↓",  label: "Alt Yapışkan",      desc: "Sayfanın altına sabitlenir",                                  presets: { desktop: [["728","90"],["970","90"]], mobile: [["320","50"],["320","100"]] } },
-  { key: "popunder",       icon: "↗",  label: "Popunder",          desc: "İlk tıklamada arka planda sekme açar",                        presets: { desktop: [], mobile: [] }, noSize: true },
-  { key: "instreamVideo",  icon: "▶",  label: "Video Öncesi",      desc: "Video oynatılmadan önce gösterilir",                          presets: { desktop: [["100%","480"],["100%","360"]], mobile: [["100%","240"],["100%","180"]] } },
-  { key: "instantMessage",   icon: "◻",  label: "Tam Ekran",       desc: "Sayfa yüklenmesinden 2sn sonra tam ekran overlay",            presets: { desktop: [["800","600"],["640","480"]], mobile: [["320","480"],["300","250"]] } },
-  { key: "belowDescription", icon: "≡",  label: "Açıklama Altı",  desc: "Video sayfasında açıklama/etiketlerin altında gösterilir",     presets: { desktop: [["728","90"],["970","90"],["300","250"]], mobile: [["300","250"],["320","100"]] } },
-  { key: "entryPopup",       icon: "💬", label: "Video Popup",    desc: "Videoya girildiğinde küçük popup çıkar, 'Evet' butonuna basınca linke yönlendirir", presets: { desktop: [], mobile: [] }, noSize: true, isPopup: true },
+  { key: "topBanner",       icon: "—",  label: "Üst Banner 1",      desc: "Video sayfasının en üstünde gösterilir",                       presets: { desktop: [["728","90"],["970","90"],["970","250"]], mobile: [["320","50"],["320","100"],["300","50"]] } },
+  { key: "topBanner2",      icon: "—²", label: "Üst Banner 2",      desc: "Üst Banner 1'in hemen altında gösterilir",                     presets: { desktop: [["728","90"],["970","90"],["970","250"]], mobile: [["320","50"],["320","100"],["300","50"]] } },
+  { key: "topBanner3",      icon: "—³", label: "Üst Banner 3",      desc: "Üst Banner 2'nin altında gösterilir",                          presets: { desktop: [["728","90"],["970","90"],["970","250"]], mobile: [["320","50"],["320","100"],["300","50"]] } },
+  { key: "topBanner4",      icon: "—⁴", label: "Üst Banner 4",      desc: "Üst Banner 3'ün altında gösterilir",                           presets: { desktop: [["728","90"],["970","90"],["970","250"]], mobile: [["320","50"],["320","100"],["300","50"]] } },
+  { key: "sidebar",         icon: "||", label: "Kenar Çubuğu",      desc: "Sol/sağ sütunda sabit durur",                                  presets: { desktop: [["300","250"],["300","600"],["160","600"]], mobile: [["300","250"],["320","100"]] } },
+  { key: "inFeed",          icon: "▪",  label: "Feed İçi",          desc: "Video kartları arasında çıkar",                               presets: { desktop: [["336","280"],["300","250"],["728","90"]], mobile: [["300","250"],["320","100"]] } },
+  { key: "stickyBanner",    icon: "↓",  label: "Alt Yapışkan",      desc: "Sayfanın altına sabitlenir",                                  presets: { desktop: [["728","90"],["970","90"]], mobile: [["320","50"],["320","100"]] } },
+  { key: "popunder",        icon: "↗",  label: "Popunder",          desc: "İlk tıklamada arka planda sekme açar",                        presets: { desktop: [], mobile: [] }, noSize: true },
+  { key: "instreamVideo",   icon: "▶",  label: "Video Öncesi",      desc: "Video oynatılmadan önce gösterilir",                          presets: { desktop: [["100%","480"],["100%","360"]], mobile: [["100%","240"],["100%","180"]] } },
+  { key: "instantMessage",  icon: "◻",  label: "Tam Ekran",         desc: "Sayfa yüklenmesinden 2sn sonra tam ekran overlay",            presets: { desktop: [["800","600"],["640","480"]], mobile: [["320","480"],["300","250"]] } },
+  { key: "belowDescription",  icon: "≡",  label: "Açıklama Altı 1", desc: "Video sayfasında açıklama/etiketlerin altında — 1. slot",     presets: { desktop: [["728","90"],["970","90"],["300","250"]], mobile: [["300","250"],["320","100"]] } },
+  { key: "belowDescription2", icon: "≡²", label: "Açıklama Altı 2", desc: "Açıklama altında — 2. slot",                                  presets: { desktop: [["728","90"],["970","90"],["300","250"]], mobile: [["300","250"],["320","100"]] } },
+  { key: "belowDescription3", icon: "≡³", label: "Açıklama Altı 3", desc: "Açıklama altında — 3. slot",                                  presets: { desktop: [["728","90"],["970","90"],["300","250"]], mobile: [["300","250"],["320","100"]] } },
+  { key: "belowDescription4", icon: "≡⁴", label: "Açıklama Altı 4", desc: "Açıklama altında — 4. slot",                                  presets: { desktop: [["728","90"],["970","90"],["300","250"]], mobile: [["300","250"],["320","100"]] } },
+  { key: "nativeFeed1",       icon: "🖼",  label: "Native Feed 1",   desc: "Feed'de 5 videoda bir rastgele çıkan native reklam — 1. varyant", presets: {}, noSize: true, isNative: true },
+  { key: "nativeFeed2",       icon: "🖼²", label: "Native Feed 2",   desc: "Feed'de 5 videoda bir rastgele çıkan native reklam — 2. varyant", presets: {}, noSize: true, isNative: true },
+  { key: "nativeFeed3",       icon: "🖼³", label: "Native Feed 3",   desc: "Feed'de 5 videoda bir rastgele çıkan native reklam — 3. varyant", presets: {}, noSize: true, isNative: true },
+  { key: "nativeFeed4",       icon: "🖼⁴", label: "Native Feed 4",   desc: "Feed'de 5 videoda bir rastgele çıkan native reklam — 4. varyant", presets: {}, noSize: true, isNative: true },
+  { key: "entryPopup",        icon: "💬", label: "Video Popup",      desc: "Videoya girildiğinde küçük popup çıkar, 'Evet' butonuna basınca linke yönlendirir", presets: { desktop: [], mobile: [] }, noSize: true, isPopup: true },
 ];
 
 function Toggle({ value, onChange }) {
@@ -664,7 +674,37 @@ function DevicePanel({ slotDef, device, data, onChange }) {
           </div>
         </div>
       )}
-      {slotDef.isPopup ? (
+      {slotDef.isNative ? (
+        <div className="space-y-2">
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Thumbnail (görsel URL veya yükle)</label>
+            <BannerImageUpload imageUrl={data.imageUrl || ""} onChange={url => set("imageUrl", url)} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Başlık</label>
+            <input type="text" value={data.title || ""} onChange={e => set("title", e.target.value)}
+              placeholder="Reklam başlığı (video kartında büyük metin)"
+              maxLength={120}
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs outline-none" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Açıklama</label>
+            <textarea value={data.description || ""} onChange={e => set("description", e.target.value)}
+              placeholder="Kısa açıklama metni (opsiyonel)"
+              rows={2} maxLength={200}
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs outline-none resize-y" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Hedef Link</label>
+            <input type="text" value={data.linkUrl || ""} onChange={e => set("linkUrl", e.target.value)}
+              placeholder="https://hedef-site.com"
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none" />
+          </div>
+          <p className="text-[10px] text-gray-600">
+            Açık olan varyantlar arasından her görünümde rastgele biri seçilir. En az görsel veya başlık gerekli.
+          </p>
+        </div>
+      ) : slotDef.isPopup ? (
         <div className="space-y-2">
           <div className="space-y-1.5">
             <label className="text-[10px] text-gray-500 uppercase tracking-wider">Popup Mesajı</label>
@@ -783,7 +823,7 @@ function AdsManager() {
 
   return (
     <form onSubmit={handleSave} className="space-y-5">
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-1">
         {AD_SLOT_DEFS.map(slot => (
           <button key={slot.key} type="button" onClick={() => setActiveSlot(slot.key)}
             className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl text-center transition-all relative

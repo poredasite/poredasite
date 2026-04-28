@@ -6,7 +6,7 @@ import VideoCard from "../components/VideoCard";
 import SidebarLinks from "../components/SidebarLinks";
 import { VideoGridSkeleton } from "../components/Skeletons";
 import SEOHead from "../components/SEOHead";
-import { TopBannerAd, InFeedAd } from "../components/AdPlaceholders";
+import { TopBannerAd, NativeFeedAd } from "../components/AdPlaceholders";
 
 const PAGE_LIMIT = 24;
 const AD_EVERY = 5;
@@ -210,7 +210,7 @@ export default function TagPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-3 gap-y-5 animate-fade-in">
             {videos.reduce((acc, v, i) => {
               acc.push(<VideoCard key={v._id} video={v} priority={i < 6} />);
-              if ((i + 1) % AD_EVERY === 0 && i < videos.length - 1) acc.push(<InFeedAd key={`ad-${i}`} />);
+              if ((i + 1) % AD_EVERY === 0 && i < videos.length - 1) acc.push(<NativeFeedAd key={`ad-${i}`} />);
               return acc;
             }, [])}
           </div>

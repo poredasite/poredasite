@@ -5,29 +5,40 @@ const AdsContext = createContext(null);
 
 function makeSlot() {
   return {
-    desktop: { enabled: false, code: "", vastUrl: "", imageUrl: "", linkUrl: "", videoUrl: "", width: "", height: "" },
-    mobile:  { enabled: false, code: "", vastUrl: "", imageUrl: "", linkUrl: "", videoUrl: "", width: "", height: "" },
+    desktop: { enabled: false, code: "", vastUrl: "", imageUrl: "", linkUrl: "", videoUrl: "", title: "", description: "", width: "", height: "" },
+    mobile:  { enabled: false, code: "", vastUrl: "", imageUrl: "", linkUrl: "", videoUrl: "", title: "", description: "", width: "", height: "" },
   };
 }
 
 const DEFAULT_ADS = {
-  topBanner:        makeSlot(),
-  sidebar:          makeSlot(),
-  inFeed:           makeSlot(),
-  stickyBanner:     makeSlot(),
-  popunder:         makeSlot(),
-  instreamVideo:    makeSlot(),
-  instantMessage:   makeSlot(),
-  belowDescription: makeSlot(),
-  entryPopup:       makeSlot(),
+  topBanner:         makeSlot(),
+  topBanner2:        makeSlot(),
+  topBanner3:        makeSlot(),
+  topBanner4:        makeSlot(),
+  sidebar:           makeSlot(),
+  inFeed:            makeSlot(),
+  stickyBanner:      makeSlot(),
+  popunder:          makeSlot(),
+  instreamVideo:     makeSlot(),
+  instantMessage:    makeSlot(),
+  belowDescription:  makeSlot(),
+  belowDescription2: makeSlot(),
+  belowDescription3: makeSlot(),
+  belowDescription4: makeSlot(),
+  nativeFeed1:       makeSlot(),
+  nativeFeed2:       makeSlot(),
+  nativeFeed3:       makeSlot(),
+  nativeFeed4:       makeSlot(),
+  entryPopup:        makeSlot(),
 };
 
 function mergeAds(remote) {
   const result = {};
   for (const key of Object.keys(DEFAULT_ADS)) {
+    const remoteSlot = remote?.[key] || {};
     result[key] = {
-      desktop: { ...DEFAULT_ADS[key].desktop, ...(remote?.[key]?.desktop || {}) },
-      mobile:  { ...DEFAULT_ADS[key].mobile,  ...(remote?.[key]?.mobile  || {}) },
+      desktop: { ...DEFAULT_ADS[key].desktop, ...(remoteSlot.desktop || {}) },
+      mobile:  { ...DEFAULT_ADS[key].mobile,  ...(remoteSlot.mobile  || {}) },
     };
   }
   return result;
