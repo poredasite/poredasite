@@ -582,6 +582,48 @@ export function InstreamVideoAd({ onSkip }) {
   );
 }
 
+// ─── Play Redirect Popup (pre-roll bitti → link → video) ──────────
+export function PlayRedirectPopup({ onDone }) {
+  const { getSlot } = useAds();
+  const slot = getSlot("playRedirect");
+  const [clicked, setClicked] = useState(false);
+
+  const noAd = !slot?.enabled || !slot?.linkUrl;
+  useEffect(() => {
+    if (noAd) onDone?.();
+  }, [noAd]);
+
+  if (noAd) return null;
+
+  function handleClick() {
+    if (!clicked) {
+      window.open(slot.linkUrl, "_blank", "noopener,noreferrer");
+      setClicked(true);
+    } else {
+      onDone?.();
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" />
+      <div className="relative bg-surface-800 border border-white/10 rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-slide-up">
+        <p className="text-white text-sm leading-relaxed mb-5">
+          {!clicked
+            ? (slot.message || "Videoyu izlemek için devam et")
+            : "Videoyu başlatmak için tekrar tıkla"}
+        </p>
+        <button
+          onClick={handleClick}
+          className="w-full bg-brand-500 hover:bg-brand-400 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+        >
+          {!clicked ? "Devam Et →" : "▶ Videoyu Oynat"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Entry Popup (video sayfasına girişte küçük popup) ─────────────
 export function EntryPopupAd({ onClose }) {
   const { getSlot, adsLoaded } = useAds();

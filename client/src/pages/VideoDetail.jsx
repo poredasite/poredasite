@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // Load IMA SDK only on video pages — saves 146 KiB on home/listing pages
 function useIMASDK() {
@@ -19,7 +19,7 @@ import { videoApi, commentApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
-import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, NativeFeedAd, EntryPopupAd } from "../components/AdPlaceholders";
+import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, NativeFeedAd, EntryPopupAd, PlayRedirectPopup } from "../components/AdPlaceholders";
 import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
 import { parseLinkedDescription } from "../lib/linkedDescription";
@@ -204,17 +204,18 @@ export default function VideoDetail() {
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState(null);
   const [descExpanded, setDescExpanded] = useState(false);
-  const [showInstream, setShowInstream] = useState(true);
+  // phase: popup → start → preroll → redirect → video
+  const [phase, setPhase] = useState("popup");
   const { getSlot }      = useAds();
   const instreamSlot     = getSlot("instreamVideo");
   const playRedirectSlot = getSlot("playRedirect");
-  const [popupClosed, setPopupClosed] = useState(false);
 
-  const handleFirstPlay = useCallback(() => {
-    if (playRedirectSlot?.enabled && playRedirectSlot?.linkUrl) {
-      window.open(playRedirectSlot.linkUrl, "_blank", "noopener,noreferrer");
-    }
-  }, [playRedirectSlot?.enabled, playRedirectSlot?.linkUrl]);
+  const hasInstream = instreamSlot?.enabled && (instreamSlot?.videoUrl || instreamSlot?.vastUrl || instreamSlot?.code);
+  const hasRedirect = playRedirectSlot?.enabled && playRedirectSlot?.linkUrl;
+
+  function afterPopup() { setPhase("start"); }
+  function afterStart()  { setPhase(hasInstream ? "preroll" : hasRedirect ? "redirect" : "video"); }
+  function afterPreroll(){ setPhase(hasRedirect ? "redirect" : "video"); }
   const lastWatchRef = useRef(null);
   const skipFetchRef = useRef(false);
 
@@ -244,7 +245,7 @@ export default function VideoDetail() {
     setLoading(true);
     setError(null);
     setDescExpanded(false);
-    setShowInstream(true);
+    setPhase("popup");
     window.scrollTo({ top: 0, behavior: "smooth" });
     videoApi.getById(slug)
       .then((res) => {
@@ -285,7 +286,8 @@ export default function VideoDetail() {
 
   return (
     <>
-      <EntryPopupAd onClose={() => setPopupClosed(true)} />
+      <EntryPopupAd onClose={afterPopup} />
+      {phase === "redirect" && <PlayRedirectPopup onDone={() => setPhase("video")} />}
       <SEOHead
         title={video.title}
         description={
@@ -325,9 +327,9 @@ export default function VideoDetail() {
               <div className="w-8 h-8 border-[3px] border-brand-500/25 border-t-brand-500 rounded-full animate-spin" />
               <p className="text-neutral-500 text-sm">Video işleniyor...</p>
             </div>
-          ) : instreamSlot?.enabled && showInstream && popupClosed ? (
-            <InstreamVideoAd onSkip={() => setShowInstream(false)} />
-          ) : (
+          ) : phase === "preroll" ? (
+            <InstreamVideoAd onSkip={afterPreroll} />
+          ) : phase === "video" ? (
             <>
               <VideoPlayer
                 src={video.videoUrl || video.previewVideoUrl}
@@ -337,7 +339,6 @@ export default function VideoDetail() {
                 mp4FallbackUrl={video.mp4FallbackUrl || null}
                 subtitleUrl={video.subtitleUrl ? `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "")}/api/subtitle/${video._id}` : null}
                 onWatchProgress={handleWatchProgress}
-                onFirstPlay={handleFirstPlay}
               />
               {video.status === "uploaded" && (
                 <div className="flex items-center gap-2 mt-2 mx-3 sm:mx-0 px-3 py-2 rounded-lg bg-brand-500/8 border border-brand-500/15 text-xs text-brand-400/80">
@@ -346,6 +347,27 @@ export default function VideoDetail() {
                 </div>
               )}
             </>
+          ) : (
+            /* phase: popup | start | redirect — thumbnail + isteğe bağlı başlat butonu */
+            <div className="relative w-full aspect-video bg-black sm:rounded-2xl overflow-hidden">
+              {video.thumbnailUrl && (
+                <img
+                  src={video.thumbnailUrl}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                />
+              )}
+              {phase === "start" && (
+                <button
+                  onClick={afterStart}
+                  className="absolute inset-0 flex items-center justify-center bg-black/30"
+                >
+                  <div className="w-16 h-16 bg-brand-500/90 hover:bg-brand-400 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-[0_0_40px_rgba(255,107,0,0.4)]">
+                    <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1"><path d="M8 5v14l11-7z" /></svg>
+                  </div>
+                </button>
+              )}
+            </div>
           )}
         </div>
 
