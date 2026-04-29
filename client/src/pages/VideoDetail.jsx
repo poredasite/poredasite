@@ -208,6 +208,7 @@ export default function VideoDetail() {
   const { getSlot }      = useAds();
   const instreamSlot     = getSlot("instreamVideo");
   const playRedirectSlot = getSlot("playRedirect");
+  const [popupClosed, setPopupClosed] = useState(false);
 
   const handleFirstPlay = useCallback(() => {
     if (playRedirectSlot?.enabled && playRedirectSlot?.linkUrl) {
@@ -284,7 +285,7 @@ export default function VideoDetail() {
 
   return (
     <>
-      <EntryPopupAd />
+      <EntryPopupAd onClose={() => setPopupClosed(true)} />
       <SEOHead
         title={video.title}
         description={
@@ -324,7 +325,7 @@ export default function VideoDetail() {
               <div className="w-8 h-8 border-[3px] border-brand-500/25 border-t-brand-500 rounded-full animate-spin" />
               <p className="text-neutral-500 text-sm">Video işleniyor...</p>
             </div>
-          ) : instreamSlot?.enabled && showInstream ? (
+          ) : instreamSlot?.enabled && showInstream && popupClosed ? (
             <InstreamVideoAd onSkip={() => setShowInstream(false)} />
           ) : (
             <>

@@ -552,7 +552,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
 
       {/* HLS error */}
       {hlsError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 pointer-events-none">
+        <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center gap-2 bg-black/70 pointer-events-none">
           <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           </svg>
@@ -562,7 +562,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
 
       {/* Buffering / HLS loading */}
       {(buffering || (!hlsReady && !hlsError && src)) && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
           <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
         </div>
       )}
@@ -570,7 +570,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
       {/* Big play button */}
       {!playing && !buffering && hlsReady && !hlsError && (
         <button onClick={togglePlay} onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}
-          className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          className="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
           <div className="w-16 h-16 bg-brand-500/90 hover:bg-brand-400 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-[0_0_40px_rgba(255,107,0,0.4)] pointer-events-auto">
             <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1"><path d="M8 5v14l11-7z" /></svg>
           </div>
@@ -579,14 +579,14 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
 
       {/* 2x speed toast */}
       {showSpeedToast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 text-white text-sm font-bold px-4 py-2 rounded-full flex items-center gap-2 animate-fade-in pointer-events-none">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[3] bg-black/80 text-white text-sm font-bold px-4 py-2 rounded-full flex items-center gap-2 animate-fade-in pointer-events-none">
           <span>⚡</span> 2x Hız
         </div>
       )}
 
       {/* Seek animation overlay */}
       {seekAnim && (
-        <div className={`absolute inset-y-0 ${seekAnim.side === "right" ? "right-0" : "left-0"} w-2/5 flex items-center justify-center pointer-events-none`}>
+        <div className={`absolute inset-y-0 z-[3] ${seekAnim.side === "right" ? "right-0" : "left-0"} w-2/5 flex items-center justify-center pointer-events-none`}>
           <div className="bg-white/15 rounded-full w-24 h-24 flex flex-col items-center justify-center gap-1">
             <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
               {seekAnim.side === "right"
@@ -603,7 +603,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
 
       {/* Custom subtitle overlay */}
       {showSubtitles && currentCue && (
-        <div className="absolute bottom-20 left-0 right-0 flex justify-center pointer-events-none px-4">
+        <div className="absolute bottom-20 left-0 right-0 z-[3] flex justify-center pointer-events-none px-4">
           <span className="bg-black/70 text-white text-sm sm:text-base px-3 py-1 rounded text-center leading-snug whitespace-pre-line">
             {currentCue}
           </span>
@@ -612,7 +612,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
 
       {/* Controls */}
       <div
-        className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`absolute bottom-0 left-0 right-0 z-[2] transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onTouchStart={e => e.stopPropagation()}
         onTouchEnd={e => e.stopPropagation()}
       >

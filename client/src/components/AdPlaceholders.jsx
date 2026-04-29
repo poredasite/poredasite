@@ -583,35 +583,49 @@ export function InstreamVideoAd({ onSkip }) {
 }
 
 // ─── Entry Popup (video sayfasına girişte küçük popup) ─────────────
-export function EntryPopupAd() {
-  const { getSlot } = useAds();
+export function EntryPopupAd({ onClose }) {
+  const { getSlot, adsLoaded } = useAds();
   const slot = getSlot("entryPopup");
   const [show, setShow] = useState(false);
+  const resolvedRef = useRef(false);
 
   useEffect(() => {
-    if (!slot?.enabled || !slot?.message) return;
+    if (!adsLoaded) return;
+    if (resolvedRef.current) return;
+    resolvedRef.current = true;
+
+    if (!slot?.enabled || !slot?.message) {
+      onClose?.();
+      return;
+    }
     const key = `ep_shown_${window.location.pathname}`;
-    if (sessionStorage.getItem(key)) return;
+    if (sessionStorage.getItem(key)) {
+      onClose?.();
+      return;
+    }
     const t = setTimeout(() => {
       setShow(true);
       sessionStorage.setItem(key, "1");
     }, 1500);
     return () => clearTimeout(t);
-  }, [slot?.enabled, slot?.message]);
+  }, [adsLoaded, slot?.enabled, slot?.message]);
 
   if (!show) return null;
 
+  function handleClose() {
+    setShow(false);
+    onClose?.();
+  }
+
   function handleYes() {
     if (slot.linkUrl) window.open(slot.linkUrl, "_blank", "noopener,noreferrer");
-    setShow(false);
+    handleClose();
   }
 
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" />
-      <div
-        className="relative bg-surface-800 border border-white/10 rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-slide-up"
-      >
+      <div className="relative bg-surface-800 border border-white/10 rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-slide-up">
         <p className="text-white text-sm leading-relaxed mb-5">{slot.message}</p>
         <div className="flex gap-3">
           <button
