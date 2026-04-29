@@ -41,6 +41,7 @@ const settingsSchema = new mongoose.Schema({
     nativeFeed3:       { type: adSlotSchema, default: () => ({}) },
     nativeFeed4:       { type: adSlotSchema, default: () => ({}) },
     entryPopup:        { type: adSlotSchema, default: () => ({}) },
+    playRedirect:      { type: adSlotSchema, default: () => ({}) },
   },
 }, { timestamps: true });
 

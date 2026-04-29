@@ -62,6 +62,7 @@ router.patch("/ads", adminAuth, async (req, res) => {
       "belowDescription", "belowDescription2", "belowDescription3", "belowDescription4",
       "nativeFeed1", "nativeFeed2", "nativeFeed3", "nativeFeed4",
       "entryPopup",
+      "playRedirect",
     ];
     slots.forEach(key => {
       if (req.body[key] !== undefined) doc.ads[key] = req.body[key];
