@@ -26,11 +26,12 @@ function buildProxyUrl(src, videoId) {
   return src;
 }
 
-export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUrl, subtitleUrl, onWatchProgress }) {
+export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUrl, subtitleUrl, onWatchProgress, onFirstPlay }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
   const [currentTime, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -55,6 +56,8 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
   const hlsInstanceRef    = useRef(null);
   const watchedSecondsRef = useRef(0);
   const playStartRef      = useRef(null);
+  const hasFirstPlayed    = useRef(false);
+  const mountTimeRef      = useRef(Date.now());
   // Stall detection: if buffering >8s with no canplay event, the MSE decoder silently
   // rejected the codec (common with non-standard H.264 profiles). Try MP4 fallback.
   const stallTimer = useRef(null);
@@ -64,9 +67,10 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
     const video = videoRef.current;
     setHlsReady(false);
     setHlsError(false);
-    pendingPlay.current    = false;
+    pendingPlay.current       = false;
     watchedSecondsRef.current = 0;
     playStartRef.current      = null;
+    mountTimeRef.current      = Date.now();
     
     if (hlsInstanceRef.current) {
         hlsInstanceRef.current.destroy();
@@ -237,6 +241,11 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
       return;
     }
 
+    if (v.paused && !hasFirstPlayed.current) {
+      hasFirstPlayed.current = true;
+      onFirstPlay?.();
+    }
+
     try {
       if (v.paused) {
         await v.play();
@@ -259,8 +268,24 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
   function toggleMute() {
     const v = videoRef.current;
     if (!v) return;
-    v.muted = !v.muted;
-    setMuted(v.muted);
+    if (muted) {
+      v.muted = false;
+      setMuted(false);
+      if (volume === 0) { v.volume = 1; setVolume(1); }
+    } else {
+      v.muted = true;
+      setMuted(true);
+    }
+  }
+
+  function handleVolumeChange(e) {
+    const v = videoRef.current;
+    if (!v) return;
+    const val = Number(e.target.value);
+    v.volume = val;
+    setVolume(val);
+    v.muted = val === 0;
+    setMuted(val === 0);
   }
 
   function toggleFullscreen() {
@@ -347,6 +372,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
 
   // Mouse click: single = play/pause (delayed), double = ±20s
   function handleVideoClick(e) {
+    if (Date.now() - mountTimeRef.current < 600) return;
     clearTimeout(clickTimer.current);
     clickTimer.current = setTimeout(() => {
       togglePlay();
@@ -415,7 +441,7 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
       // Wait for possible second tap
       touchTapTimer.current = setTimeout(() => {
         touchTapCount.current = 0;
-        // Single tap: toggle play or show controls
+        if (Date.now() - mountTimeRef.current < 600) return;
         if (showControls) togglePlay();
         else { setShowControls(true); resetHideTimer(); }
       }, 250);
@@ -633,14 +659,29 @@ export default function VideoPlayer({ src, poster, title, videoId, mp4FallbackUr
               </svg>
             </button>
 
-            {/* Mute */}
-            <button onClick={toggleMute} title="Ses Aç/Kapat (M)"
-              className="text-white hover:text-brand-400 transition-colors p-1.5 touch-manipulation">
-              {muted
-                ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-                : <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-              }
-            </button>
+            {/* Mute + Volume */}
+            <div className="flex items-center gap-1">
+              <button onClick={toggleMute} title="Ses Aç/Kapat (M)"
+                className="text-white hover:text-brand-400 transition-colors p-1.5 touch-manipulation flex-shrink-0">
+                {muted || volume === 0
+                  ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+                  : volume < 0.5
+                    ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>
+                    : <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                }
+              </button>
+              <input
+                type="range"
+                min={0} max={1} step={0.05}
+                value={muted ? 0 : volume}
+                onChange={handleVolumeChange}
+                className="w-14 sm:w-20 h-1 appearance-none rounded-full cursor-pointer touch-manipulation
+                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                style={{ background: `linear-gradient(to right, #fff ${(muted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(muted ? 0 : volume) * 100}%)` }}
+                title="Ses Seviyesi"
+              />
+            </div>
 
             <span className="text-white/70 text-xs font-mono ml-1">
               {formatTime(currentTime)} / {formatTime(duration)}

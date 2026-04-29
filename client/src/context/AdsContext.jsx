@@ -30,6 +30,7 @@ const DEFAULT_ADS = {
   nativeFeed3:       makeSlot(),
   nativeFeed4:       makeSlot(),
   entryPopup:        makeSlot(),
+  playRedirect:      makeSlot(),
 };
 
 function mergeAds(remote) {

@@ -576,6 +576,7 @@ const AD_SLOT_DEFS = [
   { key: "nativeFeed3",       icon: "🖼³", label: "Native Feed 3",   desc: "Feed'de 5 videoda bir rastgele çıkan native reklam — 3. varyant", presets: {}, noSize: true, isNative: true },
   { key: "nativeFeed4",       icon: "🖼⁴", label: "Native Feed 4",   desc: "Feed'de 5 videoda bir rastgele çıkan native reklam — 4. varyant", presets: {}, noSize: true, isNative: true },
   { key: "entryPopup",        icon: "💬", label: "Video Popup",      desc: "Videoya girildiğinde küçük popup çıkar, 'Evet' butonuna basınca linke yönlendirir", presets: { desktop: [], mobile: [] }, noSize: true, isPopup: true },
+  { key: "playRedirect",      icon: "▶↗", label: "Play Yönlendirme", desc: "İlk play tuşuna basıldığında yeni sekmede link açar",                                  presets: { desktop: [], mobile: [] }, noSize: true, isRedirect: true },
 ];
 
 function Toggle({ value, onChange }) {
@@ -766,6 +767,20 @@ function DevicePanel({ slotDef, device, data, onChange }) {
           <p className="text-[10px] text-gray-600">
             Açık olan varyantlar arasından her görünümde rastgele biri seçilir. En az görsel veya başlık gerekli.
           </p>
+        </div>
+      ) : slotDef.isRedirect ? (
+        <div className="space-y-2">
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Yönlendirilecek Link</label>
+            <input
+              type="text"
+              value={data.linkUrl || ""}
+              onChange={e => set("linkUrl", e.target.value)}
+              placeholder="https://hedef-site.com"
+              className="w-full bg-surface-700 border border-white/8 focus:border-brand-500 text-white placeholder-gray-600 px-2.5 py-2 rounded-lg text-xs font-mono outline-none"
+            />
+            <p className="text-[10px] text-gray-600">Video oynatma tuşuna ilk basıldığında yeni sekmede bu link açılır. Video normal oynar.</p>
+          </div>
         </div>
       ) : slotDef.isPopup ? (
         <div className="space-y-2">

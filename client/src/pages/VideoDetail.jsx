@@ -205,8 +205,15 @@ export default function VideoDetail() {
   const [error,        setError]        = useState(null);
   const [descExpanded, setDescExpanded] = useState(false);
   const [showInstream, setShowInstream] = useState(true);
-  const { getSlot }  = useAds();
-  const instreamSlot = getSlot("instreamVideo");
+  const { getSlot }      = useAds();
+  const instreamSlot     = getSlot("instreamVideo");
+  const playRedirectSlot = getSlot("playRedirect");
+
+  const handleFirstPlay = useCallback(() => {
+    if (playRedirectSlot?.enabled && playRedirectSlot?.linkUrl) {
+      window.open(playRedirectSlot.linkUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [playRedirectSlot?.enabled, playRedirectSlot?.linkUrl]);
   const lastWatchRef = useRef(null);
   const skipFetchRef = useRef(false);
 
@@ -329,6 +336,7 @@ export default function VideoDetail() {
                 mp4FallbackUrl={video.mp4FallbackUrl || null}
                 subtitleUrl={video.subtitleUrl ? `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api$/, "")}/api/subtitle/${video._id}` : null}
                 onWatchProgress={handleWatchProgress}
+                onFirstPlay={handleFirstPlay}
               />
               {video.status === "uploaded" && (
                 <div className="flex items-center gap-2 mt-2 mx-3 sm:mx-0 px-3 py-2 rounded-lg bg-brand-500/8 border border-brand-500/15 text-xs text-brand-400/80">
