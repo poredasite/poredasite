@@ -607,34 +607,18 @@ export function EntryPopupAd() {
   }
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4" onClick={() => setShow(false)}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" />
       <div
         className="relative bg-surface-800 border border-white/10 rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-slide-up"
-        onClick={e => e.stopPropagation()}
       >
-        <button
-          onClick={() => setShow(false)}
-          className="absolute top-3 right-3 text-gray-500 hover:text-white transition-colors"
-          aria-label="Kapat"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        <p className="text-white text-sm leading-relaxed pr-4 mb-5">{slot.message}</p>
+        <p className="text-white text-sm leading-relaxed mb-5">{slot.message}</p>
         <div className="flex gap-3">
           <button
             onClick={handleYes}
             className="flex-1 bg-brand-500 hover:bg-brand-400 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
           >
             Evet
-          </button>
-          <button
-            onClick={() => setShow(false)}
-            className="flex-1 bg-surface-700 hover:bg-surface-600 text-gray-300 text-sm py-2.5 rounded-xl transition-colors"
-          >
-            Hayır
           </button>
         </div>
       </div>
