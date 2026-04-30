@@ -19,7 +19,7 @@ import { videoApi, commentApi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import VideoCard from "../components/VideoCard";
 import { VideoDetailSkeleton } from "../components/Skeletons";
-import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, NativeFeedAd, EntryPopupAd, PlayRedirectPopup } from "../components/AdPlaceholders";
+import { TopBannerAd, InstreamVideoAd, BelowDescriptionAd, NativeFeedAd, EntryPopupAd } from "../components/AdPlaceholders";
 import { useAds } from "../context/AdsContext";
 import SEOHead from "../components/SEOHead";
 import { parseLinkedDescription } from "../lib/linkedDescription";
@@ -213,9 +213,13 @@ export default function VideoDetail() {
   const hasInstream = instreamSlot?.enabled && (instreamSlot?.videoUrl || instreamSlot?.vastUrl || instreamSlot?.code);
   const hasRedirect = playRedirectSlot?.enabled && playRedirectSlot?.linkUrl;
 
-  function afterPopup() { setPhase("start"); }
-  function afterStart()  { setPhase(hasInstream ? "preroll" : hasRedirect ? "redirect" : "video"); }
-  function afterPreroll(){ setPhase(hasRedirect ? "redirect" : "video"); }
+  function afterPopup()   { setPhase("start"); }
+  function afterStart()   { setPhase(hasInstream ? "preroll" : hasRedirect ? "redirect" : "video"); }
+  function afterPreroll() { setPhase(hasRedirect ? "redirect" : "video"); }
+  function afterRedirect() {
+    if (playRedirectSlot?.linkUrl) window.open(playRedirectSlot.linkUrl, "_blank", "noopener,noreferrer");
+    setPhase("video");
+  }
   const lastWatchRef = useRef(null);
   const skipFetchRef = useRef(false);
 
@@ -287,7 +291,6 @@ export default function VideoDetail() {
   return (
     <>
       <EntryPopupAd onClose={afterPopup} />
-      {phase === "redirect" && <PlayRedirectPopup onDone={() => setPhase("video")} />}
       <SEOHead
         title={video.title}
         description={
@@ -348,7 +351,7 @@ export default function VideoDetail() {
               )}
             </>
           ) : (
-            /* phase: popup | start | redirect — thumbnail + isteğe bağlı başlat butonu */
+            /* phase: popup | start | redirect — thumbnail + oynat butonu */
             <div className="relative w-full aspect-video bg-black sm:rounded-2xl overflow-hidden">
               {video.thumbnailUrl && (
                 <img
@@ -357,9 +360,9 @@ export default function VideoDetail() {
                   className="absolute inset-0 w-full h-full object-contain pointer-events-none"
                 />
               )}
-              {phase === "start" && (
+              {(phase === "start" || phase === "redirect") && (
                 <button
-                  onClick={afterStart}
+                  onClick={phase === "start" ? afterStart : afterRedirect}
                   className="absolute inset-0 flex items-center justify-center bg-black/30"
                 >
                   <div className="w-16 h-16 bg-brand-500/90 hover:bg-brand-400 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-[0_0_40px_rgba(255,107,0,0.4)]">
