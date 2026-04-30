@@ -143,12 +143,20 @@ router.get("/", async (req, res) => {
     // Algorithm sort: weighted score using views, likes, comments, recency, completion
     if (!sortParam || sortParam === "algo") {
       const dayMs  = 86400000;
+      // Freshness: 0-day-old video → +35 pts, 14-day-old → 0 pts, older → 0
+      const freshBoost = { $max: [0, { $multiply: [
+        { $subtract: [14, { $divide: [{ $subtract: ["$$NOW", "$createdAt"] }, dayMs] }] },
+        2.5,
+      ]}]};
+      // Small random noise (0–4 pts) so the feed order differs on each request
+      const randomNoise = { $multiply: [{ $rand: {} }, 4] };
       const baseScore = { $add: [
         { $multiply: [{ $ln: { $add: [{ $ifNull: ["$views", 0] }, 1] } }, 1] },
         { $multiply: [{ $ifNull: ["$likes", 0] }, 3] },
         { $multiply: [{ $ifNull: ["$commentCount", 0] }, 2] },
-        { $max: [0, { $subtract: [7, { $divide: [{ $subtract: ["$$NOW", "$createdAt"] }, dayMs] }] }] },
+        freshBoost,
         { $multiply: [{ $ifNull: ["$completionRate", 0] }, 5] },
+        randomNoise,
       ]};
       const scoreExpr = { $multiply: [baseScore, penaltyTagExpr] };
       const [docs, total] = await Promise.all([

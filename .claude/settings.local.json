@@ -29,7 +29,17 @@
       "Bash(convert /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-512.png -resize 192x192 /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-192.png)",
       "Bash(convert /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-512.png -resize 180x180 /home/anilcebbur/WebstormProjects/poredasite/client/public/apple-touch-icon.png)",
       "Bash(convert /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-512.png -resize 32x32 /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-32.png)",
-      "Bash(convert /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-512.png -resize 16x16 /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-16.png)"
+      "Bash(convert /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-512.png -resize 16x16 /home/anilcebbur/WebstormProjects/poredasite/client/public/favicon-16.png)",
+      "Bash(grep -n 'freshBoost\\\\|randomNoise\\\\|$rand' routes/videos.js)",
+      "Bash(git fsck *)",
+      "Bash(cp /home/anilcebbur/WebstormProjects/poredasite/client/src/pages/Home.jsx /tmp/Home.jsx.bak)",
+      "Bash(cp /home/anilcebbur/WebstormProjects/poredasite/client/src/components/VideoCard.jsx /tmp/VideoCard.jsx.bak)",
+      "Bash(cp /home/anilcebbur/WebstormProjects/poredasite/server/routes/videos.js /tmp/videos.js.bak)",
+      "Bash(git fetch *)",
+      "Bash(git reset *)",
+      "Bash(cp /tmp/Home.jsx.bak /home/anilcebbur/WebstormProjects/poredasite/client/src/pages/Home.jsx)",
+      "Bash(cp /tmp/VideoCard.jsx.bak /home/anilcebbur/WebstormProjects/poredasite/client/src/components/VideoCard.jsx)",
+      "Bash(cp /tmp/videos.js.bak /home/anilcebbur/WebstormProjects/poredasite/server/routes/videos.js)"
     ]
   }
 }

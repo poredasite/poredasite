@@ -21,9 +21,14 @@ function formatDuration(s) {
   return `${m}:${String(sec).padStart(2,"0")}`;
 }
 
-export default function VideoCard({ video, priority = false }) {
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+export default function VideoCard({ video, priority = false, showNewBadge = true }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError,  setImgError]  = useState(false);
+
+  const isNew = showNewBadge && video.createdAt &&
+    (Date.now() - new Date(video.createdAt).getTime()) < SEVEN_DAYS_MS;
 
   const { ref: imgRef, inView: imgInView } = useInView({ triggerOnce: true, rootMargin: "300px" });
 
@@ -89,6 +94,13 @@ export default function VideoCard({ video, priority = false }) {
 
         {/* Hover dark overlay — replaces brightness filter to avoid jitter */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />
+
+        {/* New badge */}
+        {isNew && (
+          <span className="absolute top-2 left-2 bg-brand-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shadow-sm">
+            Yeni
+          </span>
+        )}
 
         {/* Duration badge */}
         {dur && (

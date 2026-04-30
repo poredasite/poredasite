@@ -6,10 +6,11 @@ import VideoCard from "../components/VideoCard";
 import { VideoCardSkeleton } from "../components/Skeletons";
 import { TopBannerAd, NativeFeedAd } from "../components/AdPlaceholders";
 import SEOHead from "../components/SEOHead";
-import { HiFire, HiClock, HiSparkles } from "react-icons/hi";
+import { HiFire, HiClock, HiSparkles, HiChevronRight } from "react-icons/hi";
 
 const PAGE_LIMIT = 24;
 const AD_EVERY = 5;
+const NEW_STRIP_LIMIT = 10;
 
 function CategoryBar({ categories: propCategories }) {
   const navigate = useNavigate();
@@ -53,6 +54,40 @@ function CategoryBar({ categories: propCategories }) {
   );
 }
 
+function NewVideosStrip({ videos, loading }) {
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-5 rounded-full bg-brand-500 inline-block" />
+          <h2 className="text-white font-bold text-sm sm:text-base">Yeni Yüklenenler</h2>
+        </div>
+        <Link
+          to="/?sort=createdAt"
+          className="flex items-center gap-0.5 text-neutral-500 hover:text-neutral-300 text-xs transition-colors"
+        >
+          Tümünü gör <HiChevronRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide snap-x snap-mandatory">
+        {loading
+          ? Array.from({ length: NEW_STRIP_LIMIT }).map((_, i) => (
+              <div key={i} className="flex-shrink-0 w-[200px] sm:w-[230px] snap-start">
+                <VideoCardSkeleton />
+              </div>
+            ))
+          : videos.map((video, i) => (
+              <div key={video._id} className="flex-shrink-0 w-[200px] sm:w-[230px] snap-start">
+                <VideoCard video={video} priority={i < 3} showNewBadge={false} />
+              </div>
+            ))
+        }
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -65,12 +100,24 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error,       setError]       = useState(null);
   const [allCategories, setAllCategories] = useState([]);
+  const [newVideos,     setNewVideos]     = useState([]);
+  const [newLoading,    setNewLoading]    = useState(true);
   const pageRef    = useRef(1);
   const fetchIdRef = useRef(0);
 
   useEffect(() => {
     categoryApi.getAll().then(r => setAllCategories(r.data || [])).catch(() => {});
   }, []);
+
+  // Fetch newest videos for the strip (only shown on default "algo" tab)
+  useEffect(() => {
+    if (sort !== "algo") { setNewVideos([]); setNewLoading(false); return; }
+    setNewLoading(true);
+    videoApi.getAll({ page: 1, limit: NEW_STRIP_LIMIT, sort: "createdAt" })
+      .then(res => setNewVideos(res.data || []))
+      .catch(() => setNewVideos([]))
+      .finally(() => setNewLoading(false));
+  }, [sort]);
 
   // Redirect legacy /?category=id URLs to /kategori/slug
   useEffect(() => {
@@ -167,6 +214,11 @@ export default function Home() {
         <TopBannerAd />
 
         <CategoryBar categories={allCategories.length ? allCategories : undefined} />
+
+        {/* New videos strip — only on default algo feed */}
+        {sort === "algo" && (
+          <NewVideosStrip videos={newVideos} loading={newLoading} />
+        )}
 
         {/* Section header */}
         <div className="flex items-center justify-between mb-4">
