@@ -39,7 +39,12 @@
       "Bash(git reset *)",
       "Bash(cp /tmp/Home.jsx.bak /home/anilcebbur/WebstormProjects/poredasite/client/src/pages/Home.jsx)",
       "Bash(cp /tmp/VideoCard.jsx.bak /home/anilcebbur/WebstormProjects/poredasite/client/src/components/VideoCard.jsx)",
-      "Bash(cp /tmp/videos.js.bak /home/anilcebbur/WebstormProjects/poredasite/server/routes/videos.js)"
+      "Bash(cp /tmp/videos.js.bak /home/anilcebbur/WebstormProjects/poredasite/server/routes/videos.js)",
+      "Bash(pm2 logs *)",
+      "Bash(journalctl -u poredasite --lines 100)",
+      "Bash(pm2 list *)",
+      "Read(//tmp/**)",
+      "Bash(xxd /home/anilcebbur/WebstormProjects/poredasite/client/public/_redirects)"
     ]
   }
 }
